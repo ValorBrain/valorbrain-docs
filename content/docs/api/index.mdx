@@ -7,6 +7,8 @@ icon: Library
 <Cards>
   <Card title="MCP tools" href="/docs/api/mcp-tools" description="Canonical names, toolsets, aliases, deprecated." />
   <Card title="REST endpoints" href="/docs/api/rest" description="Customer-facing engine routes on valorbrain-api." />
+  <Card title="MCP catalog (generated)" href="/docs/api/generated-mcp" description="src/tool-catalog.ts, rebuilt with the docs." />
+  <Card title="REST (generated)" href="/docs/api/generated-rest" description="Every engine OpenAPI path, rebuilt with the docs." />
 </Cards>
 
 ## OpenAPI — two files, do not confuse them
@@ -14,7 +16,7 @@ icon: Library
 | URL | What it actually is |
 |---|---|
 | `https://valorbrain.valor.digital/openapi.json` | SaaS **discovery** document. **4 paths** (ingest, device code, health-class). ~6.7 KB. |
-| `https://docs.valorbrain.valor.digital/openapi.json` | Public integration spec served by this site. |
+| `https://docs.valor.digital/openapi.json` | Engine OpenAPI, regenerated at docs build (servers rewritten to valorbrain-api). |
 | Engine repo `docs/reference/openapi.yaml` | Full engine spec. **116 paths**, including ops/graph. Not published on `valorbrain-api` (that host 404s `/openapi.json`). |
 
 The 4-path file is real and useful for agent discovery on the marketing

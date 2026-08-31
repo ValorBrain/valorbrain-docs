@@ -47,7 +47,7 @@ Text is stored **verbatim**. A sentence written in Portuguese is retrieved in Po
 | `valorbrain-api.valor.digital` | REST. Search, documents, agent signup. |
 | `mcpbrain.valor.digital` | MCP only. Non-OAuth REST on this host returns 401. |
 | `valorbrain.valor.digital` | SaaS app, ingest with `fk_` keys, marketing, discovery. |
-| `docs.valorbrain.valor.digital` | This site. |
+| `docs.valor.digital` | This site. (`docs.valorbrain.valor.digital` is the same origin once ACM covers nested TLS.) |
 
 Do not send `/search` or `/documents` to `mcpbrain`. The engine treats every non-OAuth path on that host as MCP transport.
 

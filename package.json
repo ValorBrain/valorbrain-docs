@@ -3,6 +3,8 @@
   "version": "0.0.22",
   "private": true,
   "scripts": {
+    "generate": "python3 scripts/generate-reference.py",
+    "prebuild": "python3 scripts/generate-reference.py",
     "build": "next build",
     "dev": "next dev --port 3012 --hostname 127.0.0.1",
     "start": "next start --port 3012 --hostname 127.0.0.1",

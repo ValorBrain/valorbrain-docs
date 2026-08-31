@@ -4,12 +4,12 @@
 > `engine` = `/opt/valorbrain` · `saas` = `/www/valorbrain-saas` ·
 > `ops` = `/www/valorbrain-ops` · `docsexternos` =
 > `/var/www/clientes.valor.digital/valorbrain` · **este** = docs de produto
-> em `https://docs.valorbrain.valor.digital`.
+> em `https://docs.valor.digital`.
 >
 > Mapa: [`/www/valorbrain-platform/PLATFORM-MAP.md`](/www/valorbrain-platform/PLATFORM-MAP.md).
 
 Customer-facing documentation. Fumadocs (MIT) with a Mintlify-like notebook
-layout. Hosted at **docs.valorbrain.valor.digital**.
+layout. Hosted at **docs.valor.digital** (nested `docs.valorbrain.valor.digital` waits on ACM).
 
 ## Rules
 
