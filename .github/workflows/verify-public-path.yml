@@ -1,0 +1,25 @@
+name: verify-public-path
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # daily drift check: the live site must keep matching what we document
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify documented public path
+        run: bash scripts/verify-public-path.sh
+        env:
+          DOCS_URL: https://docs.valor.digital
+          REST_URL: https://valorbrain-api.valor.digital
