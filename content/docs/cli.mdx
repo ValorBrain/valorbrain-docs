@@ -1,0 +1,103 @@
+---
+title: CLI
+description: "@valorbrain/cli — agent-native memory from the shell. Zero dependencies, Node 18+."
+icon: Terminal
+---
+
+Package: [`@valorbrain/cli`](https://www.npmjs.com/package/@valorbrain/cli) `0.1.0`.
+Alias for the MCP stdio proxy: [`@valorbrain/connect`](https://www.npmjs.com/package/@valorbrain/connect).
+
+```bash
+npx @valorbrain/cli help --json
+```
+
+That JSON is the contract. If a blog post or README names a subcommand that is
+not in this object, the command does not exist.
+
+## Global flags
+
+| Flag | Alias | Meaning |
+|---|---|---|
+| `--json` | `--agent` | Single JSON object on stdout, no colour, no spinner |
+| `--key` | | API key override (otherwise `~/.valorbrain/config.json`) |
+| `--url` | | REST base URL override |
+
+Defaults:
+
+- REST: `https://valorbrain-api.valor.digital`
+- MCP: `https://mcpbrain.valor.digital/mcp`
+- Config: `~/.valorbrain/config.json`
+
+## Commands
+
+### `init --agent [--agent-caller <platform>]`
+
+Creates a shadow tenant and a `vb_agent_` key. See [Quickstart](/docs/quickstart).
+
+### `init --email <address> [--otp <code>]`
+
+Binds the existing key to an email via OTP. The key does not change.
+
+### `identify <platform>`
+
+Idempotent `agent_caller` backfill. Self-declared, never sniffed.
+
+### `add <text>` / `--file <path>`
+
+Stores a document.
+
+| Flag | Maps to |
+|---|---|
+| `--collection <name>` | `collection` (default depends on server; pass one if you care) |
+| `--title <t>` | `title` |
+| `--type <t>` | content type (`decision`, `observation`, `problem`, `lesson`, `milestone`, `handoff`, `note`) |
+
+Calls `POST /documents`. Body is stored verbatim — no translation.
+
+### `search <query>`
+
+| Flag | Meaning |
+|---|---|
+| `--collection <name>` | Restrict to one collection |
+| `--mode auto\|keyword\|semantic\|hybrid` | Retrieval mode |
+
+Calls `POST /search` with `compact: true`.
+
+### `list`
+
+`GET /collections`.
+
+### `status`
+
+Local config plus `GET /health` on the REST host.
+
+### `mcp [--token vbm_…] [--url <mcp-url>]`
+
+Stdio ↔ HTTP MCP proxy. `@valorbrain/connect` is this command as its own
+package, so stdio clients can run:
+
+```json
+{
+  "mcpServers": {
+    "valorbrain": {
+      "command": "npx",
+      "args": ["-y", "@valorbrain/connect", "--token", "vbm_…"]
+    }
+  }
+}
+```
+
+The MCP token prefix is `vbm_`, not `vb_agent_`. Mix them up and the MCP host
+will reject you.
+
+### `help [--json]`
+
+Human text, or the machine surface.
+
+## Self-hosting
+
+```bash
+npx @valorbrain/cli --url https://your-engine.example.com init --agent
+```
+
+There is no public one-line installer for the engine. On-prem is accompanied.

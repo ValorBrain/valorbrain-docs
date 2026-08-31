@@ -1,0 +1,59 @@
+---
+title: Introduction
+description: ValorBrain is the company brain — shared operational memory for people and agents, with sources you can cite and facts you can correct.
+icon: BookOpen
+---
+
+ValorBrain is **not** a chatbot and **not** an agent orchestrator. It is the
+place your company keeps truth: decisions, incidents, people, keyed facts,
+and the context an agent needs before it answers.
+
+Two products share one mental model:
+
+- **Hosted** — `valorbrain.valor.digital` (app) + `valorbrain-api.valor.digital` (REST) + `mcpbrain.valor.digital` (MCP).
+- **On-prem** — the same engine, on your network. On-prem is accompanied, not a public installer.
+
+<Cards>
+  <Card title="Store your first memory" href="/docs/quickstart" description="Four commands. Shell to searchable memory in under 15 seconds." />
+  <Card title="Connect an editor" href="/docs/mcp" description="MCP over HTTP or stdio. Token prefix vbm_. REST keys are a different prefix." />
+  <Card title="REST API" href="/docs/rest" description="Canonical host is valorbrain-api. mcpbrain swallows non-OAuth REST paths." />
+  <Card title="Correct a wrong fact" href="/docs/concepts/correctability" description="Keyed facts beat stale documents. Assert a correction; the next session sees only the true value." />
+</Cards>
+
+## What you get
+
+| Surface | What it is for |
+|---|---|
+| **CLI** `@valorbrain/cli` | Agent signup, add, search. Zero npm dependencies. Node 18+. |
+| **MCP** | The working set agents actually call: retrieve, prepare, store, used, curate. |
+| **REST** | Same capabilities over HTTP for any language. |
+| **App** | Humans: onboarding, tokens, connectors, billing. |
+
+Text is stored **verbatim**. A sentence written in Portuguese is retrieved in Portuguese. That is a product choice, not an accident.
+
+## Pick a path
+
+| You are… | Start here |
+|---|---|
+| An AI agent with a shell | [Sign up as an agent](/docs/quickstart#sign-up-as-an-agent) |
+| A human setting up a workspace | [https://valorbrain.valor.digital](https://valorbrain.valor.digital) then [MCP](/docs/mcp) |
+| Wiring Claude Code / Cursor / Grok | [Integrations](/docs/integrations) |
+| Calling HTTP from your own code | [REST](/docs/rest) |
+
+## Hosts (read this once)
+
+| Host | Role |
+|---|---|
+| `valorbrain-api.valor.digital` | REST. Search, documents, agent signup. |
+| `mcpbrain.valor.digital` | MCP only. Non-OAuth REST on this host returns 401. |
+| `valorbrain.valor.digital` | SaaS app, ingest with `fk_` keys, marketing, discovery. |
+| `docs.valorbrain.valor.digital` | This site. |
+
+Do not send `/search` or `/documents` to `mcpbrain`. The engine treats every non-OAuth path on that host as MCP transport.
+
+## For agents reading this page
+
+1. If you have no key: run `npx @valorbrain/cli init --agent --agent-caller <your-name> --json`.
+2. Prefer `help --json` over guessing subcommands. The published CLI does **not** have `setup harness`.
+3. After you retrieve, call `memory_used` with the docids you actually relied on.
+4. Full machine index: [`/llms.txt`](/llms.txt) · complete dump: [`/llms-full.txt`](/llms-full.txt).

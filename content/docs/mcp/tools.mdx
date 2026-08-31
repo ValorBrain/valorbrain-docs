@@ -1,0 +1,83 @@
+---
+title: MCP tools
+description: Canonical names from src/tool-catalog.ts. Aliases still work; new integrations should call the canonical tool.
+---
+
+Source of truth: `src/tool-catalog.ts` in the engine. Counts and names in
+this page come from that file, not from a README.
+
+New MCP tokens default to the **agent** toolset. Tokens created before
+2026-08-17 see `all` (fail-open). `graph` and `ops` are additive.
+
+Deprecated tools stay visible in `all` during the alias window. Do not
+teach them to a new client.
+
+## Agent toolset (default)
+
+Recall:
+
+| Tool | Use for |
+|---|---|
+| `memory_retrieve` | One well-formed question. Server expands and fuses. REST twin: `POST /search`. |
+| `memory_prepare` | Assemble context for a task. REST twin: `POST /api/v1/memory/prepare`. |
+| `working_context` | Cheapest session start: stable facts + recent decisions. |
+| `memory_grep` | Exact string, id, date, key. |
+| `get` / `multi_get` | Full body of a doc you already found. |
+| `keyed_facts_as_of` | Time-travel fact snapshots. |
+| `whoami` | Confirm tenant / user / agent. HTTP-only. |
+| `memory_health` | Index and pipeline health. |
+
+Write and correct:
+
+| Tool | Use for |
+|---|---|
+| `memory_store` | Typed durable outcome (`decision`, `problem`, `lesson`, …). |
+| `memory_used` | Declare docids you actually relied on. Optional `verdict`. |
+| `upsert_keyed_fact` | Write a dated fact snapshot. |
+| `assert_authority_correction` | Correct a wrong value so the next session sees the truth. |
+| `record_lesson` | A takeaway that should change future behaviour. |
+| `memory_curate` | pin / snooze / unpin / unsnooze. |
+| `memory_forget` | Least reversible write — standalone on purpose. |
+| `append_entity_card` | KG write path agents actually use. |
+| `diary` | Agent diary read/write. |
+
+Working state and team:
+
+| Tool | Use for |
+|---|---|
+| `scratchpad` | Session scratch. |
+| `task_state` | Goal / progress ledger. |
+| `profile` | User profile. |
+| `team_briefing` | Inbox, handoffs, mission. |
+| `team_handoff` | create / consume. |
+| `team_inbox` / `team_message` / `team_notify_human` / `team_roster` | Team OS (no-op if the tenant has no members). |
+| `episodes` | list / get episodic memories. |
+| `notifications` | check / mark_read. |
+| `list_lessons` | Lessons recorded for this tenant. |
+
+## Graph toolset
+
+Knowledge graph, decisions, provenance, conflicts. Canonical names:
+`kg_query`, `kg_explain`, `kg_entity_resolve_report`, `kg_quarantine`,
+`list_entity_cards`, `find_causal_links`, `memory_evolution_status`,
+`provenance`, `conflicts`, `memory_arcs`, `timeline`, `find_similar`,
+`decisions`. `ripple_rag_retrieve` is **beta**.
+
+Older names (`record_decision`, `trace_lineage`, `detect_conflicts`, …)
+are **aliases** of those canonical tools. They still work.
+
+## Ops toolset
+
+Curation and metering: `lifecycle_*`, `reindex`, `index_stats`,
+`import_docs`, `export_docs`, `vault_sync`, `list_vaults`, `beads_sync`,
+`build_graphs`, `operations`, `usage_report`, `feedback`.
+
+## Deprecated — do not teach
+
+| Name | Reality |
+|---|---|
+| `store` | HTTP-only duplicate of `memory_store`. |
+| `list_proposals` | HTTP-only; `memory_health` already surfaces proposals. |
+
+The marketing `/docs` page still says "MCP store tool". That name is the
+deprecated one. Call `memory_store`.

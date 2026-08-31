@@ -1,0 +1,46 @@
+---
+title: Claude Code
+description: Streamable HTTP MCP, or stdio via @valorbrain/connect.
+---
+
+## Hosted (recommended)
+
+```bash
+claude mcp add --transport http valorbrain https://mcpbrain.valor.digital/mcp
+```
+
+Authenticate with OAuth when prompted, or put a `vbm_` token in the client's
+header config. Then:
+
+```bash
+npx @valorbrain/cli init --agent --agent-caller claude-code
+```
+
+The CLI key is for REST (`add` / `search`). The MCP connection is a `vbm_`
+token or OAuth. You can use both: CLI for shell, MCP for in-editor tools.
+
+stdio alternative:
+
+```json
+{
+  "mcpServers": {
+    "valorbrain": {
+      "command": "npx",
+      "args": ["-y", "@valorbrain/connect", "--token", "vbm_…"]
+    }
+  }
+}
+```
+
+## Contract we install
+
+When you use the public harness repo
+([ValorBrain/valorbrain-harness](https://github.com/ValorBrain/valorbrain-harness))
+for Claude-family editors, the standing instruction is the same quality
+loop: consult ValorBrain before answering operational questions; call
+`memory_used` after.
+
+## First tools
+
+`whoami` → `memory_prepare` or `working_context` → work → `memory_store`
+for anything durable → `memory_used`.

@@ -1,0 +1,23 @@
+---
+title: First memory in 15 seconds
+description: Clean machine, published package, no credentials of ours.
+---
+
+```bash
+npx @valorbrain/cli init --agent --agent-caller claude-code --json
+npx @valorbrain/cli add "Gustavo prefers replies in Portuguese (pt-BR)"
+npx @valorbrain/cli search "Portuguese"
+npx @valorbrain/cli status --json
+```
+
+Expect:
+
+- `init` writes `~/.valorbrain/config.json` (0600) with a `vb_agent_` key
+- `add` returns a document id
+- `search` returns that document. The Portuguese sentence is still Portuguese
+- Clock, published package, 2026-08-30: **~4 seconds** total
+
+If `search` is empty, wait a few seconds and retry — a very short body may
+not have a dense vector yet; lexical search should still hit.
+
+Then, in an MCP client, `memory_used` with that docid so ranking learns.

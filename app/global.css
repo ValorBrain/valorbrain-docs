@@ -1,0 +1,17 @@
+@import 'tailwindcss';
+@import 'fumadocs-ui/css/emerald.css';
+@import 'fumadocs-ui/css/preset.css';
+
+@theme {
+  /* Valor green — matches valor.digital --green-700 #047857 */
+  --color-fd-primary: hsl(161, 94%, 30%);
+}
+
+html {
+  scrollbar-gutter: stable;
+}
+
+html > body[data-scroll-locked] {
+  margin-right: 0px !important;
+  --removed-body-scroll-bar-size: 0px !important;
+}

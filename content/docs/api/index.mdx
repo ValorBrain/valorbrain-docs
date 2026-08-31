@@ -1,0 +1,31 @@
+---
+title: API reference
+description: MCP tools, REST endpoints, and the two different OpenAPI documents that exist today.
+icon: Library
+---
+
+<Cards>
+  <Card title="MCP tools" href="/docs/api/mcp-tools" description="Canonical names, toolsets, aliases, deprecated." />
+  <Card title="REST endpoints" href="/docs/api/rest" description="Customer-facing engine routes on valorbrain-api." />
+</Cards>
+
+## OpenAPI — two files, do not confuse them
+
+| URL | What it actually is |
+|---|---|
+| `https://valorbrain.valor.digital/openapi.json` | SaaS **discovery** document. **4 paths** (ingest, device code, health-class). ~6.7 KB. |
+| `https://docs.valorbrain.valor.digital/openapi.json` | Public integration spec served by this site. |
+| Engine repo `docs/reference/openapi.yaml` | Full engine spec. **116 paths**, including ops/graph. Not published on `valorbrain-api` (that host 404s `/openapi.json`). |
+
+The 4-path file is real and useful for agent discovery on the marketing
+host. It is not a description of `/search`. Use this site and the REST
+page for integration.
+
+## Machine-readable docs
+
+| URL | Content |
+|---|---|
+| [`/llms.txt`](/llms.txt) | Index + routing for agents |
+| [`/llms-full.txt`](/llms-full.txt) | Full markdown of every page |
+| [`/.well-known/mcp/server-card.json`](https://valorbrain.valor.digital/.well-known/mcp/server-card.json) | Live MCP card (product, not this docs host) |
+| [`/.well-known/agent-card.json`](/.well-known/agent-card.json) | Our agent card, pointing at the **product** MCP |
