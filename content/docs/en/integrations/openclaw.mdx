@@ -1,0 +1,22 @@
+---
+title: OpenClaw
+description: memory-slot plugin with per-turn injection and end-of-session extraction.
+---
+
+OpenClaw integrates as a `kind: memory` plugin: per-turn context injection
+and end-of-session extraction. Lifecycle hooks exist so the model does not
+have to remember to call retrieve.
+
+**Hosted:** MCP via `@valorbrain/connect` or HTTP to `mcpbrain`, same as
+any editor.
+
+The public harness README still says `valorbrain setup openclaw`. That
+subcommand is **not** on `@valorbrain/cli@0.1.0`. Use MCP + the plugin
+from the engine tree when you self-host; use the hosted MCP path when you
+do not.
+
+```bash
+npx @valorbrain/cli init --agent --agent-caller unspecified
+```
+
+Pass a stable caller string you will reuse (`openclaw` is fine).

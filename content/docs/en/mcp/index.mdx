@@ -1,0 +1,74 @@
+---
+title: MCP
+description: Streamable HTTP on mcpbrain, or stdio via @valorbrain/connect. Bearer vbm_ or OAuth 2.1.
+icon: Plug
+---
+
+ValorBrain exposes a Model Context Protocol server.
+
+- **Transport:** Streamable HTTP
+- **Endpoint:** `https://mcpbrain.valor.digital/mcp`
+- **Auth:** OAuth 2.1 (dynamic client registration) **or** `Authorization: Bearer vbm_…`
+- **Protocol:** `2025-11-25` (see the [server card](https://valorbrain.valor.digital/.well-known/mcp/server-card.json))
+
+## HTTP (Claude Code, Cursor, Windsurf)
+
+Clients that speak Streamable HTTP:
+
+```json
+{
+  "mcpServers": {
+    "valorbrain": {
+      "url": "https://mcpbrain.valor.digital/mcp",
+      "headers": {
+        "Authorization": "Bearer vbm_<your-token>"
+      }
+    }
+  }
+}
+```
+
+Claude Code:
+
+```bash
+claude mcp add --transport http valorbrain https://mcpbrain.valor.digital/mcp
+```
+
+Then authenticate (OAuth) or add the bearer header in the client's config.
+
+Clients with OAuth 2.1 DCR discover auth from:
+
+`https://mcpbrain.valor.digital/.well-known/oauth-authorization-server`
+
+## stdio (via CLI)
+
+Clients that only speak stdio:
+
+```json
+{
+  "mcpServers": {
+    "valorbrain": {
+      "command": "npx",
+      "args": ["-y", "@valorbrain/connect", "--token", "vbm_<your-token>"]
+    }
+  }
+}
+```
+
+`@valorbrain/connect` is a published alias of `valorbrain mcp`. It is not a
+separate protocol.
+
+## First calls
+
+1. `tools/list` — trust the live schema, not a screenshot.
+2. `whoami` — confirm tenant and user. Stop if either is wrong.
+3. `memory_retrieve` or `memory_prepare` — then `memory_used`.
+
+The default **agent** toolset is the working set. It is not the full catalog.
+See [MCP tools](/en/docs/api/mcp-tools).
+
+## What not to do
+
+- Do not point REST at `mcpbrain`. `/search` there is not search.
+- Do not send a `vb_agent_` key as an MCP bearer. MCP tokens start with `vbm_`.
+- Do not call the deprecated tool `store`. The canonical write is `memory_store`.

@@ -23,12 +23,16 @@ export const metadata: Metadata = {
   description:
     'Company brain for people and agents. Persistent memory over MCP, REST and CLI — with sources, correctability, and no silent translation.',
   applicationName: 'ValorBrain Docs',
+  icons: {
+    icon: [{ url: '/favicon.svg', type: 'image/svg+xml' }],
+    apple: [{ url: '/apple-touch-icon.svg', type: 'image/svg+xml' }],
+  },
 };
 
 export default function Layout({ children }: LayoutProps<'/'>) {
   return (
     <html
-      lang="en"
+      lang="pt-BR"
       className={`${geist.variable} ${geistMono.variable} ${geist.className}`}
       suppressHydrationWarning
     >

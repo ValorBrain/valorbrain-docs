@@ -1,0 +1,239 @@
+---
+title: REST cookbook
+description: Working recipes against the live engine API — every field verified against the running spec.
+---
+
+Every example here runs against the hosted engine at `https://valorbrain-api.valor.digital`.
+The same paths work on a self-hosted engine (`http://localhost:7438` by default).
+Field names come from the spec the engine itself serves at [`/openapi.json`](/openapi.json) — if this page and the spec ever disagree, the spec wins (a rebuild regenerates the reference pages from it).
+
+## Authentication and tenancy
+
+```
+Authorization: Bearer <token>
+```
+
+Two token classes are accepted by tenant routes:
+
+| Token | Format | What it is |
+|---|---|---|
+| Engine master token | any string set as `VALORBRAIN_API_TOKEN` | Full engine access. Server-side only. |
+| Shadow tenant API key | `vb_...` | Created by `npx @valorbrain/cli init --agent`; scopes to one tenant, expires on its own. |
+
+Admin routes (`/api/v1/admin/*`) take `ENGINE_ADMIN_SECRET` as the bearer instead — tenant tokens get a clean 403 there.
+Money routes (billing, credits, subscriptions) accept the master token or the admin secret, and reject tenant/persona tokens by design.
+
+Multi-tenant deployments also route via the `x-tenant-id` header (parameter `TenantIdHeader` in the spec).
+With an engine token the header picks the tenant; with a `vb_` key the tenant is already bound to the key.
+
+Quick liveness check — no auth required:
+
+```bash
+curl -sS https://valorbrain-api.valor.digital/healthz
+```
+
+## Write a document
+
+```bash
+curl -sS -X POST https://valorbrain-api.valor.digital/documents \
+  -H "Authorization: Bearer $VALORBRAIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "collection": "team-notes",
+    "path": "2026-08-31/deploy-openapi",
+    "title": "OpenAPI served live from routes[]",
+    "content": "The engine now generates /openapi.json from the routes table at request time. servers[] is rewritten from VALORBRAIN_PUBLIC_URL.",
+    "content_type": "milestone",
+    "confidence": 0.9,
+    "quality_score": 0.8,
+    "metadata": {"repo": "valorbrain", "sha": "a34e288d"}
+  }'
+```
+
+Request fields (all verified against the spec):
+
+| Field | Type | Required | Default | Notes |
+|---|---|---|---|---|
+| `collection` | string | yes | — | Namespace; per-tenant |
+| `path` | string | yes | — | Unique within the collection; same path re-serves the same document |
+| `content` | string | yes | — | Max **1 MB** |
+| `title` | string | no | — | |
+| `content_type` | string | no | `note` | Free-form; the SaaS curates a vocabulary (`note`, `decision`, `problem`, `milestone`, …) |
+| `confidence` | number | no | `0.5` | 0–1; feeds ranking and consolidation gating |
+| `quality_score` | number | no | `0.5` | 0–1 |
+| `metadata` | object | no | — | Arbitrary JSON, queryable |
+| `user_id` | string | no | — | Attribution |
+| `run_id` | string | no | — | Groups writes of one session/job |
+| `event_at` | string | no | — | When the *event* happened (vs. write time) |
+| `event_type` | string | no | — | |
+
+The `Document` you get back carries: `id`, `hash`, `collection`, `path`, `title`, `content_type`, `visibility`, `embed_state`, `is_pinned`, `page_type`, `created_at`, `updated_at`.
+
+Three behaviors that surprise people:
+
+1. **Embedding is asynchronous.** The write returns immediately; `embed_state` goes `pending → synced` (or `failed` with `embed_error`). Search that includes the dense leg only sees the document once it is synced. Poll `GET /documents?collection=...` if you need to gate on it.
+2. **Content is deduplicated by hash.** The same bytes won't double-index — including across collections (cross-collection dedup is deliberate). Change `path` or the content, not just the title.
+3. **`visibility`** distinguishes tenant-shared memory from private (`sensitivity: private`) memory. Private documents are hidden from other users of the tenant, not just unattributed.
+
+## Read: search, retrieve, or ask
+
+Three doors, one index:
+
+| Endpoint | Use when | Returns |
+|---|---|---|
+| `POST /search` | Ranking is your job; you want the hit list | Ranked results with scores and snippets |
+| `POST /retrieve` | You want auto-routing and one call for most questions | Ranked results, mode-aware |
+| `POST /ask` | You want an answer, not documents | LLM answer with source citations (`stream` supported) |
+
+### Hybrid search
+
+```bash
+curl -sS -X POST https://valorbrain-api.valor.digital/search \
+  -H "Authorization: Bearer $VALORBRAIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "q": "how does dedup across collections behave",
+    "collection": "team-notes",
+    "limit": 10,
+    "mode": "hybrid",
+    "diverse": true
+  }'
+```
+
+- `q` (required) — the query.
+- `mode` — `auto` (default), `keyword`, `semantic`, `causal`, `hybrid`. The production pipeline is BM25 + dense vectors + RRF + graph reranking + cross-encoder rerank; `mode` biases which legs dominate.
+- `expand` — force HyDE-style query expansion on/off. Leave unset and the server decides.
+- `diverse` (default `true`) — MMR diversity filter, so ten hits are not ten paraphrases of one document.
+- `offset` — paging.
+
+### Profiles and timing
+
+Two request knobs the reference pages carry but the spec summary does not
+spell out:
+
+- `"profile": "speed"` on `/search` — the fast path (hybrid/FTS, no
+  cross-encoder). Default is `balanced`. Reach for `speed` on interactive
+  keystroke-style queries where 100 ms matters more than the last few points
+  of ranking.
+- `"timing": true` (or header `x-search-timing: 1`) — adds `hybrid_ms`,
+  `rerank_ms`, `graph_ms` and `total_ms` to the response. When retrieval feels
+  slow, this tells you *which leg* before you guess.
+
+### Unified retrieval
+
+```bash
+curl -sS -X POST https://valorbrain-api.valor.digital/retrieve \
+  -H "Authorization: Bearer $VALORBRAIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"q": "why did we switch the embedding model", "mode": "auto", "limit": 12}'
+```
+
+`mode` adds `timeline` and `discovery` to the search set — `auto` routes why-questions to causal, when-questions to timeline, neighborhood questions to similar-docs. This is the same brain `memory_prepare` uses on the MCP side: one well-formed query beats five near-duplicates.
+
+### RAG answer
+
+```bash
+curl -sS -X POST https://valorbrain-api.valor.digital/ask \
+  -H "Authorization: Bearer $VALORBRAIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"q": "What is the document cap for one write?", "collection": "team-notes", "limit": 8}'
+```
+
+Fields: `q`, `collection`, `limit`, `language`, `stream`. The answer cites the documents it used; treat the citation list as the contract, not the prose.
+
+## Close the loop: memory_used
+
+After answering with retrieved memory, declare what you actually used:
+
+```bash
+curl -sS -X POST https://valorbrain-api.valor.digital/api/v1/memory/used \
+  -H "Authorization: Bearer $VALORBRAIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"docids": ["#ab12cd", "#ef4567"], "verdict": "confirmed", "note": "answer relied on the dedup doc"}'
+```
+
+- `docids` — the documents that carried the answer.
+- `verdict` — `confirmed` when the user agreed with what the memory said, `corrected` when they pushed back. The feedback loop is what makes ranking learn; an undeclared retrieval is a wasted one.
+- `note` — free text.
+
+## Curate: pin, snooze, forget
+
+All three are POSTs on the document id (empty bodies):
+
+```bash
+curl -sS -X POST https://valorbrain-api.valor.digital/documents/$DOC_ID/pin \
+  -H "Authorization: Bearer $VALORBRAIN_TOKEN"
+
+curl -sS -X POST .../documents/$DOC_ID/snooze \
+  -H "Authorization: Bearer $VALORBRAIN_TOKEN"
+
+curl -sS -X POST .../documents/$DOC_ID/forget \
+  -H "Authorization: Bearer $VALORBRAIN_TOKEN"
+```
+
+- **pin** — permanent priority boost; the document surfaces above ranking decay.
+- **snooze** — hide for N days (un-snooze reverses it). Use when a memory is wrong *right now* but the source will be fixed (a migration in flight, a stale config).
+- **forget** — remove the memory. Prefer over `pin`ing its opposite: a corrected fact plus its superseded original is a future conflict.
+
+Lifecycle-wide view (archived/forgotten/pinned/snoozed counts and policy):
+
+```bash
+curl -sS https://valorbrain-api.valor.digital/lifecycle/status -H "Authorization: Bearer $VALORBRAIN_TOKEN"
+```
+
+`POST /lifecycle/sweep` runs the policies (dry-run by default — check the response before purging), `POST /lifecycle/restore` brings back auto-archived documents (manual forgets stay gone).
+
+## Trust: conflicts and decisions
+
+### Conflicts
+
+```bash
+curl -sS ".../api/v1/conflicts?status=open" -H "Authorization: Bearer $VALORBRAIN_TOKEN"
+curl -sS -X POST .../api/v1/conflicts/detect -H "Authorization: Bearer $VALORBRAIN_TOKEN"
+curl -sS -X POST .../api/v1/conflicts/resolve -H "Authorization: Bearer $VALORBRAIN_TOKEN" \
+  -H "Content-Type: application/json" -d '{"conflict_id": "...", "strategy": "most_recent"}'
+```
+
+Value conflicts (same key, different values), temporal conflicts (expired facts still asserted), relationship conflicts. Seven resolution strategies exist; `most_recent` and `credibility_weighted` cover most real cases. Detection also runs automatically on the consolidation tick.
+
+### Decisions
+
+```bash
+curl -sS -X POST .../api/v1/decisions -H "Authorization: Bearer $VALORBRAIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "category": "architecture",
+    "scenario": "serving OpenAPI",
+    "reasoning": "static YAML drifts from routes; generate from the running table",
+    "outcome": "live spec merged with YAML contract",
+    "confidence": 0.85
+  }'
+```
+
+Companions: `POST /api/v1/decisions/relations` (caused / influenced / precedent_for), `GET /api/v1/decisions/chain` (walk a causal chain), `GET /api/v1/decisions/similar` (semantic precedent search), `GET /api/v1/decisions/impact` (what a decision touched downstream). Records are hash-chained — the audit trail is tamper-evident by construction.
+
+## Measure: usage and value
+
+```bash
+curl -sS ".../reports/usage" -H "Authorization: Bearer $VALORBRAIN_TOKEN"
+curl -sS ".../api/v1/usage/answers" -H "Authorization: Bearer $VALORBRAIN_TOKEN"
+curl -sS ".../api/v1/tenant/value-summary" -H "Authorization: Bearer $VALORBRAIN_TOKEN"
+```
+
+The usage ledger records every operation by channel (mcp / rest / hook / cli) with latency and result counts; `value-summary` serves the daily pre-aggregate (`stale_days` reports holes while today aggregates live). These are the endpoints the SaaS dashboards read — same data, no interpretation layer in between.
+
+## REST vs MCP
+
+Everything above is REST. The 92 MCP tools (`memory_retrieve`, `memory_store`, `decisions`, `conflicts`, `kg_query`, …) are a different surface over the same engine, with richer ergonomics (server-side query expansion, snippet budgets, persona tokens). If your client speaks MCP, prefer it — see [MCP tools](/en/docs/mcp/tools) and the [full schemas](/mcp-schemas.md). If it speaks HTTP only, this page is the whole game.
+
+## Common failures
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `401` on every call | Missing/rotated token | Check the `Authorization: Bearer ` prefix (no `Basic`, no quotes) |
+| `403` on admin routes with a valid token | Tenant token on an admin route | Use `ENGINE_ADMIN_SECRET` — or don't touch admin routes from tenant code |
+| Empty search right after a write | Embedding still pending | Poll `embed_state`; dense leg needs `synced` |
+| Write succeeds, search never finds it | Content hash already indexed elsewhere | Cross-collection dedup is by design; change the content or accept the existing copy |
+| Zero rows on a query you know matches | RLS: token/header resolved a different tenant | Verify `x-tenant-id` and that the `vb_` key belongs to that tenant |
+| `200` but `score` looks low on an exact match | Exact-string matches rank by the full pipeline, not string equality | For identifiers and literals use `memory_grep` (MCP) or keyword mode, not semantic ranking |
+| `400` on a >1 MB body | Hard cap on `content` | Split the document; `path` is your paging key |

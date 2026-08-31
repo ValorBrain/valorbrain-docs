@@ -1,0 +1,39 @@
+---
+title: Integrations
+description: Editors, harnesses and connectors that actually exist today — not the ones a README hoped for.
+icon: Blocks
+---
+
+ValorBrain talks to any MCP client and any HTTP client. The pages below are
+the combinations we run ourselves or ship installers for.
+
+<Cards>
+  <Card title="Claude Code" href="/en/docs/integrations/claude-code" description="MCP HTTP or stdio. Rules for consult-then-declare." />
+  <Card title="Cursor / Windsurf" href="/en/docs/integrations/cursor" description="OAuth DCR or a vbm_ token." />
+  <Card title="Grok" href="/en/docs/integrations/grok" description="Harness templates + @valorbrain/connect." />
+  <Card title="Hermes" href="/en/docs/integrations/hermes" description="Native MemoryProvider plugin." />
+  <Card title="OpenClaw" href="/en/docs/integrations/openclaw" description="memory slot plugin." />
+  <Card title="ZCode" href="/en/docs/integrations/zcode" description="Marketplace plugin with hooks and a skill." />
+  <Card title="Connectors" href="/en/docs/integrations/connectors" description="Notion, Drive, Slack, GitHub, Linear — BYOK, Starter+." />
+</Cards>
+
+## Hosted vs self-hosted
+
+**Hosted (start here):** no engine on your laptop. The harness talks to
+`mcpbrain` with a `vbm_` token, or to REST with a `vb_agent_` key from the
+CLI.
+
+**Self-hosted:** you run the engine. Same tools, your infrastructure.
+On-prem is accompanied — there is no public `docker compose up` for the
+full GPU stack.
+
+## The quality loop (every harness)
+
+1. **Consult before answering** — memory is authoritative about the
+   operation; training data is not.
+2. **Declare what you used** — `memory_used` with the docids you relied on.
+   When the human confirms or corrects, pass `verdict`.
+
+If a README tells you to run `valorbrain setup harness <name>`, that
+subcommand is **not** on the published CLI. Use the page for that harness
+instead.

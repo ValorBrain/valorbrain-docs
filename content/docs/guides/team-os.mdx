@@ -1,0 +1,83 @@
+---
+title: Team OS
+description: Briefing, handoffs, inbox e escalonamento humano — o time humano+agente operando sobre a mesma memória.
+---
+
+Team OS é a camada de coordenação do ValorBrain: humanos e agentes compartilham inbox, handoffs e missão — tudo dentro do mesmo cérebro de tenant, tudo auditável. Os contratos abaixo vêm dos schemas reais (`registerTool()`), regenerados a cada build.
+
+## A rotina de sessão
+
+**Início de sessão: `team_briefing`.** Uma chamada devolve: inbox não lido, handoffs pendentes pra você, a missão compartilhada do time (foundations) e atividade recente. É o "o que precisa de atenção" sem precisar perguntar a ninguém.
+
+```json
+{ "tool": "team_briefing", "arguments": {} }
+```
+
+**Fim de trabalho: handoff ou mensagem.** Três verbos, três intenções:
+
+| Verbo | Quando | Espera resposta? |
+|---|---|---|
+| `team_handoff` (create) | Trabalho durável que alguém vai **executar** | Não — aparece no briefing do destinatário até ser consumido |
+| `team_message` | Contexto, pergunta, coordenação | Não — fire-and-forget |
+| `team_notify_human` | Decisão/aprovação que **só um humano** pode dar e não pode esperar | Não — empurra no canal dele (Telegram/Discord/…) e grava no inbox |
+
+## Handoff: o contrato completo
+
+```json
+{
+  "tool": "team_handoff",
+  "arguments": {
+    "action": "create",
+    "to": "ana",
+    "summary": "Aplicar migration 0192 no staging e conferir parity",
+    "open_questions": ["rodar sync:test-db antes ou depois?"],
+    "files_changed": ["migrations/engine/0192-*.sql"],
+    "priority": "high",
+    "status": "pending"
+  }
+}
+```
+
+- `summary` (5–500 chars): o que precisa ser **feito**, não o que você fez.
+- `open_questions`: o que o destinatário precisa resolver — vai direto no contexto dele.
+- `files_changed`: os arquivos envolvidos.
+- `priority`: `low` / `normal` / `high` / `critical`.
+- `status`: **`pending`** = trabalho acionável; **`blocked_on_human`** = estacionado esperando humano. `blocked_on_human` é o verbo anti-loop: não re-escalone o mesmo handoff.
+
+**Fechar**: `action: "consume"` com `handoff_id` (e `note` opcional). Consumir sem fazer é pior que não criar — o briefing mente.
+
+```json
+{ "tool": "team_handoff", "arguments": { "action": "consume", "handoff_id": 42, "note": "aplicada; parity ok" } }
+```
+
+## Quem é quem: `team_roster`
+
+Humanos e agentes, papéis e canais. Chame **antes** de mensagens para não escalar pro destinatário errado.
+
+## Puxar humano: `team_notify_human`
+
+```json
+{
+  "tool": "team_notify_human",
+  "arguments": {
+    "to": "gustavo",
+    "title": "Preciso de decisão: ACM TLS pro host aninhado",
+    "body": "Plano Free não cobre. Comprar ACM ou seguir só no host canônico?",
+    "priority": "high"
+  }
+}
+```
+
+`to` aceita nome, papel, ou `manager`/`lead`/`human` (qualquer humano do time). A mensagem **também** vai pro inbox — o canal é o gatilho, o inbox é o registro. Reservado para o que genuinamente precisa de humano; spam destrói o valor do canal.
+
+## Inbox: `notifications`
+
+- `notifications` `action: "check"` — não lidos + recentes (`all` inclui lidos; `N-XXXX` busca um item).
+- `notifications` `action: "mark_read"` — por id ou `all`, **depois de tratar**.
+
+## Regras de ouro
+
+1. **Briefing no início, consume no fim.** Handoff não consumido é trabalho fantasma.
+2. **`blocked_on_human` não se re-escala.** O estado existe exatamente para quebrar loops de agente.
+3. **Notificar humano é rota de exceção**, não de conveniência.
+4. **Tudo que vira handoff mereceria ser memória também** — o contexto do handoff é operacional; `memory_store` com `type: "handoff"` preserva o aprendizado depois que o item morre.

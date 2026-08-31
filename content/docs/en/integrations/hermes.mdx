@@ -1,0 +1,23 @@
+---
+title: Hermes
+description: Native MemoryProvider plugin. This is not "10 MCP tools in a prompt."
+---
+
+Hermes talks to ValorBrain as a **MemoryProvider**, not as a generic MCP
+client with a hard-coded list of ten tools.
+
+On a machine that already has the engine, the plugin is shipped from the
+engine tree (`src/hermes/` → `~/.hermes/plugins/valorbrain`). That path is
+**self-hosted**. It is not what a hosted customer copies.
+
+**Hosted Hermes:** use the same MCP HTTP/stdio path as any other client
+(`mcpbrain` + `vbm_`, or `@valorbrain/connect`). Hermes' native plugin is
+the deeper integration when you run the engine.
+
+The marketing `/docs` page that says "Plugin nativo com 10 tools" is
+stale. The live catalog is [MCP tools](/en/docs/api/mcp-tools); a new token
+gets the **agent** toolset, not a list of ten.
+
+```bash
+npx @valorbrain/cli init --agent --agent-caller hermes
+```

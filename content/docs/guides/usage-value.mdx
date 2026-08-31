@@ -1,0 +1,54 @@
+---
+title: Uso e valor entregue
+description: O ledger de uso, o pré-agregado diário e a saúde do índice — medir sem estimar.
+---
+
+ValorBrain mede o que entrega por tenant a partir de um **ledger** — cada operação por canal (MCP, REST, hook, CLI), com latência e resultado. Nada aqui é estimativa: a contagem vem direto do `usage_events`.
+
+## `usage_report`
+
+```json
+{ "tool": "usage_report", "arguments": { "period": "month" } }
+```
+
+- `period`: `today` / `week` / `month` (padrão, 30 dias) / `quarter`.
+- Devolve: operações por canal, por ferramenta, por pessoa/agente, latência p50/p95, resultados devolvidos e a série diária.
+
+É a fonte para "quantas consultas fizemos este mês" e para dimensionar valor. O dashboard do SaaS lê o mesmo dado — sem camada de interpretação no meio.
+
+## O agregado diário: `value_daily`
+
+O job noturno pré-agrega o ledger em `value_daily` (por tenant, por dia). A leitura pública é REST:
+
+```bash
+curl -sS ".../api/v1/tenant/value-summary" -H "Authorization: Bearer $VALORBRAIN_TOKEN"
+```
+
+Dias completos vêm do agregado; **hoje** e dias faltantes são computados ao vivo — e o campo `stale_days` reporta os buracos. Famílias de valor (search / context / write / collab) agrupam o que cada operação entregou.
+
+## Respostas entregues
+
+```bash
+curl -sS ".../api/v1/usage/answers" -H "Authorization: Bearer $VALORBRAIN_TOKEN"
+```
+
+O corte por **respostas** (não por chamadas): quantas respostas citaram memória, com fonte — a métrica que importa para "o produto está entregando conhecimento ou só latência?".
+
+## Saúde do índice
+
+- `index_stats` — distribuição por tipo de conteúdo, staleness (quanto tempo sem re-embed), saúde geral. Use antes de culpar o ranking.
+- `memory_health` — propostas/conflitos abertos, itens de alta prioridade e fontes canônicas com drift. É a chamada de **fim de sessão substantiva**: mede dívida de conhecimento, não infra.
+
+## O loop que fecha o valor
+
+Uso medido sem `memory_used` é metade da história:
+
+1. `memory_retrieve` / `memory_prepare` entregam contexto.
+2. A resposta cita as fontes (`docids`).
+3. `memory_used` declara o que sustentou a resposta — e o `verdict` (`confirmed`/`corrected`) alimenta o ranking.
+
+O ledger registra a operação; o `memory_used` registra o **desfecho**. Sem o passo 3, o relatório mostra atividade, não valor.
+
+## No SaaS
+
+O que o tenant vê no dashboard (Valor Visível) é construído sobre essas mesmas superfícies. Se um número do dashboard e um `usage_report` da API divergirem, o bug é nosso — reporte com `feedback`.

@@ -12,8 +12,8 @@ Reads (in order):
 Writes, so the docs site cannot drift from the engine without a rebuild:
   public/openapi.yaml
   public/openapi.json
-  content/docs/api/generated-rest.mdx
-  content/docs/api/generated-mcp.mdx
+  content/docs/$/api/generated-rest.mdx
+  content/docs/$/api/generated-mcp.mdx
 """
 from __future__ import annotations
 
@@ -351,7 +351,9 @@ def emit_cli_help() -> str | None:
 
 
 def main() -> int:
-    api_dir = ROOT / "content" / "docs" / "api"
+    # Generated pages are locale-shared (`content/docs/$/`): one copy served
+    # under /docs and /en/docs alike.
+    api_dir = ROOT / "content" / "docs" / "$" / "api"
     public = ROOT / "public"
     loaded = load_spec()
     if loaded is None:
@@ -378,9 +380,7 @@ def main() -> int:
         json.dumps(spec, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )
 
-    api_dir = ROOT / "content" / "docs" / "api"
     api_dir.mkdir(parents=True, exist_ok=True)
-    (api_dir / "generated-rest.mdx").write_text(emit_rest(spec), encoding="utf-8")
     if CATALOG_SRC.is_file():
         (api_dir / "generated-mcp.mdx").write_text(emit_mcp(CATALOG_SRC), encoding="utf-8")
     else:

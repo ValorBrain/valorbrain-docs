@@ -1,0 +1,8 @@
+<svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ValorBrain">
+  <!-- ValorBrain mark — bold "V" (Valor initial) on brand green.
+       Optimized for 16-32px legibility: thick geometric stroke, sharp apex. -->
+  <rect width="32" height="32" rx="7" fill="#047857" />
+  <path d="M7.5 9 L16 24 L24.5 9"
+        fill="none" stroke="#fff" stroke-width="3.8"
+        stroke-linejoin="miter" stroke-miterlimit="10" stroke-linecap="round" />
+</svg>

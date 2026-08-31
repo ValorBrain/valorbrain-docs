@@ -1,0 +1,39 @@
+---
+title: Correctability
+description: A prose document can be months old and still rank first. Keyed facts have a date and an authority. They win.
+---
+
+This is the failure mode that costs the most, so the product has a first-class
+path for it.
+
+## Keyed facts beat prose
+
+`keyed_facts_as_of` returns the latest value per `fact_key` whose `as_of` is
+on or before a date. Each snapshot has an authority:
+
+**human > designated > import > agent**
+
+When a retrieved document contradicts a keyed fact, the keyed fact wins. Say
+so in the answer. Do not silently pick the document.
+
+Write a snapshot with `upsert_keyed_fact`. Correct a wrong public value with
+`assert_authority_correction` so the next agent does not repeat the error.
+
+## Two documents disagree
+
+If no keyed fact settles it, prefer the more recent document and **say that
+you did**. Same-day conflicts, or conflicts about a decision rather than a
+value: surface both and ask.
+
+A retrieved body may open with `SUPERSEDED:`. That line comes from a keyed
+fact. Do not argue with it from the document.
+
+## What "correctability" means in the product
+
+Wrong fact in memory → assert the correction → **a new session** retrieves
+the correct value in the top results, not the stale one. That loop is the
+priority after latency and onboarding.
+
+Related tools: `memory_curate` (pin / snooze), `memory_forget` (least
+reversible write — separate on purpose), `memory_used` with
+`verdict="corrected"`.

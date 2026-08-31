@@ -1,0 +1,54 @@
+---
+title: Usage and delivered value
+description: The usage ledger, the daily pre-aggregate and index health — measure, don't estimate.
+---
+
+ValorBrain measures what it delivers per tenant from a **ledger** — every operation by channel (MCP, REST, hook, CLI), with latency and outcome. Nothing here is an estimate: counts come straight from `usage_events`.
+
+## `usage_report`
+
+```json
+{ "tool": "usage_report", "arguments": { "period": "month" } }
+```
+
+- `period`: `today` / `week` / `month` (default, 30 days) / `quarter`.
+- Returns: operations by channel, by tool, by person/agent, latency p50/p95, results returned and the daily series.
+
+It is the source for "how many queries did we run this month" and for sizing value. The SaaS dashboard reads the same data — no interpretation layer in between.
+
+## The daily aggregate: `value_daily`
+
+The nightly job pre-aggregates the ledger into `value_daily` (per tenant, per day). The public read is REST:
+
+```bash
+curl -sS ".../api/v1/tenant/value-summary" -H "Authorization: Bearer $VALORBRAIN_TOKEN"
+```
+
+Complete days come from the aggregate; **today** and missing days are computed live — and the `stale_days` field reports the holes. Value families (search / context / write / collab) group what each operation delivered.
+
+## Answers delivered
+
+```bash
+curl -sS ".../api/v1/usage/answers" -H "Authorization: Bearer $VALORBRAIN_TOKEN"
+```
+
+The cut by **answers** (not by calls): how many answers cited memory, with sources — the metric that matters for "is the product delivering knowledge or just latency?".
+
+## Index health
+
+- `index_stats` — distribution by content type, staleness (how long without a re-embed), overall health. Use it before blaming ranking.
+- `memory_health` — open proposals/conflicts, high-priority items and canonical sources with drift. It is the **end of substantive session** call: it measures knowledge debt, not infra.
+
+## The loop that closes the value
+
+Measured usage without `memory_used` is half the story:
+
+1. `memory_retrieve` / `memory_prepare` deliver context.
+2. The answer cites its sources (`docids`).
+3. `memory_used` declares what carried the answer — and the `verdict` (`confirmed`/`corrected`) feeds ranking.
+
+The ledger records the operation; `memory_used` records the **outcome**. Without step 3, the report shows activity, not value.
+
+## In the SaaS
+
+What the tenant sees on the dashboard (Visible Value) is built on these same surfaces. If a dashboard number and an API `usage_report` diverge, the bug is ours — report it with `feedback`.

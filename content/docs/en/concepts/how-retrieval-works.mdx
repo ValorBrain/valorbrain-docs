@@ -1,0 +1,59 @@
+---
+title: How retrieval works
+description: The hybrid pipeline, the memory model, and the trust machinery — one page, no hand-waving.
+---
+
+This is the mental model the API and the 92 MCP tools sit on top of. Everything here describes what the engine actually does; the deep module map lives in the engine repo ([`docs/CONTEXT.md`](https://github.com/agentxagi/valorbrain/blob/main/docs/CONTEXT.md)).
+
+## The retrieval pipeline
+
+One query, five legs, fused:
+
+```
+              ┌─ BM25 (lexical, pgturbohybrid) ─────────┐
+query ────────┼─ dense vectors (pgvector, LFM2.5 1024d) ├─ RRF fuse ─▶ PPR graph ─▶ cross-encoder ─▶ top-K
+              └─ causal / timeline / neighbors (routing)┘
+```
+
+1. **Lexical (BM25)** — `pgturbohybrid` keeps BM25 and dense in a *single* index; `tenant_hash` rides in the index `INCLUDE`, so tenant filtering happens inside the index scan, not as a post-filter. In a multi-tenant index this is the difference between ANN that works and ANN that silently starves small tenants.
+2. **Dense** — 1024-d embeddings on `content_vectors` (deduplicated by content hash), HNSW with `ef_search=1000`.
+3. **RRR fusion** — reciprocal-rank fusion merges the legs without needing comparable scores.
+4. **Graph rerank (PPR)** — personalized PageRank over the entity/temporal graph promotes documents that are *connected* to what you asked, not just lexically or semantically similar.
+5. **Cross-encoder rerank** — BGE-Reranker-v2-m3 scores query-document pairs directly; top-K that survives is what you see.
+
+`mode` on `/search` and `memory_retrieve` biases the routing: `causal` for why-questions, `timeline` for when, `hybrid` to force all legs. `auto` decides for you and is right most of the time. The MMR diversity filter (`diverse: true`, default) keeps the top-K from being ten paraphrases of one document.
+
+**Ranking is the last suspect, not the first.** When retrieval misses, the honest order of investigation is: candidate pool (was the document indexed at all?) → hydration (was the body loaded?) → snippet/window rendering (was the answer inside the delivered excerpt?) → ranking. The engine's own debugging history is a chain of nine ranking "fixes" that changed nothing while the document was being cut at render time.
+
+## The memory model
+
+| Layer | What it is | Key behavior |
+|---|---|---|
+| **Documents** | The corpus. `collection` + `path` identity, content deduplicated by hash (cross-collection too) | Async embedding (`embed_state`); visibility tenant/private |
+| **Consolidated observations** | Higher-order synthesis of documents | Consolidation worker, confidence gate ≥ 0.65 |
+| **Keyed facts** | `(fact_key, as_of)` snapshots with an authority level | Supersede prose. A document contradicting a keyed fact loses |
+| **Entity triples (KG)** | SPO facts, temporal, per `(tenant_id, entity_id)` | SHACL pre-check; rejects go to quarantine, never silently in |
+| **Episodes** | Bounded dialogue summaries | Episodic retrieval; scoped `memory_prepare` |
+| **Decisions** | First-class records: category, scenario, reasoning, outcome, confidence | Hash-chained audit trail; causal links (`caused`/`influenced`/`precedent_for`) |
+| **Provenance** | W3C PROV-O lineage, SHA-256 hash chain | Every triple write is tracked; tamper-evident by construction |
+| **Fact conflicts** | Explicit value/temporal/relationship contradictions | Detected on consolidation ticks and on demand; resolved by strategy |
+
+The write path mirrors this: raw documents in, entity extraction (GLiNER zero-shot) enriches, consolidation synthesizes observations, decision-extractor hooks promote decisions, and every triple write lands with provenance.
+
+## Tenancy and identity
+
+- Every tenant-scoped table is **RLS-enforced** with a `tenant_id` policy; the runtime connects as an app role without `BYPASSRLS`.
+- Identity comes from the token — never guessed, never hardcoded. Zero tenant/user/company specifics in source.
+- Entity identity is `(tenant_id, entity_id)`; the vault isolates nothing by itself — the tenant does.
+
+## Consolidation and decay
+
+Memory that never decays is a landfill. Three mechanisms keep it honest:
+
+- **Lifecycle policies** archive stale documents (pinned ones exempt), `lifecycle_sweep` runs them (dry-run by default).
+- **Curation** — `pin` (+0.3 permanent boost), `snooze` (hide N days) — is the manual lever, driven by the `memory_used` feedback loop.
+- **The usage ledger** records every operation by channel; `value_daily` pre-aggregates it. Ranking learns from declared usage, not from guesses.
+
+## The one-call contract
+
+`POST /api/v1/memory/prepare` (REST) and `memory_prepare` (MCP) assemble a full context bundle — recall + vault facts + foresights + funnel (episodes, lessons, keyed facts, top documents) — in one call with a token budget. This is the intended integration point for prompt hooks; the read tools are for drilling, not for building your own bundle.

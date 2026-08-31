@@ -1,11 +1,11 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { getLLMText, source } from '@/lib/source';
+import { getLLMText, source, DEFAULT_LOCALE } from '@/lib/source';
 
 export const revalidate = false;
 
 export async function GET() {
-  const scanned = await Promise.all(source.getPages().map(getLLMText));
+  const scanned = await Promise.all(source.getPages(DEFAULT_LOCALE).map(getLLMText));
   const extras: string[] = [];
   const publicDir = join(process.cwd(), 'public');
   for (const [title, file] of [

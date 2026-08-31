@@ -1,0 +1,19 @@
+---
+title: Claim an agent account
+description: Bind an email without rotating the key.
+---
+
+The agent already has a working key. A human claims ownership later.
+
+```bash
+npx @valorbrain/cli init --email you@company.com
+```
+
+ValorBrain emails a one-time code. The journal does not print the OTP in
+cleartext on the success path (fixed 2026-08-30). Paste the code when the
+CLI asks, or pass `--otp`.
+
+Acceptance, verified 2026-08-30 from a clean network: the response is
+**"Same API key. All memories preserved."** The `vb_agent_` value does not
+change. MCP tokens (`vbm_`) are still created in the app if you want an
+editor connected.

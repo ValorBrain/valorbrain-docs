@@ -1,0 +1,81 @@
+---
+title: Grafo de conhecimento
+description: Entidades, triplas com validade temporal, quarentena SHACL e explicabilidade — o KG que não aceita fato sem prova.
+---
+
+O grafo do ValorBrain é temporal e explicável: cada tripla SPO carrega `valid_from`/`valid_to`, passa por um pre-check SHACL antes de entrar, e cada escrita gera linhagem PROV-O. Contratos abaixo são os schemas reais das ferramentas.
+
+## Consultar: `kg_query`
+
+```json
+{
+  "tool": "kg_query",
+  "arguments": {
+    "entity": "ValorBrain",
+    "direction": "both",
+    "max_hops": 2,
+    "as_of": "2026-08-01"
+  }
+}
+```
+
+- `entity` aceita **nome** (`"ValorBrain"`) ou **id canônico** (`"default:service:valorbrain"` — formato `vault:tipo:slug`).
+- `as_of` (YYYY-MM-DD): só fatos **válidos naquela data** — o grafo é uma linha do tempo, não um snapshot.
+- `direction`: `outgoing` / `incoming` / `both`.
+- `max_hops`: 1 = estrela direta; 2–3 = multihop (via SPARQL/Datalog quando o engine híbrido está ligado; default vem de `VALORBRAIN_KG_MAX_HOPS`).
+
+Perguntas que são do grafo, não da busca: "o que se relaciona com X?", "o que era verdade sobre X em Y?", "quem/o que está conectado a X?". Vizinhos semânticos de um documento são `find_similar`; relações nomeadas são daqui.
+
+## Explicar: `kg_explain`
+
+```json
+{
+  "tool": "kg_explain",
+  "arguments": {
+    "subject": "engine",
+    "predicate": "depends_on",
+    "object": "lfm2-embed"
+  }
+}
+```
+
+Devolve **por que** o fato vale — incluindo árvore de prova Datalog quando `pg_ripple.record_derivations` está ligado. Para fatos literais, use `object_literal` (mutuamente exclusivo com `object`). É a ferramenta de auditoria: fato que não se explica não se cita.
+
+## Identidade de entidade
+
+- Identidade é `(tenant_id, entity_id)` — **o tenant isola; o vault, não**. Dois vaults no mesmo tenant compartilham o grafo.
+- `entity_id` canônico: `vault:tipo:slug`. O vault default é a string literal `default`.
+- O tipo vem da taxonomia (`src/entity-taxonomy.ts` no engine), casada com o `sh:in` da shape SHACL.
+
+## Cartões de entidade: `append_entity_card` / `list_entity_cards`
+
+Cartão = identidade estável com entradas `IDENTITY` / `ATTRIBUTE` / `RELATIONSHIP` / `INSTRUCTION`. Acréscente em vez de sobrescrever — o cartão é append-only por desenho.
+
+## Quarentena: `kg_quarantine`
+
+Tripla rejeitada pelo pre-check SHACL **nunca** entra silenciosamente — vai pra fila de curadoria:
+
+```json
+{ "tool": "kg_quarantine", "arguments": { "action": "list", "limit": 50 } }
+{ "tool": "kg_quarantine", "arguments": { "action": "approve", "quarantine_id": "<uuid>" } }
+{ "tool": "kg_quarantine", "arguments": { "action": "reject", "quarantine_id": "<uuid>" } }
+```
+
+- `approve` **re-valida** e persiste em `entity_triples` (aprovar não pula o SHACL).
+- `reject` descarta permanentemente.
+
+Uma fila limpa não significa grafo perfeito — significa nada pendente **detectado**. Dedup de entidades perto-duplicadas tem relatório próprio: `kg_entity_resolve_report`.
+
+## RAG neuro-simbólico
+
+`ripple_rag_retrieve` entrega contexto de entidade (JSON) dentro de um orçamento de latência — é a ponte entre o grafo e prompts que precisam de fatos estruturados com fonte. Use quando a resposta precisa de **relações** com validade, não de parágrafos.
+
+## Quando usar cada camada
+
+| Pergunta | Camada |
+|---|---|
+| "o que dizem sobre X" (prosa) | `memory_retrieve` |
+| "X se relaciona com quê" (estrutura) | `kg_query` |
+| "por que esse fato vale" | `kg_explain` |
+| "o que era verdade em março" | `kg_query` com `as_of` |
+| "documentos parecidos com este" | `find_similar` |

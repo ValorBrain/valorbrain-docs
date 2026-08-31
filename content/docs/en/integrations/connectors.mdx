@@ -1,0 +1,19 @@
+---
+title: Connectors
+description: Notion, Google Drive, Slack, GitHub and Linear. You bring OAuth credentials. Starter and above.
+---
+
+The app ships five OAuth connectors: **Notion, Google Drive, Slack, GitHub,
+Linear**. They are BYOK — you paste the OAuth client for your workspace.
+Sync runs in the background and ingests into the tenant's engine.
+
+They live at [valorbrain.valor.digital/connectors](https://valorbrain.valor.digital/connectors)
+after login. They require **Starter or above**, not the free plan.
+
+This is not MCP. Connectors fill collections; agents then retrieve over MCP
+or REST.
+
+Filesystem watchers and webhooks are additional ingest paths on
+self-hosted engines. Hosted customers who just need "put this document in
+the brain" should use CLI `add`, MCP `memory_store`, or
+`POST /api/v1/ingest` with an `fk_` key.

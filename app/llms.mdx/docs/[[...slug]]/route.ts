@@ -1,11 +1,11 @@
-import { getLLMText, getPageMarkdownUrl, source } from '@/lib/source';
+import { getLLMText, getPageMarkdownUrl, source, DEFAULT_LOCALE } from '@/lib/source';
 import { notFound } from 'next/navigation';
 
 export const revalidate = false;
 
 export async function GET(_req: Request, { params }: RouteContext<'/llms.mdx/docs/[[...slug]]'>) {
   const { slug } = await params;
-  const page = source.getPage(slug?.slice(0, -1));
+  const page = source.getPage(slug?.slice(0, -1), DEFAULT_LOCALE);
   if (!page) notFound();
 
   return new Response(await getLLMText(page), {
@@ -16,8 +16,7 @@ export async function GET(_req: Request, { params }: RouteContext<'/llms.mdx/doc
 }
 
 export function generateStaticParams() {
-  return source.getPages().map((page) => ({
-    lang: page.locale,
-    slug: getPageMarkdownUrl(page).segments,
-  }));
+  return source
+    .getPages(DEFAULT_LOCALE)
+    .map((page) => ({ slug: getPageMarkdownUrl(page).segments }));
 }

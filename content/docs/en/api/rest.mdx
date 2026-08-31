@@ -1,0 +1,55 @@
+---
+title: REST reference
+description: Customer-facing engine routes. Host is always valorbrain-api.valor.digital.
+---
+
+Auth: `Authorization: Bearer <token>`. Tenant comes from the token.
+
+## Engine (valorbrain-api)
+
+| Method | Path | Notes |
+|---|---|---|
+| `GET` | `/health` | Liveness. No auth required. |
+| `GET` | `/healthz` | Alias. |
+| `POST` | `/search` | Hybrid search. Body: `{ query, limit?, profile?, timing? }`. |
+| `POST` | `/retrieve` | Multi-strategy retrieve. |
+| `POST` | `/documents` | Ingest. Body: `{ collection, path?, title?, content, … }`. |
+| `GET` | `/documents` | List, paginated. |
+| `GET` | `/documents/:id` | Full document. |
+| `POST` | `/documents/:id/pin` | Pin. |
+| `POST` | `/documents/:id/snooze` | Snooze. |
+| `POST` | `/documents/:id/forget` | Soft-delete. |
+| `POST` | `/documents/:id/feedback` | Rate. |
+| `PATCH` | `/documents/:id/visibility` | Visibility. |
+| `DELETE` | `/documents/purge` | Purge forgotten. Destructive — tenant-scoped. |
+| `GET` | `/collections` | Collections and counts. |
+| `GET` | `/stats` | Index stats. |
+| `GET` | `/sessions` | Recent session summaries. |
+| `GET` | `/timeline/:id` | Temporal neighbourhood. |
+| `GET` | `/graph/similar/:id` | Semantic neighbours. |
+| `GET` | `/graph/causal/:id` | Causal links. |
+| `POST` | `/api/v1/agents/signup` | Agent account. Returns `vb_agent_` key. |
+| `POST` | `/api/v1/agents/identify` | `agent_caller` backfill. |
+| `POST` | `/api/v1/agents/claim` | Start email claim. |
+| `POST` | `/api/v1/agents/claim/verify` | Finish claim. Same key. |
+| `POST` | `/api/v1/memory/prepare` | MCP `memory_prepare` twin. |
+| `POST` | `/api/v1/memory/store` | MCP `memory_store` twin. |
+
+Graph, decisions, provenance, conflicts, and ops routes exist on the engine
+(116 paths in `docs/reference/openapi.yaml`). They are real; they are not
+the first integration. Use MCP `decisions` / `provenance` / `conflicts` or
+read the engine OpenAPI in the repo if you need them.
+
+## SaaS (valorbrain.valor.digital)
+
+| Method | Path | Auth |
+|---|---|---|
+| `POST` | `/api/v1/ingest` | `fk_….sk_…` |
+| `GET` | `/openapi.json` | Public, 4 discovery paths |
+| `GET` | `/llms.txt` | Public marketing brief |
+| `GET` | `/.well-known/mcp/server-card.json` | Public |
+
+## Not REST
+
+`https://mcpbrain.valor.digital/mcp` is MCP. OAuth lives on that host.
+Sending `/search` there fails 401.

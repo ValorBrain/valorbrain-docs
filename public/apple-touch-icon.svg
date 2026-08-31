@@ -1,0 +1,8 @@
+<svg viewBox="0 0 180 180" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ValorBrain">
+  <!-- ValorBrain mark — bold "V" (Valor initial) on brand green.
+       Apple touch icon / maskable (180x180). Same mark as favicon, scaled. -->
+  <rect width="180" height="180" rx="39" fill="#047857" />
+  <path d="M42 51 L90 135 L138 51"
+        fill="none" stroke="#fff" stroke-width="21"
+        stroke-linejoin="miter" stroke-miterlimit="10" stroke-linecap="round" />
+</svg>

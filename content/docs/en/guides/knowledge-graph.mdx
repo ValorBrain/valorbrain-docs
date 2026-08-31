@@ -1,0 +1,81 @@
+---
+title: Knowledge graph
+description: Entities, triples with temporal validity, SHACL quarantine and explainability — the KG that accepts no fact without proof.
+---
+
+ValorBrain's graph is temporal and explainable: every SPO triple carries `valid_from`/`valid_to`, passes a SHACL pre-check before entering, and every write produces PROV-O lineage. The contracts below are the tools' real schemas.
+
+## Query: `kg_query`
+
+```json
+{
+  "tool": "kg_query",
+  "arguments": {
+    "entity": "ValorBrain",
+    "direction": "both",
+    "max_hops": 2,
+    "as_of": "2026-08-01"
+  }
+}
+```
+
+- `entity` accepts a **name** (`"ValorBrain"`) or the **canonical id** (`"default:service:valorbrain"` — format `vault:type:slug`).
+- `as_of` (YYYY-MM-DD): only facts **valid on that date** — the graph is a timeline, not a snapshot.
+- `direction`: `outgoing` / `incoming` / `both`.
+- `max_hops`: 1 = direct star; 2–3 = multihop (via SPARQL/Datalog when the hybrid engine is on; default comes from `VALORBRAIN_KG_MAX_HOPS`).
+
+Questions that belong to the graph, not search: "what relates to X?", "what was true about X at Y?", "who/what is connected to X?". A document's semantic neighbors are `find_similar`; named relationships live here.
+
+## Explain: `kg_explain`
+
+```json
+{
+  "tool": "kg_explain",
+  "arguments": {
+    "subject": "engine",
+    "predicate": "depends_on",
+    "object": "lfm2-embed"
+  }
+}
+```
+
+Returns **why** the fact holds — including the Datalog proof tree when `pg_ripple.record_derivations` is on. For literal facts, use `object_literal` (mutually exclusive with `object`). This is the audit tool: a fact that cannot be explained is not cited.
+
+## Entity identity
+
+- Identity is `(tenant_id, entity_id)` — **the tenant isolates; the vault does not**. Two vaults in the same tenant share the graph.
+- Canonical `entity_id`: `vault:type:slug`. The default vault is the literal string `default`.
+- The type comes from the taxonomy (`src/entity-taxonomy.ts` in the engine), matched to the SHACL shape's `sh:in`.
+
+## Entity cards: `append_entity_card` / `list_entity_cards`
+
+A card is a stable identity with `IDENTITY` / `ATTRIBUTE` / `RELATIONSHIP` / `INSTRUCTION` entries. Append instead of overwriting — the card is append-only by design.
+
+## Quarantine: `kg_quarantine`
+
+A triple rejected by the SHACL pre-check **never** enters silently — it goes to the curation queue:
+
+```json
+{ "tool": "kg_quarantine", "arguments": { "action": "list", "limit": 50 } }
+{ "tool": "kg_quarantine", "arguments": { "action": "approve", "quarantine_id": "<uuid>" } }
+{ "tool": "kg_quarantine", "arguments": { "action": "reject", "quarantine_id": "<uuid>" } }
+```
+
+- `approve` **re-validates** and persists into `entity_triples` (approving does not skip SHACL).
+- `reject` discards permanently.
+
+A clean queue does not mean a perfect graph — it means nothing pending **detected**. Near-duplicate entity dedup has its own report: `kg_entity_resolve_report`.
+
+## Neuro-symbolic RAG
+
+`ripple_rag_retrieve` delivers entity context (JSON) within a latency budget — the bridge between the graph and prompts that need sourced, structured facts. Use it when the answer needs **relationships** with validity, not paragraphs.
+
+## When to use which layer
+
+| Question | Layer |
+|---|---|
+| "what is said about X" (prose) | `memory_retrieve` |
+| "what does X relate to" (structure) | `kg_query` |
+| "why does this fact hold" | `kg_explain` |
+| "what was true in March" | `kg_query` with `as_of` |
+| "documents similar to this one" | `find_similar` |

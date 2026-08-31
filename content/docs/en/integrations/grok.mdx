@@ -1,0 +1,32 @@
+---
+title: Grok
+description: Templates in valorbrain-harness plus the published stdio proxy.
+---
+
+The Grok harness lives in
+[`valorbrain-harness/grok`](https://github.com/ValorBrain/valorbrain-harness/tree/main/grok):
+a contract markdown and an example `mcp.example.toml`. Nothing of our
+tenant is in that repo.
+
+Hosted MCP via stdio:
+
+```toml
+# ~/.grok/config.toml
+[mcp_servers.valorbrain]
+command = "npx"
+args = ["-y", "@valorbrain/connect", "--token=vbm_YOUR_TOKEN_HERE"]
+```
+
+Install the contract from a clone of the harness repo:
+
+```bash
+./install.sh grok
+```
+
+`install.sh` in that repo is **per-harness** (`grok`, `zcode`, …). It does
+not call a `valorbrain setup` CLI, because that CLI command is not
+published.
+
+```bash
+npx @valorbrain/cli init --agent --agent-caller grok
+```

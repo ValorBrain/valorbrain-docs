@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { BrandMark } from '@/lib/layout.shared';
 import { REST_URL, MCP_URL, SAAS_URL } from '@/lib/shared';
 
 const cards = [
@@ -38,9 +39,12 @@ export default function HomePage() {
   return (
     <main className="mx-auto w-full max-w-6xl px-4 pb-24 pt-16 sm:px-6">
       <div className="mx-auto max-w-3xl text-center">
-        <p className="mb-4 text-xs font-medium uppercase tracking-[0.18em] text-fd-primary">
-          Documentation
-        </p>
+      <div className="mb-5 flex justify-center">
+        <BrandMark className="size-12" />
+      </div>
+      <p className="mb-4 text-xs font-medium uppercase tracking-[0.18em] text-fd-primary">
+        Documentation
+      </p>
         <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
           Build with <span className="text-fd-primary">ValorBrain</span>
         </h1>
@@ -59,6 +63,13 @@ npx @valorbrain/cli search "deploy key"`}</code>
       <p className="mx-auto mt-3 max-w-3xl text-center text-xs text-fd-muted-foreground">
         Measured 2026-08-30 on the published package: init 2.5s cold · add →
         search 1.45s · shell to searchable memory ~4s. Target &lt; 15s.
+      </p>
+
+      <p className="mx-auto mt-2 max-w-3xl text-center text-xs text-fd-muted-foreground">
+        <Link href="/en/docs" className="underline decoration-fd-border hover:text-fd-primary">
+          English documentation
+        </Link>{' '}
+        · documentação em português acima.
       </p>
 
       <div className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

@@ -1,0 +1,100 @@
+---
+title: REST
+description: Hybrid search and document CRUD on valorbrain-api. Token is enough.
+icon: Code
+---
+
+Base URL: `https://valorbrain-api.valor.digital`
+
+```bash
+curl -sS https://valorbrain-api.valor.digital/health
+```
+
+Auth: `Authorization: Bearer <vb_agent_ or other engine token>`.
+
+The tenant is resolved from the token. You do **not** need `X-Tenant-ID` for a
+normal key.
+
+## Search
+
+```bash
+curl -sS -X POST https://valorbrain-api.valor.digital/search \
+  -H "Authorization: Bearer $VALORBRAIN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"query":"deploy key","limit":5}'
+```
+
+Optional: `"profile": "speed"` for the fast path (hybrid/FTS, no cross-encoder).
+Default is `balanced`. `"timing": true` or header `x-search-timing: 1` adds
+`hybrid_ms` / `rerank_ms` / `graph_ms` / `total_ms`.
+
+`POST /retrieve` is the multi-strategy twin of search (MCP `memory_retrieve`
+auto-routes; this is the explicit REST form).
+
+## Ingest
+
+```bash
+curl -sS -X POST https://valorbrain-api.valor.digital/documents \
+  -H "Authorization: Bearer $VALORBRAIN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "collection": "decisions",
+    "path": "ADR-001.md",
+    "title": "We chose PostgreSQL",
+    "content": "## Decision\nPostgreSQL is the primary store."
+  }'
+```
+
+This is what CLI `add` calls.
+
+### SaaS ingest (workspace API key)
+
+For systems that already talk to the app, not the engine:
+
+```bash
+curl -sS -X POST https://valorbrain.valor.digital/api/v1/ingest \
+  -H "Authorization: Bearer fk_<id>.sk_<secret>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "collection": "decisions",
+    "path": "ADR-001.md",
+    "title": "We chose PostgreSQL",
+    "content": "## Decision\nPostgreSQL is the primary store."
+  }'
+```
+
+`fk_` keys authenticate ingest on the SaaS host. They are not a substitute
+for engine search on `valorbrain-api`.
+
+## Read / curate
+
+| Method | Path | Meaning |
+|---|---|---|
+| `GET` | `/documents/:id` | Full document |
+| `GET` | `/documents` | List, paginated |
+| `GET` | `/collections` | Collections and counts |
+| `POST` | `/documents/:id/pin` | Pin (foundation) |
+| `POST` | `/documents/:id/snooze` | Hide from retrieval for a while |
+| `POST` | `/documents/:id/forget` | Soft-delete |
+| `POST` | `/documents/:id/feedback` | `POSITIVE` / `NEGATIVE` |
+| `GET` | `/health` | Liveness |
+| `GET` | `/stats` | Index statistics |
+
+The engine OpenAPI file in the repo describes **116 paths**, including ops
+and graph. The JSON at `valorbrain.valor.digital/openapi.json` is a **4-path
+discovery document** for agents hitting the marketing site. They are not the
+same spec. This docs site publishes the public integration surface; see
+[API reference](/en/docs/api).
+
+## Agent signup (REST)
+
+```bash
+curl -sS -X POST https://valorbrain-api.valor.digital/api/v1/agents/signup \
+  -H "Content-Type: application/json" \
+  -d '{"agent_name":"my-agent","agent_caller":"claude-code"}'
+```
+
+Must hit **valorbrain-api**. The same path on mcpbrain is swallowed by MCP
+transport.
+
+Full table: [REST reference](/en/docs/api/rest).

@@ -1,0 +1,103 @@
+---
+title: Quickstart
+description: Four commands from a clean shell to a searchable memory. Measured, not estimated.
+icon: Rocket
+---
+
+The onboarding that matters is the **agent path**. A human can sign up in the
+app afterwards and claim the same key. The key does not change.
+
+## Four commands
+
+```bash
+npx @valorbrain/cli init --agent --agent-caller claude-code
+npx @valorbrain/cli add "the deploy key lives in the ops vault"
+npx @valorbrain/cli search "deploy key"
+npx @valorbrain/cli status
+```
+
+That is the whole signup: no email, no dashboard, no card. The key is written
+to `~/.valorbrain/config.json` with mode `0600`.
+
+### Measured time
+
+Measured 2026-08-30 against the **published** package `@valorbrain/cli@0.1.0`,
+not against a local checkout:
+
+| Step | Time |
+|---|---|
+| `init --agent` (cold, includes npx download) | 2.5s |
+| `add` → `search` | 1.45s |
+| Shell → searchable memory | **~4s** |
+
+Target: **under 15 seconds**. Reference (mem0, same day): ~13s, of which 4.66s is `pip install`. `npx` skips that install.
+
+`--json` (alias `--agent`) on any command prints a single JSON object. `help --json` dumps the whole surface.
+
+## Sign up as an agent
+
+`init --agent` calls `POST https://valorbrain-api.valor.digital/api/v1/agents/signup`.
+
+It returns a `vb_agent_…` key bound to a shadow tenant. Default expiry is 30
+days until a human claims it.
+
+**Identity is self-declared.** `--agent-caller` is never inferred from the
+environment. The CLI may *suggest* a caller from env (`CLAUDECODE`, `CURSOR`, …)
+and print a tip; it will not record it unless you pass the flag. If you forgot:
+
+```bash
+npx @valorbrain/cli identify claude-code
+```
+
+Known caller ids the CLI understands as hints: `claude-code`, `cursor`,
+`codex`, `cline`, `continue`, `aider`, `goose`, `windsurf`, `kiro`,
+`opencode`, `hermes`, `zcode`, `grok`. Anything else is stored as you typed it.
+
+The signup response includes a `message` written **as an instruction to you**.
+Surface it to the human on your next user-facing turn. Do not skip it.
+
+## Claim it as a human
+
+```bash
+npx @valorbrain/cli init --email you@company.com
+```
+
+OTP is emailed. After verify, the **same** `vb_agent_` key keeps working.
+Memories are preserved. That is the acceptance criterion, and it was verified
+end-to-end on 2026-08-30.
+
+## What the key can do
+
+The CLI key talks **REST** on `valorbrain-api.valor.digital`. Tenant is
+resolved from the token — you do **not** send `X-Tenant-ID`.
+
+| Command | Endpoint |
+|---|---|
+| `add` | `POST /documents` |
+| `search` | `POST /search` |
+| `list` | `GET /collections` |
+| `status` | `GET /health` + local config |
+| `identify` | `POST /api/v1/agents/identify` |
+| `init --email` | `POST /api/v1/agents/claim` then `/claim/verify` |
+
+MCP is a **different credential**: `vbm_…`, created in the app under
+Settings → MCP tokens, or obtained via OAuth. See [MCP](/en/docs/mcp).
+
+## Human path (app)
+
+If you are not an agent:
+
+1. Open [valorbrain.valor.digital](https://valorbrain.valor.digital/auth/register).
+2. Activate the email.
+3. Create an MCP token (`vbm_…`) or an ingest key (`fk_….sk_…`).
+4. Follow [MCP](/en/docs/mcp) or [REST](/en/docs/rest).
+
+## Phantom commands
+
+These appear in older READMEs and **do not exist** on `@valorbrain/cli@0.1.0`.
+`help --json` is the source of truth.
+
+- `valorbrain setup harness …`
+- `valorbrain setup status`
+- `valorbrain setup openclaw`
+- `valorbrain setup harness --detect`

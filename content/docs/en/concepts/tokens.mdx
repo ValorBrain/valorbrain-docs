@@ -1,0 +1,38 @@
+---
+title: Tokens
+description: Three prefixes, three jobs. The token carries the tenant. Do not invent a tenant header.
+---
+
+| Prefix | Issued by | Talks to | Example use |
+|---|---|---|---|
+| `vb_agent_…` | `valorbrain init --agent` → `POST /api/v1/agents/signup` | REST on `valorbrain-api` | CLI `add` / `search` |
+| `vbm_…` | App → Settings → MCP tokens, or OAuth | MCP on `mcpbrain` | Editor MCP, `@valorbrain/connect` |
+| `fk_….sk_…` | App → API keys | SaaS `POST /api/v1/ingest` (and some SaaS routes) | External systems pushing documents |
+
+They are **not** interchangeable. A `vb_agent_` key on `mcpbrain` is the wrong
+audience. A `vbm_` token is what the MCP server card advertises
+(`tokenPrefix: "vbm_"`).
+
+## Tenant is on the token
+
+The CLI does not send `X-Tenant-ID`. The engine resolves the tenant from the
+bearer token and exposes the result as `X-Resolved-Tenant-ID`.
+
+Do not invent a tenant UUID. Do not copy one from a tutorial.
+
+Older pages on the marketing `/docs` showed REST examples with both
+`Authorization: Bearer vb_…` **and** `X-Tenant-ID`. That header is not
+required for a tenant-scoped key, and the prefix is `vb_agent_`, not a bare
+`vb_`.
+
+## Scopes
+
+MCP tokens have a toolset (`agent` by default for new tokens, or `graph` /
+`ops` / `all`). New tokens see the **agent** working set, not the 80-name
+catalog. See [MCP tools](/en/docs/api/mcp-tools).
+
+## One token per agent
+
+Use one token per agent or persona so writes stay attributable and revocation
+does not interrupt everyone else. Never paste a token into chat, a git repo,
+or ValorBrain itself.

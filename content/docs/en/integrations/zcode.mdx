@@ -1,0 +1,27 @@
+---
+title: ZCode
+description: Marketplace plugin — hooks, skill, and per-prompt recall.
+---
+
+ZCode is a first-class harness. The plugin lives in
+[`valorbrain-harness/zcode`](https://github.com/ValorBrain/valorbrain-harness/tree/main/zcode)
+and is published to the `valor-digital` marketplace as `valorbrain`.
+
+What it installs:
+
+- Per-prompt memory recall
+- Session bootstrap
+- Write reminders
+- A quality-loop skill (`valorbrain-memory`)
+- Lifecycle hooks (`session-start`, `user-prompt-submit`, `stop`, `post-tool-use`)
+
+```bash
+# from a clone of valorbrain-harness
+./install.sh zcode
+# or the plugin's own installer
+./zcode/install.sh
+```
+
+```bash
+npx @valorbrain/cli init --agent --agent-caller zcode
+```

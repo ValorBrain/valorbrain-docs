@@ -1,0 +1,24 @@
+---
+title: Hosts
+description: REST, MCP and the app are three hostnames with three jobs. Mixing them is the most common integration failure.
+---
+
+| Hostname | Job | What happens if you get it wrong |
+|---|---|---|
+| `valorbrain-api.valor.digital` | **REST** — `/search`, `/documents`, `/api/v1/agents/*`, `/health` | This is the default `--url` of the CLI. |
+| `mcpbrain.valor.digital` | **MCP** — `/mcp`, OAuth discovery | Every **non-OAuth** path is treated as MCP transport and returns `401 missing_bearer`. `/search` here does not search. |
+| `valorbrain.valor.digital` | **SaaS app** — UI, `/api/v1/ingest` with `fk_` keys, `/llms.txt` (marketing), connectors | Marketing OpenAPI here has 4 paths. It is not the engine spec. |
+| `docs.valor.digital` | **This documentation** | Generated `llms.txt` / `llms-full.txt`. Nested `docs.valorbrain.valor.digital` needs ACM. |
+
+OAuth discovery (`/.well-known/oauth-authorization-server`) works on the MCP
+host. Dynamic Client Registration (`POST /oauth/register`) works there too.
+
+`localhost:7438` is the engine **on the machine that runs it**. It is not a
+public URL. The engine used to advertise it in `/setup/instructions`; that was
+fixed on 2026-08-30 (`VALORBRAIN_PUBLIC_URL` now points at `valorbrain-api`).
+
+## Rule
+
+- Agent CLI and any REST client → `valorbrain-api`
+- MCP client → `mcpbrain` (HTTP) or `@valorbrain/connect` (stdio)
+- Browser user → `valorbrain.valor.digital`

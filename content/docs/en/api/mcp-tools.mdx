@@ -1,0 +1,32 @@
+---
+title: MCP tools reference
+description: The catalog, not a screenshot. Aliases included so old clients keep working.
+---
+
+This page is the same inventory as [MCP tools](/en/docs/mcp/tools), kept under
+API so OpenAPI-minded readers find it. Source: engine `src/tool-catalog.ts`.
+
+New tokens: toolset **`agent`**.
+
+Call `tools/list` at runtime. If a name here and the live list disagree, the
+live list wins and this page is wrong — [open an issue](https://github.com/ValorBrain/valorbrain-docs/issues).
+
+Canonical agent tools: `memory_retrieve`, `memory_prepare`, `working_context`,
+`memory_grep`, `get`, `multi_get`, `keyed_facts_as_of`, `memory_store`,
+`memory_used`, `upsert_keyed_fact`, `assert_authority_correction`,
+`record_lesson`, `memory_curate`, `memory_forget`, `append_entity_card`,
+`diary`, `scratchpad`, `task_state`, `profile`, `team_briefing`,
+`team_handoff`, `team_inbox`, `team_message`, `team_notify_human`,
+`team_roster`, `whoami`, `memory_health`, `list_lessons`, `episodes`,
+`notifications`.
+
+Aliases (still dispatched): `memory_pin` → `memory_curate`, `memory_snooze` →
+`memory_curate`, `diary_read` / `diary_write` → `diary`, `set_goal` /
+`report_progress` → `task_state`, `team_handoff_consume` → `team_handoff`,
+`get_memory_episode` / `list_memory_episodes` → `episodes`,
+`notifications_check` / `notifications_mark_read` → `notifications`,
+`record_decision` and family → `decisions`, `trace_lineage` /
+`export_provenance` → `provenance`, `detect_conflicts` / `list_conflicts` /
+`resolve_conflict` → `conflicts`.
+
+Deprecated: `store`, `list_proposals`.

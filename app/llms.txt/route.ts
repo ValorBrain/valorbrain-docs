@@ -1,4 +1,4 @@
-import { source } from '@/lib/source';
+import { source, DEFAULT_LOCALE } from '@/lib/source';
 import { llms } from 'fumadocs-core/source';
 import { MCP_URL, REST_URL, SAAS_URL, SITE_URL } from '@/lib/shared';
 
@@ -44,7 +44,7 @@ Full docs dump: ${SITE_URL}/llms-full.txt
 `;
 
 export function GET() {
-  const index = llms(source).index();
+  const index = llms(source).index(DEFAULT_LOCALE);
   return new Response(`${PREAMBLE}\n## Pages\n\n${index}`, {
     headers: {
       'Content-Type': 'text/plain; charset=utf-8',
