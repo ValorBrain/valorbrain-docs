@@ -6,15 +6,21 @@ export const revalidate = false;
 
 export async function GET() {
   const scanned = await Promise.all(source.getPages().map(getLLMText));
-  let spec = '';
-  try {
-    spec = readFileSync(join(process.cwd(), 'public', 'openapi.yaml'), 'utf8');
-  } catch {
-    spec = '';
+  const extras: string[] = [];
+  const publicDir = join(process.cwd(), 'public');
+  for (const [title, file] of [
+    ['OpenAPI (engine, servers rewritten)', 'openapi.yaml'],
+    ['CLI help --json (published package)', 'cli-help.json'],
+    ['MCP tool schemas (registerTool metadata)', 'mcp-schemas.md'],
+  ] as const) {
+    try {
+      const text = readFileSync(join(publicDir, file), 'utf8');
+      extras.push(`# ${title}\n\n${file.endsWith('.md') ? text : `\`\`\`\n${text}\n\`\`\`\n`}`);
+    } catch {
+      /* snapshot optional on a docs-only checkout */
+    }
   }
-  const body = spec
-    ? `${scanned.join('\n\n')}\n\n# OpenAPI (engine, servers rewritten)\n\n\`\`\`yaml\n${spec}\n\`\`\`\n`
-    : scanned.join('\n\n');
+  const body = [scanned.join('\n\n'), ...extras].filter(Boolean).join('\n\n');
   return new Response(body, {
     headers: {
       'Content-Type': 'text/plain; charset=utf-8',

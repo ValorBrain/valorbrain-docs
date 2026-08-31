@@ -1,0 +1,66 @@
+{
+  "name": "@valorbrain/cli",
+  "version": "0.1.0",
+  "config": "~/.valorbrain/config.json",
+  "default_rest_base_url": "https://valorbrain-api.valor.digital",
+  "default_mcp_url": "https://mcpbrain.valor.digital/mcp",
+  "global_flags": [
+    {
+      "flag": "--json",
+      "aliases": [
+        "--agent"
+      ],
+      "description": "machine-readable output"
+    },
+    {
+      "flag": "--key",
+      "description": "API key override"
+    },
+    {
+      "flag": "--url",
+      "description": "REST base URL override"
+    }
+  ],
+  "commands": [
+    {
+      "name": "init",
+      "usage": "init --agent [--agent-caller <platform>] | init --email <address> [--otp <code>]",
+      "description": "create an agent account or claim it with an email"
+    },
+    {
+      "name": "identify",
+      "usage": "identify <platform>",
+      "description": "idempotent agent_caller backfill"
+    },
+    {
+      "name": "add",
+      "usage": "add <text> [--file <path>] [--collection <name>] [--title <t>] [--type <t>]",
+      "description": "store a memory"
+    },
+    {
+      "name": "search",
+      "usage": "search <query> [--collection <name>] [--mode auto|keyword|semantic|hybrid]",
+      "description": "search memories"
+    },
+    {
+      "name": "list",
+      "usage": "list",
+      "description": "list collections"
+    },
+    {
+      "name": "status",
+      "usage": "status",
+      "description": "local config + remote health"
+    },
+    {
+      "name": "mcp",
+      "usage": "mcp [--token vbm_…] [--url <mcp-url>]",
+      "description": "stdio ⇄ HTTP MCP proxy"
+    },
+    {
+      "name": "help",
+      "usage": "help [--json]",
+      "description": "this surface, machine-readable with --json"
+    }
+  ]
+}

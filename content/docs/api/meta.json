@@ -1,4 +1,4 @@
 {
   "title": "API",
-  "pages": ["index", "mcp-tools", "rest", "generated-mcp", "generated-rest"]
+  "pages": ["index", "mcp-tools", "rest", "generated-mcp", "generated-mcp-schemas", "generated-rest"]
 }
