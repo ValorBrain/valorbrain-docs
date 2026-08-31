@@ -3,7 +3,7 @@ title: Avaliação e benchmarks
 description: O que os números medem, quais são reproduzíveis, e as regras que os mantêm honestos.
 ---
 
-Os números desta página vêm do registro de benchmarks publicado pelo engine ([`docs/research/`](https://github.com/agentxagi/valorbrain/tree/main/docs/research)). São números de evidência de recuperação, salvo rótulo em contrário — tratá-los como acurácia de resposta é um erro de categoria (veja abaixo).
+Os números desta página vêm do registro de benchmarks do engine; o espelho público deles está na [página de benchmarks do produto](https://valorbrain.valor.digital/benchmarks). São números de evidência de recuperação, salvo rótulo em contrário — tratá-los como acurácia de resposta é um erro de categoria (veja abaixo).
 
 ## Dois tipos de número
 
@@ -47,4 +47,4 @@ Estas vieram de erros reais e caros; um benchmark que as quebra mede o harness, 
 - Execuções públicas canônicas: o **harness AMB** (agent-memory-benchmark, `vectorize-io`), o mesmo que o placar público usa.
 - Iterações de pesquisa dentro do engine (`beam-qa.ts`) usam um par prompt/juiz diferente e são rotuladas *internal* — servem para escolher o que corrigir, nunca para publicar.
 
-Se você faz self-hosting e quer medir sua própria instância: `bun run gate:locomo` (piso de recall do nightly, R@10 ≥ 0.90 por padrão) e `bun run gate:beam` (acurácia via AMB) vêm com o engine. Custam tokens de LLM e tempo; são gates, não testes de unidade.
+Numa instalação on-premise (Enterprise), para medir a sua própria instância: `bun run gate:locomo` (piso de recall do nightly, R@10 ≥ 0.90 por padrão) e `bun run gate:beam` (acurácia via AMB) vêm com o engine. Custam tokens de LLM e tempo; são gates, não testes de unidade.

@@ -1,0 +1,73 @@
+---
+title: On-premise (Enterprise)
+description: A arquitetura que implantamos na sua rede no plano Enterprise — stack, bancos, serviços e gates de qualidade.
+---
+
+> **Rodar o engine você mesmo é o on-premise do plano Enterprise** — implantado e acompanhado pela nossa equipe ([o que o plano inclui](https://valorbrain.valor.digital/enterprise)). Não existe versão comunitária ou self-service do engine, e o código-fonte não é público. Esta página descreve a arquitetura do que é implantado, para avaliação técnica.
+
+A API hospedada em `valorbrain-api.valor.digital` é o caminho sem setup. O que se segue é o que existe dentro do perímetro de um cliente Enterprise.
+
+## A stack
+
+| Camada | O quê | Default |
+|---|---|---|
+| Runtime | **Bun** 1.x (não é Node) | — |
+| Banco | **PostgreSQL 18** | `:5433`, runtime via **PgBouncer** `:6432` |
+| Extensões | `vector` (pgvector), `pgturbohybrid`, `pg_ripple`, `pg_deltax` | proprietárias |
+| Engine | REST + MCP HTTP num processo Bun | `:7438` |
+| Embedding | LFM2.5-Embedding-350M (1024d) | `:7997`, ou endpoint cloud compatível |
+| Reranker | BGE-Reranker-v2-m3 cross-encoder | `:8096` (opcional; fallback em processo) |
+| LLM | gateway compatível com OpenAI | `:8201/v1`, modelo via `VALORBRAIN_LLM_MODEL` |
+
+GPU é opcional — sem ela, embedding/rerank/LLM apontam para endpoints cloud. Sem as extensões proprietárias do Postgres, o engine sobe em modo degradado (pgvector + BM25 via tsvector): serve para avaliação, sem o RRF híbrido completo nem o grafo.
+
+## Bancos — regra número um
+
+| Banco | Uso |
+|---|---|
+| `valorbrain` | Produção. Dados reais dos tenants. |
+| `valorbrain_test` | Suíte de testes (recusa banco com nome fora do padrão `*_test*`) |
+| `valorbrain_staging` | Staging em `:7439` |
+
+Conexões de runtime vão pelo PgBouncer; migrations e DDL direto no `:5433` como papel `postgres`. O papel da aplicação (`valorbrain_app`) roda sob RLS e nunca faz DDL. Regra permanente: nenhum `TRUNCATE`/`DROP`/`DELETE` em massa sem `WHERE tenant_id` — RLS não bloqueia `TRUNCATE`.
+
+## Serviços e portas
+
+O inventário de um host de produção:
+
+| Serviço | Porta | Função |
+|---|---|---|
+| `valorbrain.service` | **7438** | Engine de produção |
+| `valorbrain-staging.service` | 7439 | Staging (banco próprio) |
+| `valorbrain-embed-worker.service` | — | Worker contínuo de embedding |
+| `valorbrain-watcher.service` | — | File watcher + pipeline de extração |
+| `valorbrain-entity-worker.service` | — | Extração de entidades |
+| `lfm2-embed.service` | 7997 | Embeddings (CUDA) |
+| `bge-reranker.service` | 8096 | Reranker (CUDA) |
+| `gliner-ner.service` | 8103 | NER (CUDA) |
+
+O engine binda em `127.0.0.1` por padrão. A exposição pública usa túnel/proxy com `VALORBRAIN_PUBLIC_URL` configurado — o `/openapi.json` vivo reescreve `servers[]` a partir dela.
+
+## Verificar o engine no ar
+
+```bash
+curl -sS http://localhost:7438/healthz
+curl -sS http://localhost:7438/openapi.json | jq '.servers, .info["x-valorbrain-live-operations"]'
+```
+
+O spec de `/openapi.json` é gerado em runtime da tabela de rotas do processo — `x-valorbrain-live-operations` conta o que este build registra de verdade. `/openapi.yaml` serve o mesmo documento em YAML.
+
+## Gates de qualidade
+
+Dois gates de benchmark acompanham o engine (custam LLM e tempo — não são teste unitário):
+
+| Gate | O que protege |
+|---|---|
+| `gate:locomo` | Piso de recall LoCoMo (R@10 ≥ 0,90; variação completa para SOTA) |
+| `gate:beam` | Acurácia no BEAM-100K via arreio AMB, par fixo leitor/juiz |
+
+Os números públicos estão na página de [avaliação](/docs/concepts/evaluation) e no [site](https://valorbrain.valor.digital/benchmarks). A suíte unitária roda contra `valorbrain_test`; qualquer falha é regressão, sem banda de tolerância.
+
+## Upgrade
+
+Migrations são aditivas, com checksum registrado; o papel de runtime pula DDL no boot por desenho. O acompanhamento Enterprise cobre backup pré-upgrade, aplicação de migrations, restart e checagem de saúde — junto com o seu time.

@@ -3,7 +3,7 @@ title: Evaluation and benchmarks
 description: What the numbers measure, which ones are reproducible, and the rules that keep them honest.
 ---
 
-Numbers on this page come from the engine's published benchmark register ([`docs/research/`](https://github.com/agentxagi/valorbrain/tree/main/docs/research)). They are retrieval-evidence numbers unless labeled otherwise — treating them as answer accuracy is a category error (see below).
+Numbers on this page come from the engine's benchmark register; the public mirror lives on the [product benchmarks page](https://valorbrain.valor.digital/en/benchmarks). They are retrieval-evidence numbers unless labeled otherwise — treating them as answer accuracy is a category error (see below).
 
 ## Two kinds of number
 
@@ -47,4 +47,4 @@ These came from real, expensive mistakes; a benchmark that breaks them measures 
 - Canonical public runs: the **AMB harness** (agent-memory-benchmark, `vectorize-io`), same arrears the public scoreboard uses.
 - Research iterations inside the engine (`beam-qa.ts`) use a different prompt/judge pair and are labeled *internal* — they are for choosing what to fix, never for publishing.
 
-If you self-host and want to measure your own instance: `bun run gate:locomo` (nightly recall floor, R@10 ≥ 0.90 default) and `bun run gate:beam` (accuracy via AMB) ship with the engine. They cost LLM tokens and time; they are gates, not unit tests.
+On an on-premise (Enterprise) installation, to measure your own instance: `bun run gate:locomo` (nightly recall floor, R@10 ≥ 0.90 default) and `bun run gate:beam` (accuracy via AMB) ship with the engine. They cost LLM tokens and time; they are gates, not unit tests.
