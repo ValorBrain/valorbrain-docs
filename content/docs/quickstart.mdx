@@ -1,13 +1,13 @@
 ---
-title: Quickstart
-description: Four commands from a clean shell to a searchable memory. Measured, not estimated.
+title: Começo rápido
+description: Quatro comandos de um shell limpo até uma memória pesquisável. Medido, não estimado.
 icon: Rocket
 ---
 
-The onboarding that matters is the **agent path**. A human can sign up in the
-app afterwards and claim the same key. The key does not change.
+O onboarding que importa é o **caminho do agente**. Um humano pode se cadastrar
+depois no app e assumir a mesma chave. A chave não muda.
 
-## Four commands
+## Quatro comandos
 
 ```bash
 npx @valorbrain/cli init --agent --agent-caller claude-code
@@ -16,86 +16,91 @@ npx @valorbrain/cli search "deploy key"
 npx @valorbrain/cli status
 ```
 
-That is the whole signup: no email, no dashboard, no card. The key is written
-to `~/.valorbrain/config.json` with mode `0600`.
+Esse é o cadastro inteiro: sem email, sem dashboard, sem cartão. A chave é
+escrita em `~/.valorbrain/config.json` com modo `0600`.
 
-### Measured time
+### Tempo medido
 
-Measured 2026-08-30 against the **published** package `@valorbrain/cli@0.1.0`,
-not against a local checkout:
+Medido em 2026-08-30 contra o pacote **publicado** `@valorbrain/cli@0.1.0`,
+não contra um checkout local:
 
-| Step | Time |
+| Passo | Tempo |
 |---|---|
-| `init --agent` (cold, includes npx download) | 2.5s |
+| `init --agent` (frio, inclui o download do npx) | 2.5s |
 | `add` → `search` | 1.45s |
-| Shell → searchable memory | **~4s** |
+| Shell → memória pesquisável | **~4s** |
 
-Target: **under 15 seconds**. Reference (mem0, same day): ~13s, of which 4.66s is `pip install`. `npx` skips that install.
+Alvo: **menos de 15 segundos**. Referência (mem0, no mesmo dia): ~13s, dos
+quais 4.66s são `pip install`. O `npx` pula essa instalação.
 
-`--json` (alias `--agent`) on any command prints a single JSON object. `help --json` dumps the whole surface.
+`--json` (alias `--agent`) em qualquer comando imprime um único objeto JSON.
+`help --json` despeja a superfície inteira.
 
-## Sign up as an agent
+## Cadastre-se como agente
 
-`init --agent` calls `POST https://valorbrain-api.valor.digital/api/v1/agents/signup`.
+`init --agent` chama `POST https://valorbrain-api.valor.digital/api/v1/agents/signup`.
 
-It returns a `vb_agent_…` key bound to a shadow tenant. Default expiry is 30
-days until a human claims it.
+Devolve uma chave `vb_agent_…` amarrada a um shadow tenant. O padrão é
+expirar em 30 dias até um humano assumi-la.
 
-**Identity is self-declared.** `--agent-caller` is never inferred from the
-environment. The CLI may *suggest* a caller from env (`CLAUDECODE`, `CURSOR`, …)
-and print a tip; it will not record it unless you pass the flag. If you forgot:
+**A identidade é autodeclarada.** `--agent-caller` nunca é inferido do
+ambiente. A CLI pode *sugerir* um caller a partir do env (`CLAUDECODE`,
+`CURSOR`, …) e imprimir uma dica; ela não registra nada a menos que você
+passe a flag. Se esqueceu:
 
 ```bash
 npx @valorbrain/cli identify claude-code
 ```
 
-Known caller ids the CLI understands as hints: `claude-code`, `cursor`,
+Caller ids que a CLI entende como dicas: `claude-code`, `cursor`,
 `codex`, `cline`, `continue`, `aider`, `goose`, `windsurf`, `kiro`,
-`opencode`, `hermes`, `zcode`, `grok`. Anything else is stored as you typed it.
+`opencode`, `hermes`, `zcode`, `grok`. Qualquer outro é armazenado como você
+digitou.
 
-The signup response includes a `message` written **as an instruction to you**.
-Surface it to the human on your next user-facing turn. Do not skip it.
+A resposta do signup inclui uma `message` escrita **como uma instrução para
+você**. Mostre-a ao humano no seu próximo turno voltado para o usuário. Não
+pule.
 
-## Claim it as a human
+## Assuma como humano
 
 ```bash
 npx @valorbrain/cli init --email you@company.com
 ```
 
-OTP is emailed. After verify, the **same** `vb_agent_` key keeps working.
-Memories are preserved. That is the acceptance criterion, and it was verified
-end-to-end on 2026-08-30.
+O OTP chega por email. Depois de verificar, a **mesma** chave `vb_agent_`
+continua funcionando. As memórias são preservadas. Esse é o critério de
+aceite, e foi verificado ponta a ponta em 2026-08-30.
 
-## What the key can do
+## O que a chave pode fazer
 
-The CLI key talks **REST** on `valorbrain-api.valor.digital`. Tenant is
-resolved from the token — you do **not** send `X-Tenant-ID`.
+A chave da CLI fala **REST** com `valorbrain-api.valor.digital`. O tenant é
+resolvido a partir do token — você **não** envia `X-Tenant-ID`.
 
-| Command | Endpoint |
+| Comando | Endpoint |
 |---|---|
 | `add` | `POST /documents` |
 | `search` | `POST /search` |
 | `list` | `GET /collections` |
-| `status` | `GET /health` + local config |
+| `status` | `GET /health` + config local |
 | `identify` | `POST /api/v1/agents/identify` |
-| `init --email` | `POST /api/v1/agents/claim` then `/claim/verify` |
+| `init --email` | `POST /api/v1/agents/claim` e depois `/claim/verify` |
 
-MCP is a **different credential**: `vbm_…`, created in the app under
-Settings → MCP tokens, or obtained via OAuth. See [MCP](/docs/mcp).
+MCP é uma **credencial diferente**: `vbm_…`, criada no app em
+Settings → MCP tokens, ou obtida via OAuth. Veja [MCP](/docs/mcp).
 
-## Human path (app)
+## Caminho humano (app)
 
-If you are not an agent:
+Se você não é um agente:
 
-1. Open [valorbrain.valor.digital](https://valorbrain.valor.digital/auth/register).
-2. Activate the email.
-3. Create an MCP token (`vbm_…`) or an ingest key (`fk_….sk_…`).
-4. Follow [MCP](/docs/mcp) or [REST](/docs/rest).
+1. Abra [valorbrain.valor.digital](https://valorbrain.valor.digital/auth/register).
+2. Ative o email.
+3. Crie um token MCP (`vbm_…`) ou uma chave de ingest (`fk_….sk_…`).
+4. Siga [MCP](/docs/mcp) ou [REST](/docs/rest).
 
-## Phantom commands
+## Comandos fantasma
 
-These appear in older READMEs and **do not exist** on `@valorbrain/cli@0.1.0`.
-`help --json` is the source of truth.
+Estes aparecem em READMEs antigos e **não existem** no `@valorbrain/cli@0.1.0`.
+`help --json` é a fonte da verdade.
 
 - `valorbrain setup harness …`
 - `valorbrain setup status`

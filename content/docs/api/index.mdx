@@ -1,33 +1,33 @@
 ---
-title: API reference
-description: MCP tools, REST endpoints, and the two different OpenAPI documents that exist today.
+title: Referência de API
+description: Ferramentas MCP, endpoints REST e os dois documentos OpenAPI diferentes que existem hoje.
 icon: Library
 ---
 
 <Cards>
-  <Card title="MCP tools" href="/docs/api/mcp-tools" description="Canonical names, toolsets, aliases, deprecated." />
-  <Card title="REST endpoints" href="/docs/api/rest" description="Customer-facing engine routes on valorbrain-api." />
-  <Card title="MCP catalog (generated)" href="/docs/api/generated-mcp" description="src/tool-catalog.ts, rebuilt with the docs." />
-  <Card title="REST (generated)" href="/docs/api/generated-rest" description="Every engine OpenAPI path, rebuilt with the docs." />
+  <Card title="Ferramentas MCP" href="/docs/api/mcp-tools" description="Nomes canônicos, toolsets, aliases, deprecadas." />
+  <Card title="Endpoints REST" href="/docs/api/rest" description="Rotas do engine voltadas ao cliente, no valorbrain-api." />
+  <Card title="Catálogo MCP (gerado)" href="/docs/api/generated-mcp" description="src/tool-catalog.ts, reconstruído junto com as docs." />
+  <Card title="REST (gerado)" href="/docs/api/generated-rest" description="Todos os paths OpenAPI do engine, reconstruídos junto com as docs." />
 </Cards>
 
-## OpenAPI — two files, do not confuse them
+## OpenAPI — dois arquivos, não confunda
 
-| URL | What it actually is |
+| URL | O que de fato é |
 |---|---|
-| `https://valorbrain.valor.digital/openapi.json` | SaaS **discovery** document. **4 paths** (ingest, device code, health-class). ~6.7 KB. |
-| `https://docs.valor.digital/openapi.json` | Engine OpenAPI, regenerated at docs build (servers rewritten to valorbrain-api). |
-| Engine repo `docs/reference/openapi.yaml` | Full engine spec. **116 paths**, including ops/graph. Not published on `valorbrain-api` (that host 404s `/openapi.json`). |
+| `https://valorbrain.valor.digital/openapi.json` | Documento de **descoberta** do SaaS. **4 paths** (ingest, device code, health-class). ~6.7 KB. |
+| `https://docs.valor.digital/openapi.json` | OpenAPI do engine, regenerado no build das docs (servers reescritos para valorbrain-api). |
+| `docs/reference/openapi.yaml` no repositório do engine | Spec completa do engine. **116 paths**, incluindo ops/graph. Não publicada no `valorbrain-api` (esse host dá 404 em `/openapi.json`). |
 
-The 4-path file is real and useful for agent discovery on the marketing
-host. It is not a description of `/search`. Use this site and the REST
-page for integration.
+O arquivo de 4 paths é real e útil para descoberta por agentes no host de
+marketing. Ele não é uma descrição do `/search`. Use este site e a página REST
+para integração.
 
-## Machine-readable docs
+## Docs legíveis por máquina
 
-| URL | Content |
+| URL | Conteúdo |
 |---|---|
-| [`/llms.txt`](/llms.txt) | Index + routing for agents |
-| [`/llms-full.txt`](/llms-full.txt) | Full markdown of every page |
-| [`/.well-known/mcp/server-card.json`](https://valorbrain.valor.digital/.well-known/mcp/server-card.json) | Live MCP card (product, not this docs host) |
-| [`/.well-known/agent-card.json`](/.well-known/agent-card.json) | Our agent card, pointing at the **product** MCP |
+| [`/llms.txt`](/llms.txt) | Índice + roteamento para agentes |
+| [`/llms-full.txt`](/llms-full.txt) | Markdown completo de todas as páginas |
+| [`/.well-known/mcp/server-card.json`](https://valorbrain.valor.digital/.well-known/mcp/server-card.json) | Card MCP vivo (produto, não este host de docs) |
+| [`/.well-known/agent-card.json`](/.well-known/agent-card.json) | Nosso agent card, apontando para o MCP do **produto** |

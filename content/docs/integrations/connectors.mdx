@@ -1,19 +1,19 @@
 ---
-title: Connectors
-description: Notion, Google Drive, Slack, GitHub and Linear. You bring OAuth credentials. Starter and above.
+title: Conectores
+description: Notion, Google Drive, Slack, GitHub e Linear. Você traz as credenciais OAuth. Starter para cima.
 ---
 
-The app ships five OAuth connectors: **Notion, Google Drive, Slack, GitHub,
-Linear**. They are BYOK — you paste the OAuth client for your workspace.
-Sync runs in the background and ingests into the tenant's engine.
+O app traz cinco conectores OAuth: **Notion, Google Drive, Slack, GitHub,
+Linear**. Eles são BYOK — você cola o cliente OAuth do seu workspace. O sync
+roda em background e ingere no engine do tenant.
 
-They live at [valorbrain.valor.digital/connectors](https://valorbrain.valor.digital/connectors)
-after login. They require **Starter or above**, not the free plan.
+Eles vivem em [valorbrain.valor.digital/connectors](https://valorbrain.valor.digital/connectors)
+depois do login. Exigem **Starter ou acima**, não o plano gratuito.
 
-This is not MCP. Connectors fill collections; agents then retrieve over MCP
-or REST.
+Isto não é MCP. Conectores abastecem coleções; agentes depois recuperam via
+MCP ou REST.
 
-Filesystem watchers and webhooks are additional ingest paths on
-self-hosted engines. Hosted customers who just need "put this document in
-the brain" should use CLI `add`, MCP `memory_store`, or
-`POST /api/v1/ingest` with an `fk_` key.
+Watchers de filesystem e webhooks são caminhos de ingestão adicionais em
+engines self-hosted. Clientes hospedados que só precisam de "coloca esse
+documento no cérebro" devem usar o `add` da CLI, o `memory_store` do MCP, ou
+`POST /api/v1/ingest` com uma chave `fk_`.

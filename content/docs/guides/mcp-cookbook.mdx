@@ -1,22 +1,22 @@
 ---
-title: MCP cookbook
-description: Agent workflows over the 92 MCP tools — every parameter verified against the registerTool schemas.
+title: Cookbook MCP
+description: Fluxos de agente sobre as 92 ferramentas MCP — cada parâmetro verificado contra os schemas de registerTool.
 ---
 
-The MCP surface is how agents are supposed to talk to ValorBrain. This page is workflows; the full mechanical contract for all 92 tools (description + input schema, straight from `registerTool()` metadata) lives at [`/mcp-schemas.md`](/mcp-schemas.md) and is regenerated at every docs build. If a field here is not in that dump, do not use it.
+A superfície MCP é como agentes devem falar com o ValorBrain. Esta página é sobre fluxos; o contrato mecânico completo das 92 ferramentas (descrição + input schema, direto dos metadados de `registerTool()`) vive em [`/mcp-schemas.md`](/mcp-schemas.md) e é regenerado a cada build da documentação. Se um campo aqui não está nesse dump, não use.
 
-Connection details are in [MCP tools](/docs/mcp/tools). Code below shows the tool name and arguments as any MCP client would pass them.
+Detalhes de conexão estão em [Ferramentas MCP](/docs/mcp/tools). O código abaixo mostra o nome da ferramenta e os argumentos como qualquer cliente MCP os passaria.
 
-## The session loop
+## O loop de sessão
 
-An agent's turn against ValorBrain is four calls, not forty:
+Um turno de agente contra o ValorBrain são quatro chamadas, não quarenta:
 
-1. **`memory_prepare`** — assemble context once, at the turn start.
-2. work, think, call whatever you need (`memory_retrieve` only if prepare came up short).
-3. **`memory_store`** — write back what is durable.
-4. **`memory_used`** — declare which memories actually carried the answer.
+1. **`memory_prepare`** — monte o contexto uma vez, no início do turno.
+2. trabalhe, pense, chame o que precisar (`memory_retrieve` só se o prepare ficou curto).
+3. **`memory_store`** — escreva de volta o que é durável.
+4. **`memory_used`** — declare quais memórias de fato sustentaram a resposta.
 
-### 1. Prepare context
+### 1. Preparar o contexto
 
 ```json
 {
@@ -29,11 +29,11 @@ An agent's turn against ValorBrain is four calls, not forty:
 }
 ```
 
-One call returns: recall hits + vault facts + foresights + the funnel (episodes, lessons, keyed facts, top documents). `fast_mode: true` skips funnel document retrieval for latency-critical hooks; recall still covers documents by category. Scoped retrieval: `episode_id` binds to one dialogue episode, `collection` narrows the funnel.
+Uma chamada devolve: hits de recall + fatos do vault + foresights + o funil (episódios, lições, keyed facts, top documentos). `fast_mode: true` pula a recuperação de documentos do funil para hooks críticos de latência; o recall ainda cobre documentos por categoria. Recuperação com escopo: `episode_id` vincula a um episódio de diálogo, `collection` estreita o funil.
 
-**Do not** answer from your assumptions before this call when the question is about *this* deployment — the memory is authoritative, your training data is not.
+**Não** responda a partir das suas suposições antes desta chamada quando a pergunta é sobre *este* deploy — a memória é a autoridade, seus dados de treino não são.
 
-### 2. Retrieve (when prepare is not enough)
+### 2. Recuperar (quando o prepare não basta)
 
 ```json
 {
@@ -47,19 +47,19 @@ One call returns: recall hits + vault facts + foresights + the funnel (episodes,
 }
 ```
 
-- One well-formed query. The server expands and fuses; five near-duplicate retrieves cost 5× and rank worse than one.
-- `mode`: `auto` routes (why → causal, last session → timeline, related → neighbors); explicit `keyword` / `semantic` / `causal` / `timeline` / `discovery` / `complex` / `hybrid` when you know better.
-- `limit` (alias `max_results`): default 12; 15–20 for broad topics.
-- `budget` is a *token* budget for category-ranked recall — a different axis from `limit`.
-- Snippets come back by default (`snippet_chars`); call `get`/`multi_get` only when the snippet is not enough.
+- Uma consulta bem-formulada. O servidor expande e funde; cinco recuperações quase-duplicadas custam 5× e ranqueiam pior que uma.
+- `mode`: `auto` roteia (porquê → causal, última sessão → timeline, relacionado → vizinhos); `keyword` / `semantic` / `causal` / `timeline` / `discovery` / `complex` / `hybrid` explícitos quando você sabe melhor.
+- `limit` (alias `max_results`): padrão 12; 15–20 para tópicos amplos.
+- `budget` é um orçamento de *tokens* para recall ranqueado por categoria — um eixo diferente de `limit`.
+- Snippets voltam por padrão (`snippet_chars`); chame `get`/`multi_get` só quando o snippet não bastar.
 
-Exact string, key, date, identifier? That is not a search — that is `memory_grep`:
+String exata, chave, data, identificador? Isso não é uma busca — isso é `memory_grep`:
 
 ```json
 { "tool": "memory_grep", "arguments": { "pattern": "VALORBRAIN_LLM_MODEL", "max_results": 20 } }
 ```
 
-### 3. Write back what is durable
+### 3. Escrever de volta o que é durável
 
 ```json
 {
@@ -75,23 +75,23 @@ Exact string, key, date, identifier? That is not a search — that is `memory_gr
 }
 ```
 
-Type picks the semantics:
+O tipo escolhe a semântica:
 
-| `type` | For | Default confidence |
+| `type` | Para | Confiança padrão |
 |---|---|---|
-| `decision` | a choice made, with alternatives rejected | 0.8 |
-| `observation` | a fact learned about the system/domain | 0.6 |
-| `problem` | a bug or incident (root cause once known) | 0.6 |
-| `lesson` | a takeaway that should change future behavior | 0.6 |
-| `milestone` | progress worth finding later | 0.6 |
-| `handoff` | context the next session needs | 0.6 |
-| `note` | everything else | 0.6 |
+| `decision` | uma escolha feita, com alternativas rejeitadas | 0.8 |
+| `observation` | um fato aprendido sobre o sistema/domínio | 0.6 |
+| `problem` | um bug ou incidente (causa raiz quando conhecida) | 0.6 |
+| `lesson` | um aprendizado que deveria mudar comportamento futuro | 0.6 |
+| `milestone` | progresso que vale a pena achar depois | 0.6 |
+| `handoff` | contexto que a próxima sessão precisa | 0.6 |
+| `note` | todo o resto | 0.6 |
 
-Title 5–200 chars (it is what search shows); content ≥ 20 chars — include context, reasoning, evidence, not just the conclusion. `visibility: "private"` hides the memory from the rest of the tenant (ownership stays yours); tenant-shared is the default and the product.
+Título de 5–200 chars (é o que a busca mostra); conteúdo ≥ 20 chars — inclua contexto, raciocínio, evidência, não só a conclusão. `visibility: "private"` esconde a memória do resto do tenant (a posse continua sua); compartilhada no tenant é o padrão e o produto.
 
-Do not store: chat transcripts (ingested automatically), raw file contents, scratch notes — `scratchpad` exists for ephemera and is never indexed.
+Não armazene: transcrições de chat (ingeridas automaticamente), conteúdo cru de arquivos, notas de rascunho — `scratchpad` existe para efêmeros e nunca é indexado.
 
-### 4. Declare usage
+### 4. Declarar uso
 
 ```json
 {
@@ -100,11 +100,11 @@ Do not store: chat transcripts (ingested automatically), raw file contents, scra
 }
 ```
 
-`verdict: "confirmed"` when the user agreed with what the memory said, `"corrected"` when they pushed back. This is the strongest ranking signal that exists — used memories rise, ignored ones decay. It costs one call; skipping it leaves ranking blind.
+`verdict: "confirmed"` quando o usuário concordou com o que a memória disse, `"corrected"` quando ele rebateu. É o sinal de ranking mais forte que existe — memórias usadas sobem, ignoradas decaem. Custa uma chamada; pular isso deixa o ranking cego.
 
-## Facts that must not go stale
+## Fatos que não podem ficar desatualizados
 
-Prose documents age badly; keyed facts carry a date and an authority level:
+Documentos em prosa envelhecem mal; keyed facts carregam uma data e um nível de autoridade:
 
 ```json
 {
@@ -119,11 +119,11 @@ Prose documents age badly; keyed facts carry a date and an authority level:
 }
 ```
 
-`authority`: `human` > `designated` > `import` > `agent`. When a document contradicts a keyed fact, the fact wins. Read with `keyed_facts_as_of` (time-travel: latest value per key with `as_of <= date`). When you find a document that is now *wrong*, do not just remember the new value — `assert_authority_correction` persists the corrected fact and marks the prior values superseded.
+`authority`: `human` > `designated` > `import` > `agent`. Quando um documento contradiz um keyed fact, o fato vence. Leia com `keyed_facts_as_of` (viagem no tempo: último valor por chave com `as_of <= date`). Quando achar um documento agora *errado*, não apenas lembre do novo valor — `assert_authority_correction` persiste o fato corrigido e marca os valores anteriores como superseded.
 
-## Trust machinery
+## Maquinaria de confiança
 
-### Decisions with a trail
+### Decisões com trilha
 
 ```json
 {
@@ -139,17 +139,17 @@ Prose documents age badly; keyed facts carry a date and an authority level:
 }
 ```
 
-Then wire causality: `action: "relate"` with `caused` / `influenced` / `precedent_for`. Later: `find_causal_links` ("what led to X"), `decisions` `action: "trace"` (full chain), `action: "similar"` (semantic precedent search). Records are hash-chained — the trail is tamper-evident by construction.
+Depois ligue a causalidade: `action: "relate"` com `caused` / `influenced` / `precedent_for`. Mais tarde: `find_causal_links` ("o que levou a X"), `decisions` `action: "trace"` (cadeia completa), `action: "similar"` (busca semântica de precedentes). Registros são hash-chained — a trilha é à prova de adulteração por construção.
 
-### Conflicts
+### Conflitos
 
-`conflicts` `action: "detect"` scans for value / temporal / relationship contradictions; `action: "list"` queues them by severity; `action: "resolve"` picks a strategy (`most_recent`, `credibility_weighted`, …). Detection also runs on the consolidation tick, so a clean list does not mean no conflicts — it means none detected yet.
+`conflicts` `action: "detect"` escaneia contradições de valor / temporais / de relacionamento; `action: "list"` as enfileira por severidade; `action: "resolve"` escolhe uma estratégia (`most_recent`, `credibility_weighted`, …). A detecção também roda no tick de consolidação, então uma lista limpa não significa sem conflitos — significa nenhum detectado ainda.
 
-### Knowledge graph
+### Grafo de conhecimento
 
-`kg_query` for an entity's relationships (multihop when the hybrid engine is on), `kg_explain` for *why* a fact holds (derivation proof trees when recorded), `append_entity_card` for IDENTITY/ATTRIBUTE/RELATIONSHIP/INSTRUCTION entries on a stable card. Triples that fail the SHACL pre-check land in `kg_quarantine` — approve or reject deliberately, they never silently enter the graph.
+`kg_query` para os relacionamentos de uma entidade (multihop com o engine híbrido ligado), `kg_explain` para o *porquê* de um fato valer (árvores de prova de derivação quando registradas), `append_entity_card` para entradas IDENTITY/ATTRIBUTE/RELATIONSHIP/INSTRUCTION num card estável. Triplas que falham no pre-check SHACL caem em `kg_quarantine` — aprove ou rejeite deliberadamente, elas nunca entram no grafo silenciosamente.
 
-## Curate before you drown
+## Cure antes de se afogar
 
 ```json
 {
@@ -158,31 +158,31 @@ Then wire causality: `action: "relate"` with `caused` / `influenced` / `preceden
 }
 ```
 
-- **pin** — +0.3 boost, permanent. Use when the user states a persistent constraint or corrects a misconception for the last time.
-- **snooze** — hide for N days (`until` as ISO date, default 30). Use when vault context keeps surfacing something irrelevant *right now*.
+- **pin** — boost de +0.3, permanente. Use quando o usuário declara uma restrição persistente ou corrige uma interpretação errada pela última vez.
+- **snooze** — oculta por N dias (`until` como data ISO, padrão 30). Use quando o contexto do vault insiste em trazer à tona algo irrelevante *agora*.
 
-Both resolve memories by search query — no docids needed. `memory_pin` / `memory_snooze` are the older verbs; `memory_curate` is the one to reach for.
+Ambos resolvem memórias por consulta de busca — sem docids. `memory_pin` / `memory_snooze` são os verbos mais antigos; `memory_curate` é o que você deve usar.
 
-## Working state across sessions
+## Estado de trabalho entre sessões
 
-- `task_state` `action: "goal"` — what *done* means; delivered into every `__goals__` block. `action: "progress"` — milestones (48h window). `action: "read"` — inspect.
-- `episodes` — bounded dialogue summaries for episodic retrieval; `memory_arcs` — narrative threads linking episodes to a goal.
-- `record_lesson` / `list_lessons` — procedural lessons per surface, with follow-through scores; verify=true when the lesson proved out again.
-- `diary` — observational diary for events worth reviewing later, in environments without hook support.
+- `task_state` `action: "goal"` — o que *pronto* significa; entregue em todo bloco `__goals__`. `action: "progress"` — marcos (janela de 48h). `action: "read"` — inspecionar.
+- `episodes` — resumos de diálogo delimitados para recuperação episódica; `memory_arcs` — fios narrativos ligando episódios a um objetivo.
+- `record_lesson` / `list_lessons` — lições procedurais por surface, com scores de follow-through; verify=true quando a lição se provou de novo.
+- `diary` — diário observacional para eventos que valem revisão depois, em ambientes sem suporte a hook.
 
-## Team coordination
+## Coordenação de time
 
-- `team_briefing` at session start: unread inbox, pending handoffs, shared mission, recent activity.
-- `team_handoff` `action: "create"` hands durable async work to a teammate (`to`, `summary`, `open_questions`, `files_changed`, `priority`). `status: "blocked_on_human"` parks it waiting on a human — the anti-loop verb. `action: "consume"` closes it when done.
-- `team_message` — fire-and-forget; `team_notify_human` — pull a human in *now* through their channel.
-- `notifications` — your inbox; mark read once handled.
+- `team_briefing` no início da sessão: inbox não lido, handoffs pendentes, missão compartilhada, atividade recente.
+- `team_handoff` `action: "create"` entrega trabalho assíncrono durável a um colega (`to`, `summary`, `open_questions`, `files_changed`, `priority`). `status: "blocked_on_human"` estaciona esperando um humano — o verbo anti-loop. `action: "consume"` fecha quando terminado.
+- `team_message` — fire-and-forget; `team_notify_human` — puxa um humano *agora* pelo canal dele.
+- `notifications` — seu inbox; marque como lido depois de tratar.
 
-## Operations (long jobs, safely)
+## Operações (jobs longos, com segurança)
 
-Reindex, graph builds and vault syncs are long operations with handles: `reindex` / `build_graphs` / `vault_sync` accept `run_async: true` and return an id; `operation_status` (with `wait_ms` long-poll), `operation_list`, `operation_cancel` manage them. A half-written reindex is worse than none — prefer the cooperative cancel over killing.
+Reindex, builds de grafo e syncs de vault são operações longas com handles: `reindex` / `build_graphs` / `vault_sync` aceitam `run_async: true` e devolvem um id; `operation_status` (com long-poll via `wait_ms`), `operation_list`, `operation_cancel` os gerenciam. Um reindex escrito pela metade é pior que nenhum — prefira o cancel cooperativo a matar o processo.
 
-Health surfaces: `index_stats` (content distribution, staleness), `memory_health`, `usage_report` (ops by channel/tool/latency — the same ledger the REST `/reports/usage` reads), `list_vaults`.
+Superfícies de saúde: `index_stats` (distribuição de conteúdo, staleness), `memory_health`, `usage_report` (ops por canal/ferramenta/latência — o mesmo ledger que o REST `/reports/usage` lê), `list_vaults`.
 
-## When something is broken in the product itself
+## Quando algo está quebrado no próprio produto
 
-`feedback` `action: "submit"` — empty results where knowledge should exist, wrong ranking, a tool erroring. A silent workaround leaves the defect in place for every other agent; the defect report is the load-bearing call.
+`feedback` `action: "submit"` — resultados vazios onde deveria existir conhecimento, ranking errado, ferramenta dando erro. Um contorno silencioso deixa o defeito no lugar para todos os outros agentes; o relato do defeito é a chamada que sustenta o sistema.

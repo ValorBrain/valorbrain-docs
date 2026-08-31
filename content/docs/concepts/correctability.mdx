@@ -1,39 +1,39 @@
 ---
-title: Correctability
-description: A prose document can be months old and still rank first. Keyed facts have a date and an authority. They win.
+title: Corrigibilidade
+description: Um documento em prosa pode ter meses e ainda rankar em primeiro. Keyed facts têm data e um nível de autoridade — e vencem.
 ---
 
-This is the failure mode that costs the most, so the product has a first-class
-path for it.
+Este é o modo de falha que mais custa, então o produto tem um caminho de
+primeira classe para ele.
 
-## Keyed facts beat prose
+## Keyed facts vencem a prosa
 
-`keyed_facts_as_of` returns the latest value per `fact_key` whose `as_of` is
-on or before a date. Each snapshot has an authority:
+`keyed_facts_as_of` devolve o valor mais recente por `fact_key` cujo `as_of`
+é na data informada ou antes dela. Cada snapshot tem uma autoridade:
 
 **human > designated > import > agent**
 
-When a retrieved document contradicts a keyed fact, the keyed fact wins. Say
-so in the answer. Do not silently pick the document.
+Quando um documento recuperado contradiz um keyed fact, o keyed fact vence.
+Diga isso na resposta. Não escolha o documento em silêncio.
 
-Write a snapshot with `upsert_keyed_fact`. Correct a wrong public value with
-`assert_authority_correction` so the next agent does not repeat the error.
+Escreva um snapshot com `upsert_keyed_fact`. Corrija um valor público errado
+com `assert_authority_correction` para que o próximo agente não repita o
+erro.
 
-## Two documents disagree
+## Dois documentos divergem
+Se nenhum keyed fact decidir, prefira o documento mais recente e **diga que
+fez isso**. Conflitos do mesmo dia, ou conflitos sobre uma decisão em vez de
+um valor: mostre os dois e pergunte.
 
-If no keyed fact settles it, prefer the more recent document and **say that
-you did**. Same-day conflicts, or conflicts about a decision rather than a
-value: surface both and ask.
+Um corpo recuperado pode abrir com `SUPERSEDED:`. Essa linha vem de um keyed
+fact. Não discuta com ela a partir do documento.
 
-A retrieved body may open with `SUPERSEDED:`. That line comes from a keyed
-fact. Do not argue with it from the document.
+## O que "corrigibilidade" (correctability) significa no produto
 
-## What "correctability" means in the product
+Fato errado na memória → afirmar a correção → **uma nova sessão** recupera o
+valor correto no topo dos resultados, não o velho. Esse loop é a prioridade
+depois de latência e onboarding.
 
-Wrong fact in memory → assert the correction → **a new session** retrieves
-the correct value in the top results, not the stale one. That loop is the
-priority after latency and onboarding.
-
-Related tools: `memory_curate` (pin / snooze), `memory_forget` (least
-reversible write — separate on purpose), `memory_used` with
+Ferramentas relacionadas: `memory_curate` (pin / snooze), `memory_forget` (a
+escrita menos reversível — separada de propósito), `memory_used` com
 `verdict="corrected"`.

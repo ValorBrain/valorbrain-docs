@@ -1,53 +1,53 @@
 ---
-title: How memory works
-description: Store a typed outcome, retrieve with hybrid search, cite what you used.
+title: Como funciona a memória
+description: Armazene um resultado tipado, recupere com busca híbrida, cite o que você usou.
 ---
 
-A "memory" in ValorBrain is a **document** in a **collection**, inside a
-**tenant**. Agents should treat retrieval as lookup of company truth, not as
-a chat log.
+Uma "memória" no ValorBrain é um **documento** em uma **coleção**, dentro de
+um **tenant**. Agentes devem tratar a recuperação como consulta à verdade da
+empresa, não como um log de chat.
 
-## Store
+## Armazenar
 
-Prefer the typed write:
+Prefira a escrita tipada:
 
-- MCP: `memory_store` with `type` ∈ `decision` | `observation` | `problem` | `milestone` | `handoff` | `lesson` | `note`
+- MCP: `memory_store` com `type` ∈ `decision` | `observation` | `problem` | `milestone` | `handoff` | `lesson` | `note`
 - REST/CLI: `POST /documents` (CLI `add`)
 
-`store` (bare) still exists on the MCP catalog as a **deprecated** alias of
-`memory_store`. Do not document it to new clients; do not call it.
+`store` (isolado) ainda existe no catálogo MCP como alias **deprecado** de
+`memory_store`. Não o documente para clientes novos; não o chame.
 
-Text is stored verbatim. Portuguese stays Portuguese.
+O texto é armazenado verbatim. Português continua português.
 
-Short bodies (under ~200 characters) may skip embedding. They remain
-searchable on the lexical path.
+Corpos curtos (abaixo de ~200 caracteres) podem pular o embedding. Eles
+continuam buscáveis no caminho léxico.
 
-## Retrieve
+## Recuperar
 
-The default path is hybrid: BM25 + dense vectors + RRF, then a cross-encoder
-rerank on the hosted product.
+O caminho padrão é híbrido: BM25 + vetores densos + RRF, e depois um rerank
+de cross-encoder no produto hospedado.
 
-| Tool / route | When |
+| Ferramenta / rota | Quando |
 |---|---|
-| `memory_retrieve` / `POST /search` | One well-formed question. The server expands and fuses. |
-| `memory_prepare` | Session start / "give me the context for this task" |
-| `working_context` | Cheapest orientation: stable facts + recent decisions |
-| `memory_grep` | Exact string, id, date, key — not a paraphrase |
+| `memory_retrieve` / `POST /search` | Uma pergunta bem formulada. O servidor expande e funde. |
+| `memory_prepare` | Início de sessão / "me dê o contexto para esta tarefa" |
+| `working_context` | A orientação mais barata: fatos estáveis + decisões recentes |
+| `memory_grep` | String exata, id, data, chave — não uma paráfrase |
 
-Do not fire five near-duplicate retrieves. If the first set is thin, switch
-tool: exact → `memory_grep`; more of a hit → `get` / `multi_get`; why →
-`find_causal_links` (graph toolset).
+Não dispare cinco recuperações quase duplicadas. Se o primeiro conjunto vier
+magro, troque de ferramenta: exato → `memory_grep`; mais de um acerto →
+`get` / `multi_get`; por quê → `find_causal_links` (toolset `graph`).
 
-## Collections
+## Coleções
 
-A collection is a named bucket (`decisions`, `incidents`, …). `list` /
-`GET /collections` shows what the tenant has. You choose the name when you
-write; there is no global required taxonomy for customers.
+Uma coleção é um bucket com nome (`decisions`, `incidents`, …). `list` /
+`GET /collections` mostra o que o tenant tem. Você escolhe o nome na hora de
+escrever; não existe taxonomia global obrigatória para clientes.
 
-## Ranking loop
+## O loop de ranking
 
-After you answer with retrieved memory, call `memory_used` with the docids
-you actually relied on. Used memories rise; ignored ones decay. Optional
-`verdict`: `confirmed` or `corrected` when the human reacts. This is the
-strongest ranking signal in the product. Current declaration rate in the
-wild is low — do not be part of that number.
+Depois de responder com memória recuperada, chame `memory_used` com os docids
+que você realmente usou. Memórias usadas sobem; ignoradas decaem. `verdict`
+opcional: `confirmed` ou `corrected` quando o humano reage. Este é o sinal
+de ranking mais forte do produto. A taxa de declaração atual, no mundo real,
+é baixa — não faça parte desse número.

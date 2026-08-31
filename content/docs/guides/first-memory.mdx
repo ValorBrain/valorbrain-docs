@@ -1,6 +1,6 @@
 ---
-title: First memory in 15 seconds
-description: Clean machine, published package, no credentials of ours.
+title: Primeira memória em 15 segundos
+description: Máquina limpa, pacote publicado, sem credenciais nossas.
 ---
 
 ```bash
@@ -10,14 +10,14 @@ npx @valorbrain/cli search "Portuguese"
 npx @valorbrain/cli status --json
 ```
 
-Expect:
+Espere:
 
-- `init` writes `~/.valorbrain/config.json` (0600) with a `vb_agent_` key
-- `add` returns a document id
-- `search` returns that document. The Portuguese sentence is still Portuguese
-- Clock, published package, 2026-08-30: **~4 seconds** total
+- `init` escreve `~/.valorbrain/config.json` (0600) com uma chave `vb_agent_`
+- `add` devolve um id de documento
+- `search` devolve esse documento. A frase em português continua em português
+- Relógio, pacote publicado, 2026-08-30: **~4 segundos** no total
 
-If `search` is empty, wait a few seconds and retry — a very short body may
-not have a dense vector yet; lexical search should still hit.
+Se `search` vier vazio, espere alguns segundos e repita — um corpo muito curto
+pode ainda não ter vetor denso; a busca lexical deve acertar mesmo assim.
 
-Then, in an MCP client, `memory_used` with that docid so ranking learns.
+Depois, num cliente MCP, `memory_used` com esse docid para o ranking aprender.

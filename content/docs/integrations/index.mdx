@@ -1,39 +1,39 @@
 ---
-title: Integrations
-description: Editors, harnesses and connectors that actually exist today — not the ones a README hoped for.
+title: Integrações
+description: Editores, harnesses e conectores que existem de verdade hoje — não os que um README torceu pra existir.
 icon: Blocks
 ---
 
-ValorBrain talks to any MCP client and any HTTP client. The pages below are
-the combinations we run ourselves or ship installers for.
+O ValorBrain conversa com qualquer cliente MCP e qualquer cliente HTTP. As
+páginas abaixo são as combinações que nós mesmos rodamos ou para as quais
+publicamos instaladores.
 
 <Cards>
-  <Card title="Claude Code" href="/docs/integrations/claude-code" description="MCP HTTP or stdio. Rules for consult-then-declare." />
-  <Card title="Cursor / Windsurf" href="/docs/integrations/cursor" description="OAuth DCR or a vbm_ token." />
-  <Card title="Grok" href="/docs/integrations/grok" description="Harness templates + @valorbrain/connect." />
-  <Card title="Hermes" href="/docs/integrations/hermes" description="Native MemoryProvider plugin." />
-  <Card title="OpenClaw" href="/docs/integrations/openclaw" description="memory slot plugin." />
-  <Card title="ZCode" href="/docs/integrations/zcode" description="Marketplace plugin with hooks and a skill." />
-  <Card title="Connectors" href="/docs/integrations/connectors" description="Notion, Drive, Slack, GitHub, Linear — BYOK, Starter+." />
+  <Card title="Claude Code" href="/docs/integrations/claude-code" description="MCP HTTP ou stdio. Regras de consulte-então-declare." />
+  <Card title="Cursor / Windsurf" href="/docs/integrations/cursor" description="OAuth DCR ou um token vbm_." />
+  <Card title="Grok" href="/docs/integrations/grok" description="Templates de harness + @valorbrain/connect." />
+  <Card title="Hermes" href="/docs/integrations/hermes" description="Plugin MemoryProvider nativo." />
+  <Card title="OpenClaw" href="/docs/integrations/openclaw" description="Plugin de slot memory." />
+  <Card title="ZCode" href="/docs/integrations/zcode" description="Plugin de marketplace com hooks e uma skill." />
+  <Card title="Conectores" href="/docs/integrations/connectors" description="Notion, Drive, Slack, GitHub, Linear — BYOK, Starter+." />
 </Cards>
 
-## Hosted vs self-hosted
+## Hospedado vs self-hosted
 
-**Hosted (start here):** no engine on your laptop. The harness talks to
-`mcpbrain` with a `vbm_` token, or to REST with a `vb_agent_` key from the
-CLI.
+**Hospedado (comece por aqui):** nenhum engine na sua máquina. O harness fala
+com o `mcpbrain` com um token `vbm_`, ou com a REST com uma chave `vb_agent_`
+vinda da CLI.
 
-**Self-hosted:** you run the engine. Same tools, your infrastructure.
-On-prem is accompanied — there is no public `docker compose up` for the
-full GPU stack.
+**Self-hosted:** você roda o engine. Mesmas ferramentas, sua infraestrutura.
+On-prem é acompanhado — não existe um `docker compose up` público para o stack
+GPU completo.
 
-## The quality loop (every harness)
+## O loop de qualidade (todo harness)
 
-1. **Consult before answering** — memory is authoritative about the
-   operation; training data is not.
-2. **Declare what you used** — `memory_used` with the docids you relied on.
-   When the human confirms or corrects, pass `verdict`.
+1. **Consulte antes de responder** — a memória manda na operação; os dados de
+   treino, não.
+2. **Declare o que você usou** — `memory_used` com os docids em que você se
+   apoiou. Quando o humano confirmar ou corrigir, passe `verdict`.
 
-If a README tells you to run `valorbrain setup harness <name>`, that
-subcommand is **not** on the published CLI. Use the page for that harness
-instead.
+Se um README mandar rodar `valorbrain setup harness <name>`, esse subcomando
+**não** existe na CLI publicada. Use a página daquele harness.

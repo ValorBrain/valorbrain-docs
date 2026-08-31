@@ -1,17 +1,18 @@
 ---
-title: MCP tools reference
-description: The catalog, not a screenshot. Aliases included so old clients keep working.
+title: Referência das ferramentas MCP
+description: O catálogo, não um screenshot. Aliases incluídos para clientes antigos continuarem funcionando.
 ---
 
-This page is the same inventory as [MCP tools](/docs/mcp/tools), kept under
-API so OpenAPI-minded readers find it. Source: engine `src/tool-catalog.ts`.
+Esta página é o mesmo inventário de [Ferramentas MCP](/docs/mcp/tools),
+mantido sob API para que leitores mentalizados em OpenAPI a encontrem.
+Fonte: `src/tool-catalog.ts` do engine.
 
-New tokens: toolset **`agent`**.
+Tokens novos: toolset **`agent`**.
 
-Call `tools/list` at runtime. If a name here and the live list disagree, the
-live list wins and this page is wrong — [open an issue](https://github.com/ValorBrain/valorbrain-docs/issues).
+Chame `tools/list` em runtime. Se um nome aqui e a lista viva divergirem, a
+lista viva vence e esta página está errada — [abra uma issue](https://github.com/ValorBrain/valorbrain-docs/issues).
 
-Canonical agent tools: `memory_retrieve`, `memory_prepare`, `working_context`,
+Ferramentas canônicas do agent: `memory_retrieve`, `memory_prepare`, `working_context`,
 `memory_grep`, `get`, `multi_get`, `keyed_facts_as_of`, `memory_store`,
 `memory_used`, `upsert_keyed_fact`, `assert_authority_correction`,
 `record_lesson`, `memory_curate`, `memory_forget`, `append_entity_card`,
@@ -20,13 +21,13 @@ Canonical agent tools: `memory_retrieve`, `memory_prepare`, `working_context`,
 `team_roster`, `whoami`, `memory_health`, `list_lessons`, `episodes`,
 `notifications`.
 
-Aliases (still dispatched): `memory_pin` → `memory_curate`, `memory_snooze` →
+Aliases (ainda despachados): `memory_pin` → `memory_curate`, `memory_snooze` →
 `memory_curate`, `diary_read` / `diary_write` → `diary`, `set_goal` /
 `report_progress` → `task_state`, `team_handoff_consume` → `team_handoff`,
 `get_memory_episode` / `list_memory_episodes` → `episodes`,
 `notifications_check` / `notifications_mark_read` → `notifications`,
-`record_decision` and family → `decisions`, `trace_lineage` /
+`record_decision` e família → `decisions`, `trace_lineage` /
 `export_provenance` → `provenance`, `detect_conflicts` / `list_conflicts` /
 `resolve_conflict` → `conflicts`.
 
-Deprecated: `store`, `list_proposals`.
+Deprecadas: `store`, `list_proposals`.

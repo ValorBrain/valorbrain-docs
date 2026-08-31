@@ -17,7 +17,7 @@ query ────────┼─ dense vectors (pgvector, LFM2.5 1024d) ├�
 
 1. **Lexical (BM25)** — `pgturbohybrid` keeps BM25 and dense in a *single* index; `tenant_hash` rides in the index `INCLUDE`, so tenant filtering happens inside the index scan, not as a post-filter. In a multi-tenant index this is the difference between ANN that works and ANN that silently starves small tenants.
 2. **Dense** — 1024-d embeddings on `content_vectors` (deduplicated by content hash), HNSW with `ef_search=1000`.
-3. **RRR fusion** — reciprocal-rank fusion merges the legs without needing comparable scores.
+3. **RRF fusion** — reciprocal-rank fusion merges the legs without needing comparable scores.
 4. **Graph rerank (PPR)** — personalized PageRank over the entity/temporal graph promotes documents that are *connected* to what you asked, not just lexically or semantically similar.
 5. **Cross-encoder rerank** — BGE-Reranker-v2-m3 scores query-document pairs directly; top-K that survives is what you see.
 

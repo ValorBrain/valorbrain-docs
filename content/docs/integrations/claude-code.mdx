@@ -1,25 +1,26 @@
 ---
 title: Claude Code
-description: Streamable HTTP MCP, or stdio via @valorbrain/connect.
+description: MCP via Streamable HTTP, ou stdio via @valorbrain/connect.
 ---
 
-## Hosted (recommended)
+## Hospedado (recomendado)
 
 ```bash
 claude mcp add --transport http valorbrain https://mcpbrain.valor.digital/mcp
 ```
 
-Authenticate with OAuth when prompted, or put a `vbm_` token in the client's
-header config. Then:
+Autentique com OAuth quando pedido, ou coloque um token `vbm_` na configuração
+de headers do cliente. Depois:
 
 ```bash
 npx @valorbrain/cli init --agent --agent-caller claude-code
 ```
 
-The CLI key is for REST (`add` / `search`). The MCP connection is a `vbm_`
-token or OAuth. You can use both: CLI for shell, MCP for in-editor tools.
+A chave da CLI serve para a REST (`add` / `search`). A conexão MCP é um token
+`vbm_` ou OAuth. Você pode usar os dois: CLI para o shell, MCP para as
+ferramentas dentro do editor.
 
-stdio alternative:
+Alternativa stdio:
 
 ```json
 {
@@ -32,15 +33,15 @@ stdio alternative:
 }
 ```
 
-## Contract we install
+## O contrato que instalamos
 
-When you use the public harness repo
+Quando você usa o repositório público de harness
 ([ValorBrain/valorbrain-harness](https://github.com/ValorBrain/valorbrain-harness))
-for Claude-family editors, the standing instruction is the same quality
-loop: consult ValorBrain before answering operational questions; call
-`memory_used` after.
+para editores da família Claude, a instrução permanente é o mesmo loop de
+qualidade: consulte o ValorBrain antes de responder perguntas operacionais;
+chame `memory_used` depois.
 
-## First tools
+## Primeiras ferramentas
 
-`whoami` → `memory_prepare` or `working_context` → work → `memory_store`
-for anything durable → `memory_used`.
+`whoami` → `memory_prepare` ou `working_context` → trabalho → `memory_store`
+para qualquer coisa durável → `memory_used`.

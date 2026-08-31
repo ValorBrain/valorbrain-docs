@@ -1,22 +1,22 @@
 ---
 title: Hermes
-description: Native MemoryProvider plugin. This is not "10 MCP tools in a prompt."
+description: Plugin MemoryProvider nativo. Isto não é "10 ferramentas MCP num prompt".
 ---
 
-Hermes talks to ValorBrain as a **MemoryProvider**, not as a generic MCP
-client with a hard-coded list of ten tools.
+O Hermes conversa com o ValorBrain como **MemoryProvider**, não como um cliente
+MCP genérico com uma lista fixa de dez ferramentas.
 
-On a machine that already has the engine, the plugin is shipped from the
-engine tree (`src/hermes/` → `~/.hermes/plugins/valorbrain`). That path is
-**self-hosted**. It is not what a hosted customer copies.
+Numa máquina que já tem o engine, o plugin vem da árvore do engine
+(`src/hermes/` → `~/.hermes/plugins/valorbrain`). Esse caminho é
+**self-hosted**. Não é o que um cliente hospedado copia.
 
-**Hosted Hermes:** use the same MCP HTTP/stdio path as any other client
-(`mcpbrain` + `vbm_`, or `@valorbrain/connect`). Hermes' native plugin is
-the deeper integration when you run the engine.
+**Hermes hospedado:** use o mesmo caminho MCP HTTP/stdio de qualquer outro
+cliente (`mcpbrain` + `vbm_`, ou `@valorbrain/connect`). O plugin nativo do
+Hermes é a integração mais profunda quando você roda o engine.
 
-The marketing `/docs` page that says "Plugin nativo com 10 tools" is
-stale. The live catalog is [MCP tools](/docs/api/mcp-tools); a new token
-gets the **agent** toolset, not a list of ten.
+A página de marketing em `/docs` que diz "Plugin nativo com 10 tools" está
+desatualizada. O catálogo vivo é [Ferramentas MCP](/docs/api/mcp-tools); um
+token novo recebe o toolset **agent**, não uma lista de dez.
 
 ```bash
 npx @valorbrain/cli init --agent --agent-caller hermes

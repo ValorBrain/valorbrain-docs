@@ -1,19 +1,19 @@
 ---
 title: MCP
-description: Streamable HTTP on mcpbrain, or stdio via @valorbrain/connect. Bearer vbm_ or OAuth 2.1.
+description: Streamable HTTP no mcpbrain, ou stdio via @valorbrain/connect. Bearer vbm_ ou OAuth 2.1.
 icon: Plug
 ---
 
-ValorBrain exposes a Model Context Protocol server.
+O ValorBrain expõe um servidor Model Context Protocol.
 
-- **Transport:** Streamable HTTP
+- **Transporte:** Streamable HTTP
 - **Endpoint:** `https://mcpbrain.valor.digital/mcp`
-- **Auth:** OAuth 2.1 (dynamic client registration) **or** `Authorization: Bearer vbm_…`
-- **Protocol:** `2025-11-25` (see the [server card](https://valorbrain.valor.digital/.well-known/mcp/server-card.json))
+- **Auth:** OAuth 2.1 (registro dinâmico de cliente) **ou** `Authorization: Bearer vbm_…`
+- **Protocolo:** `2025-11-25` (veja o [server card](https://valorbrain.valor.digital/.well-known/mcp/server-card.json))
 
 ## HTTP (Claude Code, Cursor, Windsurf)
 
-Clients that speak Streamable HTTP:
+Clientes que falam Streamable HTTP:
 
 ```json
 {
@@ -34,15 +34,16 @@ Claude Code:
 claude mcp add --transport http valorbrain https://mcpbrain.valor.digital/mcp
 ```
 
-Then authenticate (OAuth) or add the bearer header in the client's config.
+Depois autentique (OAuth) ou adicione o header bearer na configuração do
+cliente.
 
-Clients with OAuth 2.1 DCR discover auth from:
+Clientes com OAuth 2.1 DCR descobrem o auth a partir de:
 
 `https://mcpbrain.valor.digital/.well-known/oauth-authorization-server`
 
 ## stdio (via CLI)
 
-Clients that only speak stdio:
+Clientes que só falam stdio:
 
 ```json
 {
@@ -55,20 +56,20 @@ Clients that only speak stdio:
 }
 ```
 
-`@valorbrain/connect` is a published alias of `valorbrain mcp`. It is not a
-separate protocol.
+`@valorbrain/connect` é um alias publicado de `valorbrain mcp`. Não é um
+protocolo separado.
 
-## First calls
+## Primeiras chamadas
 
-1. `tools/list` — trust the live schema, not a screenshot.
-2. `whoami` — confirm tenant and user. Stop if either is wrong.
-3. `memory_retrieve` or `memory_prepare` — then `memory_used`.
+1. `tools/list` — confie no schema vivo, não num screenshot.
+2. `whoami` — confirme tenant e usuário. Pare se algum dos dois estiver errado.
+3. `memory_retrieve` ou `memory_prepare` — depois `memory_used`.
 
-The default **agent** toolset is the working set. It is not the full catalog.
-See [MCP tools](/docs/api/mcp-tools).
+O toolset padrão **agent** é o conjunto de trabalho. Não é o catálogo
+completo. Veja [Ferramentas MCP](/docs/api/mcp-tools).
 
-## What not to do
+## O que não fazer
 
-- Do not point REST at `mcpbrain`. `/search` there is not search.
-- Do not send a `vb_agent_` key as an MCP bearer. MCP tokens start with `vbm_`.
-- Do not call the deprecated tool `store`. The canonical write is `memory_store`.
+- Não aponte a REST para o `mcpbrain`. `/search` lá não é busca.
+- Não envie uma chave `vb_agent_` como bearer MCP. Tokens MCP começam com `vbm_`.
+- Não chame a ferramenta deprecada `store`. A escrita canônica é `memory_store`.

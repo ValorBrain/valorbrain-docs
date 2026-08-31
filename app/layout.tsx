@@ -21,7 +21,7 @@ export const metadata: Metadata = {
     template: '%s · ValorBrain Docs',
   },
   description:
-    'Company brain for people and agents. Persistent memory over MCP, REST and CLI — with sources, correctability, and no silent translation.',
+    'O cérebro da empresa para pessoas e agentes. Memória persistente via MCP, REST e CLI — com fontes, corrigibilidade e sem tradução silenciosa.',
   applicationName: 'ValorBrain Docs',
   icons: {
     icon: [{ url: '/favicon.svg', type: 'image/svg+xml' }],

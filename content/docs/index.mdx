@@ -1,59 +1,59 @@
 ---
-title: Introduction
-description: ValorBrain is the company brain — shared operational memory for people and agents, with sources you can cite and facts you can correct.
+title: Introdução
+description: ValorBrain é o cérebro da empresa — memória operacional compartilhada para pessoas e agentes, com fontes citáveis e fatos corrigíveis.
 icon: BookOpen
 ---
 
-ValorBrain is **not** a chatbot and **not** an agent orchestrator. It is the
-place your company keeps truth: decisions, incidents, people, keyed facts,
-and the context an agent needs before it answers.
+ValorBrain **não** é um chatbot e **não** é um orquestrador de agentes. É o
+lugar onde sua empresa guarda a verdade: decisões, incidentes, pessoas, keyed
+facts e o contexto que um agente precisa antes de responder.
 
-Two products share one mental model:
+Dois produtos compartilham o mesmo modelo mental:
 
 - **Hosted** — `valorbrain.valor.digital` (app) + `valorbrain-api.valor.digital` (REST) + `mcpbrain.valor.digital` (MCP).
-- **On-prem** — the same engine, on your network. On-prem is accompanied, not a public installer.
+- **On-prem** — o mesmo engine, na sua rede. On-prem é acompanhado, não é um instalador público.
 
 <Cards>
-  <Card title="Store your first memory" href="/docs/quickstart" description="Four commands. Shell to searchable memory in under 15 seconds." />
-  <Card title="Connect an editor" href="/docs/mcp" description="MCP over HTTP or stdio. Token prefix vbm_. REST keys are a different prefix." />
-  <Card title="REST API" href="/docs/rest" description="Canonical host is valorbrain-api. mcpbrain swallows non-OAuth REST paths." />
-  <Card title="Correct a wrong fact" href="/docs/concepts/correctability" description="Keyed facts beat stale documents. Assert a correction; the next session sees only the true value." />
+  <Card title="Guarde sua primeira memória" href="/docs/quickstart" description="Quatro comandos. Do shell à memória pesquisável em menos de 15 segundos." />
+  <Card title="Conecte um editor" href="/docs/mcp" description="MCP por HTTP ou stdio. Prefixo de token vbm_. Chaves de REST têm outro prefixo." />
+  <Card title="REST API" href="/docs/rest" description="O host canônico é valorbrain-api. O mcpbrain engole paths REST não-OAuth." />
+  <Card title="Corrija um fato errado" href="/docs/concepts/correctability" description="Keyed facts ganham de documentos velhos. Asserte uma correção; a próxima sessão vê só o valor verdadeiro." />
 </Cards>
 
-## What you get
+## O que você recebe
 
-| Surface | What it is for |
+| Superfície | Para que serve |
 |---|---|
-| **CLI** `@valorbrain/cli` | Agent signup, add, search. Zero npm dependencies. Node 18+. |
-| **MCP** | The working set agents actually call: retrieve, prepare, store, used, curate. |
-| **REST** | Same capabilities over HTTP for any language. |
-| **App** | Humans: onboarding, tokens, connectors, billing. |
+| **CLI** `@valorbrain/cli` | Signup de agente, `add`, `search`. Zero dependências npm. Node 18+. |
+| **MCP** | O conjunto de trabalho que os agentes realmente chamam: retrieve, prepare, store, used, curate. |
+| **REST** | As mesmas capacidades por HTTP, para qualquer linguagem. |
+| **App** | Humanos: onboarding, tokens, connectors, billing. |
 
-Text is stored **verbatim**. A sentence written in Portuguese is retrieved in Portuguese. That is a product choice, not an accident.
+O texto é armazenado **verbatim**. Uma frase escrita em português é recuperada em português. É uma escolha de produto, não um acidente.
 
-## Pick a path
+## Escolha um caminho
 
-| You are… | Start here |
+| Você é… | Comece aqui |
 |---|---|
-| An AI agent with a shell | [Sign up as an agent](/docs/quickstart#sign-up-as-an-agent) |
-| A human setting up a workspace | [https://valorbrain.valor.digital](https://valorbrain.valor.digital) then [MCP](/docs/mcp) |
-| Wiring Claude Code / Cursor / Grok | [Integrations](/docs/integrations) |
-| Calling HTTP from your own code | [REST](/docs/rest) |
+| Um agente de IA com shell | [Cadastre-se como agente](/docs/quickstart#cadastre-se-como-agente) |
+| Um humano configurando um workspace | [https://valorbrain.valor.digital](https://valorbrain.valor.digital) e depois [MCP](/docs/mcp) |
+| Conectando Claude Code / Cursor / Grok | [Integrações](/docs/integrations) |
+| Chamando HTTP do seu próprio código | [REST](/docs/rest) |
 
-## Hosts (read this once)
+## Hosts (leia isto uma vez)
 
-| Host | Role |
+| Host | Papel |
 |---|---|
-| `valorbrain-api.valor.digital` | REST. Search, documents, agent signup. |
-| `mcpbrain.valor.digital` | MCP only. Non-OAuth REST on this host returns 401. |
-| `valorbrain.valor.digital` | SaaS app, ingest with `fk_` keys, marketing, discovery. |
-| `docs.valor.digital` | This site. (`docs.valorbrain.valor.digital` is the same origin once ACM covers nested TLS.) |
+| `valorbrain-api.valor.digital` | REST. Busca, documentos, cadastro de agente. |
+| `mcpbrain.valor.digital` | Só MCP. REST não-OAuth neste host devolve 401. |
+| `valorbrain.valor.digital` | App SaaS, ingest com chaves `fk_`, marketing, discovery. |
+| `docs.valor.digital` | Este site. (`docs.valorbrain.valor.digital` é a mesma origem assim que o ACM cobrir o TLS aninhado.) |
 
-Do not send `/search` or `/documents` to `mcpbrain`. The engine treats every non-OAuth path on that host as MCP transport.
+Não envie `/search` ou `/documents` para o `mcpbrain`. O engine trata todo path não-OAuth naquele host como transporte MCP.
 
-## For agents reading this page
+## Para agentes lendo esta página
 
-1. If you have no key: run `npx @valorbrain/cli init --agent --agent-caller <your-name> --json`.
-2. Prefer `help --json` over guessing subcommands. The published CLI does **not** have `setup harness`.
-3. After you retrieve, call `memory_used` with the docids you actually relied on.
-4. Full machine index: [`/llms.txt`](/llms.txt) · complete dump: [`/llms-full.txt`](/llms-full.txt).
+1. Se você não tem chave: rode `npx @valorbrain/cli init --agent --agent-caller <your-name> --json`.
+2. Prefira `help --json` a adivinhar subcomandos. A CLI publicada **não** tem `setup harness`.
+3. Depois de recuperar, chame `memory_used` com os docids em que você realmente se apoiou.
+4. Índice completo para máquinas: [`/llms.txt`](/llms.txt) · dump completo: [`/llms-full.txt`](/llms-full.txt).

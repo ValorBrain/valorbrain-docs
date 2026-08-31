@@ -1,43 +1,43 @@
 ---
-title: Collections and vaults
-description: The two axes of memory organization — what a collection is, what a vault is, and the rules that surprise people.
+title: Coleções e vaults
+description: Os dois eixos da organização da memória — o que é uma coleção, o que é um vault, e as regras que surpreendem.
 ---
 
-Two different axes, constantly confused:
+Dois eixos diferentes, constantemente confundidos:
 
-- A **collection** is a *content* namespace inside a tenant: `team-notes`, `_valorbrain`, `baseline-2026-05-26`. Documents carry it; searches can be scoped to it.
-- A **vault** is a *sync source*: a named directory of markdown the engine can ingest and keep indexed (`vault_sync`, `list_vaults`). Several MCP tools take a `vault` parameter to scope reads.
+- Uma **coleção** é um namespace de *conteúdo* dentro de um tenant: `team-notes`, `_valorbrain`, `baseline-2026-05-26`. Os documentos o carregam; buscas podem ser escopadas a ele.
+- Um **vault** é uma *fonte de sync*: um diretório nomeado de markdown que o engine pode ingerir e manter indexado (`vault_sync`, `list_vaults`). Várias ferramentas MCP aceitam um parâmetro `vault` para escopar leituras.
 
-## Collections
+## Coleções
 
-Every document has `collection` + `path`, and `path` is unique *within* the collection — that pair, not the title, is the identity you write against. Re-POSTing the same path re-serves the same document instead of duplicating it.
+Todo documento tem `collection` + `path`, e `path` é único *dentro* da coleção — esse par, não o título, é a identidade contra a qual você escreve. Re-POSTar o mesmo path re-entrega o mesmo documento em vez de duplicá-lo.
 
-Four behaviors worth knowing before you design namespaces:
+Quatro comportamentos que vale a pena conhecer antes de desenhar namespaces:
 
-1. **Dedup is by content hash, across collections too.** The same bytes will not be indexed twice even in two collections — a deliberate curation stance, not a bug. If two collections need "the same" text, they need different content (different headers, dates, context).
-2. **Coverage ≠ curation.** Pulling an outside corpus in can *hurt* retrieval: thousands of near-clone documents pollute the candidate pool for every query. Ingest what your tenant actually asks about.
-3. **`collection_settings` is where policy lives** — including `excludePatterns`, the deliberate way to say "files in this collection are refused by policy" (curated personal data, experiment leftovers) so coverage reports show *expected* refusals instead of divergence.
-4. **`_valorbrain` is the default collection** for `memory_store` writes that don't name one — decisions, lessons, observations land there unless you say otherwise.
+1. **Dedup é por hash de conteúdo, entre coleções também.** Os mesmos bytes não serão indexados duas vezes, nem em duas coleções — uma postura curatorial deliberada, não um bug. Se duas coleções precisam de "o mesmo" texto, elas precisam de conteúdos diferentes (headers, datas, contexto diferentes).
+2. **Cobertura ≠ curadoria.** Puxar um corpus externo para dentro pode *prejudicar* a recuperação: milhares de documentos quase-clones poluem o pool de candidatos de toda query. Faça ingest apenas daquilo sobre o que o seu tenant realmente pergunta.
+3. **`collection_settings` é onde a política mora** — incluindo `excludePatterns`, a forma deliberada de dizer "arquivos nesta coleção são recusados por política" (dados pessoais curados, sobras de experimento) para que relatórios de cobertura mostrem recusas *esperadas* em vez de divergência.
+4. **`_valorbrain` é a coleção padrão** para escritas de `memory_store` que não nomeiam uma — decisões, lições e observações caem lá a menos que você diga o contrário.
 
-Endpoints: `GET /collections` (list with counts), `GET /collections/health` (per-collection embedding/lifecycle state), `POST /api/v1/collection-settings/{collection}` (policy), `POST /api/v1/collection-settings/reindex` (rebuild), `POST /collections/{id}/lifecycle` (run lifecycle for one collection).
+Endpoints: `GET /collections` (lista com contagens), `GET /collections/health` (estado de embedding/lifecycle por coleção), `POST /api/v1/collection-settings/{collection}` (política), `POST /api/v1/collection-settings/reindex` (reconstrução), `POST /collections/{id}/lifecycle` (executa o lifecycle de uma coleção).
 
 ## Vaults
 
-A vault maps a directory to an indexed, searchable state:
+Um vault mapeia um diretório para um estado indexado e buscável:
 
-- `vault_sync` — ingest/refresh a vault (long operation; `run_async: true` returns a handle, `operation_status` polls it).
-- `list_vaults` — configured vaults and their paths.
-- The `vault` parameter on read tools scopes retrieval to one vault's documents.
+- `vault_sync` — ingere/atualiza um vault (operação longa; `run_async: true` devolve um handle, `operation_status` o consulta).
+- `list_vaults` — vaults configurados e seus caminhos.
+- O parâmetro `vault` nas ferramentas de leitura escopa a recuperação aos documentos de um vault.
 
-The vault does **not** isolate identity. Entity identity is `(tenant_id, entity_id)` — the tenant is the isolation boundary, not the vault; two vaults in one tenant share the entity graph. If you need hard isolation between two worlds, that is two tenants.
+O vault **não** isola identidade. A identidade de uma entidade é `(tenant_id, entity_id)` — o tenant é a fronteira de isolamento, não o vault; dois vaults num mesmo tenant compartilham o grafo de entidades. Se você precisa de isolamento total entre dois mundos, isso são dois tenants.
 
-## Choosing
+## Escolhendo
 
-| You want | Use |
+| Você quer | Use |
 |---|---|
-| Group memories by topic/source for humans | Collections |
-| Scope search to imported docs | Collection filter (`collection` on `/search`, `/retrieve`) |
-| Keep a folder of markdowns in sync with the brain | A vault + `vault_sync` |
-| Isolate one company/customer completely | A separate tenant |
+| Agrupar memórias por tópico/fonte para humanos | Coleções |
+| Escopar a busca a documentos importados | Filtro de coleção (`collection` em `/search`, `/retrieve`) |
+| Manter uma pasta de markdowns sincronizada com o cérebro | Um vault + `vault_sync` |
+| Isolar completamente uma empresa/cliente | Um tenant separado |
 
-Naming tips that age well: dates for baselines (`baseline-2026-05-26`), owner + purpose for living collections (`team-notes`), and never a name that implies a person is the only reader — tenant memory is shared by design, `visibility: private` is the per-user axis.
+Dicas de nomeação que envelhecem bem: datas para baselines (`baseline-2026-05-26`), dono + propósito para coleções vivas (`team-notes`), e nunca um nome que implique que uma pessoa é a única leitora — memória de tenant é compartilhada por design, e `visibility: private` é o eixo por usuário.

@@ -1,24 +1,25 @@
 ---
 title: Hosts
-description: REST, MCP and the app are three hostnames with three jobs. Mixing them is the most common integration failure.
+description: REST, MCP e o app são três hostnames com três funções. Misturá-los é a falha de integração mais comum.
 ---
 
-| Hostname | Job | What happens if you get it wrong |
+| Hostname | Função | O que acontece se você errar |
 |---|---|---|
-| `valorbrain-api.valor.digital` | **REST** — `/search`, `/documents`, `/api/v1/agents/*`, `/health` | This is the default `--url` of the CLI. |
-| `mcpbrain.valor.digital` | **MCP** — `/mcp`, OAuth discovery | Every **non-OAuth** path is treated as MCP transport and returns `401 missing_bearer`. `/search` here does not search. |
-| `valorbrain.valor.digital` | **SaaS app** — UI, `/api/v1/ingest` with `fk_` keys, `/llms.txt` (marketing), connectors | Marketing OpenAPI here has 4 paths. It is not the engine spec. |
-| `docs.valor.digital` | **This documentation** | Generated `llms.txt` / `llms-full.txt`. Nested `docs.valorbrain.valor.digital` needs ACM. |
+| `valorbrain-api.valor.digital` | **REST** — `/search`, `/documents`, `/api/v1/agents/*`, `/health` | É o `--url` padrão da CLI. |
+| `mcpbrain.valor.digital` | **MCP** — `/mcp`, descoberta OAuth | Todo caminho **não-OAuth** é tratado como transporte MCP e devolve `401 missing_bearer`. `/search` aqui não busca. |
+| `valorbrain.valor.digital` | **App SaaS** — UI, `/api/v1/ingest` com chaves `fk_`, `/llms.txt` (marketing), conectores | O OpenAPI de marketing aqui tem 4 paths. Não é a spec do engine. |
+| `docs.valor.digital` | **Esta documentação** | `llms.txt` / `llms-full.txt` gerados. O `docs.valorbrain.valor.digital` aninhado precisa de ACM. |
 
-OAuth discovery (`/.well-known/oauth-authorization-server`) works on the MCP
-host. Dynamic Client Registration (`POST /oauth/register`) works there too.
+A descoberta OAuth (`/.well-known/oauth-authorization-server`) funciona no host
+MCP. O Dynamic Client Registration (`POST /oauth/register`) também funciona lá.
 
-`localhost:7438` is the engine **on the machine that runs it**. It is not a
-public URL. The engine used to advertise it in `/setup/instructions`; that was
-fixed on 2026-08-30 (`VALORBRAIN_PUBLIC_URL` now points at `valorbrain-api`).
+`localhost:7438` é o engine **na máquina que o executa**. Não é uma URL
+pública. O engine costumava anunciá-lo em `/setup/instructions`; isso foi
+corrigido em 2026-08-30 (`VALORBRAIN_PUBLIC_URL` agora aponta para
+`valorbrain-api`).
 
-## Rule
+## Regra
 
-- Agent CLI and any REST client → `valorbrain-api`
-- MCP client → `mcpbrain` (HTTP) or `@valorbrain/connect` (stdio)
-- Browser user → `valorbrain.valor.digital`
+- CLI de agente e qualquer cliente REST → `valorbrain-api`
+- Cliente MCP → `mcpbrain` (HTTP) ou `@valorbrain/connect` (stdio)
+- Usuário no navegador → `valorbrain.valor.digital`

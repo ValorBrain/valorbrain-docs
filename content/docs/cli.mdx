@@ -1,67 +1,67 @@
 ---
 title: CLI
-description: "@valorbrain/cli — agent-native memory from the shell. Zero dependencies, Node 18+."
+description: "@valorbrain/cli — memória agent-native direto do shell. Zero dependências, Node 18+."
 icon: Terminal
 ---
 
-Package: [`@valorbrain/cli`](https://www.npmjs.com/package/@valorbrain/cli) `0.1.0`.
-Alias for the MCP stdio proxy: [`@valorbrain/connect`](https://www.npmjs.com/package/@valorbrain/connect).
+Pacote: [`@valorbrain/cli`](https://www.npmjs.com/package/@valorbrain/cli) `0.1.0`.
+Alias do proxy stdio de MCP: [`@valorbrain/connect`](https://www.npmjs.com/package/@valorbrain/connect).
 
 ```bash
 npx @valorbrain/cli help --json
 ```
 
-That JSON is the contract. If a blog post or README names a subcommand that is
-not in this object, the command does not exist.
+Aquele JSON é o contrato. Se um blog post ou README citar um subcomando que
+não está nesse objeto, o comando não existe.
 
-## Global flags
+## Flags globais
 
-| Flag | Alias | Meaning |
+| Flag | Alias | Significado |
 |---|---|---|
-| `--json` | `--agent` | Single JSON object on stdout, no colour, no spinner |
-| `--key` | | API key override (otherwise `~/.valorbrain/config.json`) |
-| `--url` | | REST base URL override |
+| `--json` | `--agent` | Um único objeto JSON no stdout, sem cor, sem spinner |
+| `--key` | | Sobrescreve a chave de API (senão `~/.valorbrain/config.json`) |
+| `--url` | | Sobrescreve a URL base REST |
 
-Defaults:
+Padrões:
 
 - REST: `https://valorbrain-api.valor.digital`
 - MCP: `https://mcpbrain.valor.digital/mcp`
 - Config: `~/.valorbrain/config.json`
 
-## Commands
+## Comandos
 
 ### `init --agent [--agent-caller <platform>]`
 
-Creates a shadow tenant and a `vb_agent_` key. See [Quickstart](/docs/quickstart).
+Cria um shadow tenant e uma chave `vb_agent_`. Veja o [Começo rápido](/docs/quickstart).
 
 ### `init --email <address> [--otp <code>]`
 
-Binds the existing key to an email via OTP. The key does not change.
+Vincula a chave existente a um email via OTP. A chave não muda.
 
 ### `identify <platform>`
 
-Idempotent `agent_caller` backfill. Self-declared, never sniffed.
+Backfill idempotente de `agent_caller`. Autodeclarado, nunca inferido do ambiente.
 
 ### `add <text>` / `--file <path>`
 
-Stores a document.
+Armazena um documento.
 
-| Flag | Maps to |
+| Flag | Mapeia para |
 |---|---|
-| `--collection <name>` | `collection` (default depends on server; pass one if you care) |
+| `--collection <name>` | `collection` (o padrão depende do servidor; passe um se fizer diferença) |
 | `--title <t>` | `title` |
-| `--type <t>` | content type (`decision`, `observation`, `problem`, `lesson`, `milestone`, `handoff`, `note`) |
+| `--type <t>` | tipo de conteúdo (`decision`, `observation`, `problem`, `lesson`, `milestone`, `handoff`, `note`) |
 
-Calls `POST /documents`. Body is stored verbatim — no translation.
+Chama `POST /documents`. O body é armazenado verbatim — sem tradução.
 
 ### `search <query>`
 
-| Flag | Meaning |
+| Flag | Significado |
 |---|---|
-| `--collection <name>` | Restrict to one collection |
-| `--mode auto\|keyword\|semantic\|hybrid` | Retrieval mode |
+| `--collection <name>` | Restringe a uma coleção |
+| `--mode auto\|keyword\|semantic\|hybrid` | Modo de recuperação |
 
-Calls `POST /search` with `compact: true`.
+Chama `POST /search` com `compact: true`.
 
 ### `list`
 
@@ -69,12 +69,12 @@ Calls `POST /search` with `compact: true`.
 
 ### `status`
 
-Local config plus `GET /health` on the REST host.
+Config local mais `GET /health` no host REST.
 
 ### `mcp [--token vbm_…] [--url <mcp-url>]`
 
-Stdio ↔ HTTP MCP proxy. `@valorbrain/connect` is this command as its own
-package, so stdio clients can run:
+Proxy MCP stdio ↔ HTTP. `@valorbrain/connect` é este comando empacotado à
+parte, para que clientes stdio possam rodar:
 
 ```json
 {
@@ -87,12 +87,12 @@ package, so stdio clients can run:
 }
 ```
 
-The MCP token prefix is `vbm_`, not `vb_agent_`. Mix them up and the MCP host
-will reject you.
+O prefixo do token MCP é `vbm_`, não `vb_agent_`. Misture os dois e o host
+MCP vai te rejeitar.
 
 ### `help [--json]`
 
-Human text, or the machine surface.
+Texto para humanos, ou a superfície de máquina.
 
 ## Self-hosting
 
@@ -100,4 +100,5 @@ Human text, or the machine surface.
 npx @valorbrain/cli --url https://your-engine.example.com init --agent
 ```
 
-There is no public one-line installer for the engine. On-prem is accompanied.
+Não existe instalador público de uma linha para o engine. On-prem é
+acompanhado.

@@ -1,13 +1,13 @@
 ---
-title: How retrieval works
-description: The hybrid pipeline, the memory model, and the trust machinery — one page, no hand-waving.
+title: Como a recuperação funciona
+description: O pipeline híbrido, o modelo de memória e a maquinaria de confiança — uma página, sem enrolação.
 ---
 
-This is the mental model the API and the 92 MCP tools sit on top of. Everything here describes what the engine actually does; the deep module map lives in the engine repo ([`docs/CONTEXT.md`](https://github.com/agentxagi/valorbrain/blob/main/docs/CONTEXT.md)).
+Este é o modelo mental sobre o qual a API e as 92 ferramentas MCP se apoiam. Tudo aqui descreve o que o engine realmente faz; o mapa profundo de módulos vive no repositório do engine ([`docs/CONTEXT.md`](https://github.com/agentxagi/valorbrain/blob/main/docs/CONTEXT.md)).
 
-## The retrieval pipeline
+## O pipeline de recuperação
 
-One query, five legs, fused:
+Uma query, cinco pernas, fundidas:
 
 ```
               ┌─ BM25 (lexical, pgturbohybrid) ─────────┐
@@ -15,45 +15,45 @@ query ────────┼─ dense vectors (pgvector, LFM2.5 1024d) ├�
               └─ causal / timeline / neighbors (routing)┘
 ```
 
-1. **Lexical (BM25)** — `pgturbohybrid` keeps BM25 and dense in a *single* index; `tenant_hash` rides in the index `INCLUDE`, so tenant filtering happens inside the index scan, not as a post-filter. In a multi-tenant index this is the difference between ANN that works and ANN that silently starves small tenants.
-2. **Dense** — 1024-d embeddings on `content_vectors` (deduplicated by content hash), HNSW with `ef_search=1000`.
-3. **RRR fusion** — reciprocal-rank fusion merges the legs without needing comparable scores.
-4. **Graph rerank (PPR)** — personalized PageRank over the entity/temporal graph promotes documents that are *connected* to what you asked, not just lexically or semantically similar.
-5. **Cross-encoder rerank** — BGE-Reranker-v2-m3 scores query-document pairs directly; top-K that survives is what you see.
+1. **Léxico (BM25)** — o `pgturbohybrid` mantém BM25 e denso em um *único* índice; o `tenant_hash` viaja no `INCLUDE` do índice, então o filtro de tenant acontece dentro do index scan, não como pós-filtro. Num índice multi-tenant, essa é a diferença entre um ANN que funciona e um ANN que silenciosamente passa fome nos tenants pequenos.
+2. **Denso** — embeddings de 1024 dimensões em `content_vectors` (deduplicados por hash de conteúdo), HNSW com `ef_search=1000`.
+3. **Fusão RRF** — a reciprocal-rank fusion mescla as pernas sem precisar de scores comparáveis.
+4. **Rerank de grafo (PPR)** — o personalized PageRank sobre o grafo de entidades/tempo promove documentos *conectados* ao que você perguntou, não apenas parecidos léxica ou semanticamente.
+5. **Rerank de cross-encoder** — o BGE-Reranker-v2-m3 pontua pares query-documento diretamente; o top-K que sobrevive é o que você vê.
 
-`mode` on `/search` and `memory_retrieve` biases the routing: `causal` for why-questions, `timeline` for when, `hybrid` to force all legs. `auto` decides for you and is right most of the time. The MMR diversity filter (`diverse: true`, default) keeps the top-K from being ten paraphrases of one document.
+O `mode` em `/search` e `memory_retrieve` direciona o roteamento: `causal` para perguntas de porquê, `timeline` para quando, `hybrid` para forçar todas as pernas. O `auto` decide por você e acerta na maior parte do tempo. O filtro de diversidade MMR (`diverse: true`, padrão) impede que o top-K seja dez paráfrases de um documento só.
 
-**Ranking is the last suspect, not the first.** When retrieval misses, the honest order of investigation is: candidate pool (was the document indexed at all?) → hydration (was the body loaded?) → snippet/window rendering (was the answer inside the delivered excerpt?) → ranking. The engine's own debugging history is a chain of nine ranking "fixes" that changed nothing while the document was being cut at render time.
+**Ranking é o último suspeito, não o primeiro.** Quando a recuperação falha, a ordem honesta de investigação é: pool de candidatos (o documento foi indexado?) → hidratação (o corpo foi carregado?) → renderização de snippet/janela (a resposta estava dentro do trecho entregue?) → ranking. O histórico de debugging do próprio engine é uma cadeia de nove "correções" de ranking que não mudaram nada enquanto o documento estava sendo cortado na renderização.
 
-## The memory model
+## O modelo de memória
 
-| Layer | What it is | Key behavior |
+| Camada | O que é | Comportamento-chave |
 |---|---|---|
-| **Documents** | The corpus. `collection` + `path` identity, content deduplicated by hash (cross-collection too) | Async embedding (`embed_state`); visibility tenant/private |
-| **Consolidated observations** | Higher-order synthesis of documents | Consolidation worker, confidence gate ≥ 0.65 |
-| **Keyed facts** | `(fact_key, as_of)` snapshots with an authority level | Supersede prose. A document contradicting a keyed fact loses |
-| **Entity triples (KG)** | SPO facts, temporal, per `(tenant_id, entity_id)` | SHACL pre-check; rejects go to quarantine, never silently in |
-| **Episodes** | Bounded dialogue summaries | Episodic retrieval; scoped `memory_prepare` |
-| **Decisions** | First-class records: category, scenario, reasoning, outcome, confidence | Hash-chained audit trail; causal links (`caused`/`influenced`/`precedent_for`) |
-| **Provenance** | W3C PROV-O lineage, SHA-256 hash chain | Every triple write is tracked; tamper-evident by construction |
-| **Fact conflicts** | Explicit value/temporal/relationship contradictions | Detected on consolidation ticks and on demand; resolved by strategy |
+| **Documentos** | O corpus. Identidade `collection` + `path`, conteúdo deduplicado por hash (entre coleções também) | Embedding assíncrono (`embed_state`); visibilidade tenant/private |
+| **Observações consolidadas** | Síntese de ordem superior dos documentos | Worker de consolidação, gate de confiança ≥ 0.65 |
+| **Keyed facts** | Snapshots `(fact_key, as_of)` com nível de autoridade | Supersedem a prosa. Um documento que contradiz um keyed fact perde |
+| **Tríplas de entidades (KG)** | Fatos SPO, temporais, por `(tenant_id, entity_id)` | Pre-check SHACL; rejeitadas vão para quarentena, nunca entram em silêncio |
+| **Episódios** | Sumários delimitados de diálogo | Recuperação episódica; `memory_prepare` com escopo |
+| **Decisões** | Registros de primeira classe: categoria, cenário, raciocínio, resultado, confiança | Trilha de auditoria com cadeia de hashes; links causais (`caused`/`influenced`/`precedent_for`) |
+| **Provenance** | Linhagem W3C PROV-O, cadeia de hashes SHA-256 | Toda escrita de trípla é rastreada; à prova de adulteração por construção |
+| **Conflitos de fatos** | Contradições explícitas de valor/tempo/relação | Detectadas nos ticks de consolidação e sob demanda; resolvidas por estratégia |
 
-The write path mirrors this: raw documents in, entity extraction (GLiNER zero-shot) enriches, consolidation synthesizes observations, decision-extractor hooks promote decisions, and every triple write lands with provenance.
+O caminho de escrita espelha isso: documentos crus entram, a extração de entidades (GLiNER zero-shot) enriquece, a consolidação sintetiza observações, os hooks do decision-extractor promovem decisões, e toda escrita de trípla chega com provenance.
 
-## Tenancy and identity
+## Tenancy e identidade
 
-- Every tenant-scoped table is **RLS-enforced** with a `tenant_id` policy; the runtime connects as an app role without `BYPASSRLS`.
-- Identity comes from the token — never guessed, never hardcoded. Zero tenant/user/company specifics in source.
-- Entity identity is `(tenant_id, entity_id)`; the vault isolates nothing by itself — the tenant does.
+- Toda tabela com escopo de tenant é **protegida por RLS** com uma policy `tenant_id`; o runtime conecta como um role de app sem `BYPASSRLS`.
+- A identidade vem do token — nunca adivinhada, nunca hardcoded. Zero particularidades de tenant/usuário/empresa no código-fonte.
+- A identidade de uma entidade é `(tenant_id, entity_id)`; o vault não isola nada por si só — quem isola é o tenant.
 
-## Consolidation and decay
+## Consolidação e decaimento
 
-Memory that never decays is a landfill. Three mechanisms keep it honest:
+Memória que nunca decai é um lixão. Três mecanismos a mantêm honesta:
 
-- **Lifecycle policies** archive stale documents (pinned ones exempt), `lifecycle_sweep` runs them (dry-run by default).
-- **Curation** — `pin` (+0.3 permanent boost), `snooze` (hide N days) — is the manual lever, driven by the `memory_used` feedback loop.
-- **The usage ledger** records every operation by channel; `value_daily` pre-aggregates it. Ranking learns from declared usage, not from guesses.
+- **Políticas de lifecycle** arquivam documentos velhos (itens pinados ficam isentos); o `lifecycle_sweep` as executa (dry-run por padrão).
+- **Curation** — `pin` (+0.3 de boost permanente), `snooze` (esconde por N dias) — é a alavanca manual, movida pelo loop de feedback do `memory_used`.
+- **O ledger de uso** registra cada operação por canal; o `value_daily` pré-agrega tudo. O ranking aprende do uso declarado, não de palpites.
 
-## The one-call contract
+## O contrato de uma chamada
 
-`POST /api/v1/memory/prepare` (REST) and `memory_prepare` (MCP) assemble a full context bundle — recall + vault facts + foresights + funnel (episodes, lessons, keyed facts, top documents) — in one call with a token budget. This is the intended integration point for prompt hooks; the read tools are for drilling, not for building your own bundle.
+`POST /api/v1/memory/prepare` (REST) e `memory_prepare` (MCP) montam um bundle completo de contexto — recall + fatos do vault + foresights + funil (episódios, lições, keyed facts, top documents) — numa única chamada, com um orçamento de tokens. Este é o ponto de integração pretendido para prompt hooks; as ferramentas de leitura servem para aprofundar, não para você montar seu próprio bundle.

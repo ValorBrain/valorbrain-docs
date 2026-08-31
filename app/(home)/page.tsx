@@ -5,33 +5,33 @@ import { REST_URL, MCP_URL, SAAS_URL } from '@/lib/shared';
 const cards = [
   {
     href: '/docs/quickstart',
-    title: 'Store your first memory',
-    body: 'Four commands. No email, no dashboard, no card. Shell to searchable memory in under 15 seconds.',
+    title: 'Guarde sua primeira memória',
+    body: 'Quatro comandos. Sem e-mail, sem dashboard, sem cartão. Do shell à memória buscável em menos de 15 segundos.',
   },
   {
     href: '/docs/mcp',
-    title: 'Add memory to a coding agent',
-    body: 'MCP over HTTP or stdio. Claude Code, Cursor, Grok, Hermes, OpenClaw, ZCode — one brain, every harness.',
+    title: 'Adicione memória a um agente de código',
+    body: 'MCP sobre HTTP ou stdio. Claude Code, Cursor, Grok, Hermes, OpenClaw, ZCode — um cérebro, todo harness.',
   },
   {
-    href: '/docs/quickstart#sign-up-as-an-agent',
-    title: 'Let an agent sign itself up',
-    body: '`npx @valorbrain/cli init --agent` mints a `vb_agent_` key. The human claims it later. The key does not change.',
+    href: '/docs/quickstart#cadastre-se-como-agente',
+    title: 'Deixe um agente se cadastrar sozinho',
+    body: '`npx @valorbrain/cli init --agent` emite uma chave `vb_agent_`. O humano faz o claim depois. A chave não muda.',
   },
   {
     href: '/docs/rest',
-    title: 'Call the REST API',
-    body: 'Search, ingest, pin, forget. Canonical host is valorbrain-api — not the MCP host, not localhost.',
+    title: 'Chame a API REST',
+    body: 'Buscar, ingerir, fixar, esquecer. O host canônico é valorbrain-api — não o host MCP, não localhost.',
   },
   {
     href: '/docs/integrations',
-    title: 'Wire a framework or editor',
-    body: 'Per-harness setup that matches what ships today. No phantom CLI subcommands.',
+    title: 'Conecte um framework ou editor',
+    body: 'Setup por harness fiel ao que existe hoje. Sem subcomando fantasma de CLI.',
   },
   {
     href: '/docs/concepts/correctability',
-    title: 'Correct a wrong fact',
-    body: 'Keyed facts beat stale prose. Assert a correction and the next session retrieves only the true value.',
+    title: 'Corrija um fato errado',
+    body: 'Fatos com chave vencem prosa velha. Asserte a correção e a próxima sessão recupera só o valor verdadeiro.',
   },
 ] as const;
 
@@ -43,15 +43,15 @@ export default function HomePage() {
         <BrandMark className="size-12" />
       </div>
       <p className="mb-4 text-xs font-medium uppercase tracking-[0.18em] text-fd-primary">
-        Documentation
+        Documentação
       </p>
         <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
-          Build with <span className="text-fd-primary">ValorBrain</span>
+          Construa com o <span className="text-fd-primary">ValorBrain</span>
         </h1>
         <p className="mx-auto mt-5 max-w-2xl text-base text-fd-muted-foreground sm:text-lg">
-          The company brain for people and agents. Persistent memory that
-          cites its sources, keeps Portuguese as Portuguese, and lets you
-          correct a fact so the next session does not repeat the error.
+          O cérebro da empresa para pessoas e agentes. Memória persistente que
+          cita as fontes, guarda português como português e deixa você corrigir
+          um fato para a próxima sessão não repetir o erro.
         </p>
       </div>
 
@@ -61,15 +61,14 @@ npx @valorbrain/cli add "the deploy key lives in the ops vault"
 npx @valorbrain/cli search "deploy key"`}</code>
       </pre>
       <p className="mx-auto mt-3 max-w-3xl text-center text-xs text-fd-muted-foreground">
-        Measured 2026-08-30 on the published package: init 2.5s cold · add →
-        search 1.45s · shell to searchable memory ~4s. Target &lt; 15s.
+        Medido em 30/08/2026 no pacote publicado: init 2,5s a frio · add →
+        search 1,45s · do shell à memória buscável ~4s. Meta &lt; 15s.
       </p>
 
       <p className="mx-auto mt-2 max-w-3xl text-center text-xs text-fd-muted-foreground">
         <Link href="/en/docs" className="underline decoration-fd-border hover:text-fd-primary">
           English documentation
-        </Link>{' '}
-        · documentação em português acima.
+        </Link>
       </p>
 
       <div className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -82,9 +81,7 @@ npx @valorbrain/cli search "deploy key"`}</code>
             <h2 className="text-base font-semibold group-hover:text-fd-primary">
               {card.title}
             </h2>
-            <p className="mt-2 text-sm leading-relaxed text-fd-muted-foreground">
-              {card.body}
-            </p>
+            <p className="mt-2 text-sm text-fd-muted-foreground">{card.body}</p>
           </Link>
         ))}
       </div>

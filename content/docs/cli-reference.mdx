@@ -1,105 +1,122 @@
 ---
-title: CLI reference
-description: The published @valorbrain/cli — every command and flag, straight from help --json of the latest package.
+title: Referência da CLI
+description: A @valorbrain/cli publicada — cada comando e flag, direto do help --json do pacote mais recente.
 ---
 
-The CLI is the fastest honest integration: it is a thin client over the same REST engine (`valorbrain-api.valor.digital`) with a shadow tenant that provisions itself and expires on its own. Nothing here is aspirational — every usage line below is what `valorbrain help --json` returns for the latest published package.
+A CLI é a integração honesta mais rápida: um cliente fino sobre o mesmo engine
+REST (`valorbrain-api.valor.digital`), com um shadow tenant que se provisiona
+sozinho e expira por conta própria. Nada aqui é aspiracional — cada linha de
+uso abaixo é o que `valorbrain help --json` devolve para o pacote publicado
+mais recente.
 
 ```bash
 npx @valorbrain/cli@latest <command>
 ```
 
-## init — create or claim an account
+## init — criar ou assumir uma conta
 
 ```
 valorbrain init --agent [--agent-caller <platform>]
 valorbrain init --email <address> [--otp <code>]
 ```
 
-- `--agent` provisions a **shadow tenant** and prints a `vb_agent_...` key (the JSON form has `ok: true`; the key is in `api_key`). No human, no email, no credit card — this is the "first memory in 15 seconds" path.
-- `--agent-caller` labels the platform (`claude-code`, `cursor`, `grok`, `docs-e2e`, …). It shows up in telemetry as the caller; backfilling it later is what `identify` is for.
-- `--email` claims the account with a human identity; `--otp` completes it when the code arrives. Claiming preserves the memories the agent already wrote.
+- `--agent` provisiona um **shadow tenant** e imprime uma chave `vb_agent_...` (a forma JSON tem `ok: true`; a chave está em `api_key`). Sem humano, sem email, sem cartão de crédito — este é o caminho de "primeira memória em 15 segundos".
+- `--agent-caller` rotula a plataforma (`claude-code`, `cursor`, `grok`, `docs-e2e`, …). Ele aparece na telemetria como caller; fazer backfill depois é para isso que o `identify` existe.
+- `--email` assume a conta com uma identidade humana; `--otp` completa quando o código chega. Assumir preserva as memórias que o agente já escreveu.
 
-The shadow tenant expires in 30 days by itself — long enough to evaluate, short enough to not leak.
+O shadow tenant expira em 30 dias sozinho — tempo suficiente para avaliar,
+curto o suficiente para não vazar.
 
-## identify — idempotent caller backfill
+## identify — backfill idempotente de caller
 
 ```
 valorbrain identify [--agent-caller <platform>]
 ```
 
-Attaches the caller label to the existing key. Safe to run repeatedly; it changes nothing if the label is already there.
+Anexa o rótulo de caller à chave existente. Seguro rodar repetidamente; não
+muda nada se o rótulo já está lá.
 
-## add — store a memory
+## add — armazenar uma memória
 
 ```
 valorbrain add <text> [--file <path>] [--collection <name>] [--title <t>] [--type <t>]
 ```
 
-- `--file` reads the body from a file instead of the argument (longer content, markdown welcome).
-- `--type` is the memory type — same vocabulary as `memory_store` on MCP: `note`, `decision`, `problem`, `milestone`, `lesson`, `observation`, `handoff`.
-- Bodies shorter than 200 characters skip embedding on purpose (the dense leg is for real content); search still finds them by keyword. The JSON response says so instead of failing.
+- `--file` lê o body de um arquivo em vez do argumento (conteúdo mais longo, markdown é bem-vindo).
+- `--type` é o tipo da memória — mesmo vocabulário do `memory_store` no MCP: `note`, `decision`, `problem`, `milestone`, `lesson`, `observation`, `handoff`.
+- Bodies com menos de 200 caracteres pulam o embedding de propósito (a etapa densa é para conteúdo de verdade); a busca ainda os encontra por palavra-chave. A resposta JSON avisa isso em vez de falhar.
 
-## search — search memories
+## search — buscar memórias
 
 ```
 valorbrain search <query> [--collection <name>] [--mode auto|keyword|semantic|hybrid]
 ```
 
-`--mode` maps 1:1 to the engine's search modes. Default `auto`.
+`--mode` mapeia 1:1 para os modos de busca do engine. Padrão `auto`.
 
-## list — list collections
+## list — listar coleções
 
 ```
 valorbrain list
 ```
 
-Collections with document counts for the tenant the key belongs to.
+Coleções com contagens de documentos para o tenant ao qual a chave pertence.
 
-## status — local config + remote health
+## status — config local + saúde remota
 
 ```
 valorbrain status [--json]
 ```
 
-Where the config lives, which key is in use, which tenant it resolves to, and whether the engine is healthy. Run this first when "it stopped working."
+Onde a config vive, qual chave está em uso, para qual tenant ela resolve e se
+o engine está saudável. Rode isto primeiro quando "parou de funcionar".
 
-## mcp — stdio ⇄ HTTP MCP proxy
+## mcp — proxy MCP stdio ⇄ HTTP
 
 ```
 valorbrain mcp
 ```
 
-Speaks MCP over stdio and forwards to the hosted HTTP transport — for clients that only do stdio. Same key, same tenant, same 92 tools.
+Fala MCP por stdio e encaminha para o transporte HTTP hospedado — para
+clientes que só fazem stdio. Mesma chave, mesmo tenant, mesmas 92 tools.
 
-## help — machine-readable surface
+## help — superfície legível por máquina
 
 ```
 valorbrain help --json
 ```
 
-The full command tree as JSON. The docs CI (and anything else that must not drift) reads this from the published package rather than from prose: if a doc cites a subcommand that is not in this output, the build fails.
+A árvore completa de comandos como JSON. O CI dos docs (e qualquer outra
+coisa que não possa divergir) lê isto do pacote publicado, e não de prosa: se
+um doc citar um subcomando que não está nesta saída, o build falha.
 
-## Configuration
+## Configuração
 
-The key and endpoint land in the local config after `init` (`status` shows the path). Environment overrides:
+A chave e o endpoint entram na config local depois do `init` (`status` mostra
+o caminho). Sobrescritas por ambiente:
 
-| Variable | Effect |
+| Variável | Efeito |
 |---|---|
-| `VALORBRAIN_API_KEY` / `VALORBRAIN_TOKEN` | Key without touching the config file |
-| `VALORBRAIN_URL` | Engine base URL — point it at a self-hosted engine |
+| `VALORBRAIN_API_KEY` / `VALORBRAIN_TOKEN` | Chave sem tocar no arquivo de config |
+| `VALORBRAIN_URL` | URL base do engine — aponte para um engine self-hosted |
 
-`init` deliberately unsets ambient credentials in a fresh `HOME` so the provisioned shadow tenant is what gets used, not whatever the shell carried.
+O `init` deliberadamente limpa credenciais ambientes num `HOME` novo, para
+que o shadow tenant provisionado seja o usado, e não o que o shell carregava.
 
-## When to stop using the CLI
+## Quando parar de usar a CLI
 
-The CLI covers the happy path: one agent, one key, add/search. The moment you need the rest of the surface — context assembly (`memory_prepare`), write-back with types and confidence, curation, conflicts, decisions, the KG — that is MCP (see the [MCP cookbook](/docs/guides/mcp-cookbook)) or REST (see the [REST cookbook](/docs/guides/rest-cookbook)). Same engine, same tenant, more verbs.
+A CLI cobre o caminho feliz: um agente, uma chave, add/search. No momento em
+que você precisa do resto da superfície — montagem de contexto
+(`memory_prepare`), write-back com tipos e confiança, curadoria, conflitos,
+decisões, o KG — isso é MCP (veja o [cookbook de MCP](/docs/guides/mcp-cookbook))
+ou REST (veja o [cookbook de REST](/docs/guides/rest-cookbook)). Mesmo engine,
+mesmo tenant, mais verbos.
 
-## A real transcript
+## Um transcript real
 
-This exact sequence runs in this site's CI against the published package
-(`scripts/verify-public-path.sh`, `LIVE_CLI=1`). Outputs below are from a real
-run, not illustrations:
+Esta sequência exata roda no CI deste site contra o pacote publicado
+(`scripts/verify-public-path.sh`, `LIVE_CLI=1`). As saídas abaixo vêm de uma
+execução real, não são ilustrações:
 ```bash
 $ npx @valorbrain/cli@latest init --agent --agent-caller docs-e2e --json
 {"ok":true,"tenant_id":"75317f83-…","api_key":"vb_agent_…","agent_caller":"docs-e2e","expires_at":"2026-09-30T20:50:57.631Z","engine_url":"https://valorbrain-api.valor.digital","config":"~/.valorbrain/config.json","notice":"Surface to your human: claim with `valorbrain init --email <addr>`. Same key, memories preserved. Expires in 30 days if not claimed."}
@@ -111,12 +128,12 @@ $ npx @valorbrain/cli@latest search "docs-e2e marker" --json
 {"ok":true,"query":"docs-e2e marker","count":1,"results":[{"docid":"062337","path":"memories/cli/062337b2d090e91b","title":"docs-e2e marker: deploy key lives in the ops vault","score":0.332,"contentType":"note","veracity":"unknown","modifiedAt":"2026-08-31","snippet":"","scope":{"user_id":null,"sensitivity":"public","visibility":"tenant"},"visibility":"tenant","source":{"system":"valorbrain-service","agent":"valorbrain-service","sessionId":"service-default"}}]}
 ```
 
-(Key and tenant values elided; everything else is the verbatim output.)
+(Valores de chave e tenant omitidos; todo o resto é a saída verbatim.)
 
-Three things the transcript teaches:
+Três coisas que o transcript ensina:
 
-1. **`embed_state: "skipped"` with `skip_reason`** — bodies under 200 characters skip the dense leg on purpose; the embedding budget is for real content. Search still finds them by keyword. The command does not fail and does not pretend it embedded — it says so. If your CI asserts on embedding, assert on the *reason*, not a state.
-2. **`docid` is content-derived** — run the same `add` from a different shadow tenant and you get the same short id: same bytes, same identity, per tenant.
-3. **The claim notice is part of the contract** — an agent that provisions itself is expected to surface the claim path to its human; the key's 30-day expiry is the nudge.
+1. **`embed_state: "skipped"` com `skip_reason`** — bodies com menos de 200 caracteres pulam a etapa densa de propósito; o orçamento de embedding é para conteúdo de verdade. A busca ainda os encontra por palavra-chave. O comando não falha e não finge que embutiu — ele avisa. Se o seu CI faz assert sobre embedding, faça assert na *razão*, não num estado.
+2. **O `docid` deriva do conteúdo** — rode o mesmo `add` de um shadow tenant diferente e você recebe o mesmo id curto: mesmos bytes, mesma identidade, por tenant.
+3. **O aviso de claim é parte do contrato** — espera-se que um agente que se provisiona mostre o caminho de claim ao seu humano; a expiração da chave em 30 dias é o empurrão.
 
-The shadow tenant from that run expires on its own; nothing to clean up.
+O shadow tenant daquela execução expira sozinho; nada para limpar.

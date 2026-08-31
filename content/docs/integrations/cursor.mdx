@@ -1,9 +1,9 @@
 ---
-title: Cursor and Windsurf
-description: OAuth 2.1 dynamic client registration, or a vbm_ bearer token.
+title: Cursor e Windsurf
+description: Registro dinâmico de cliente OAuth 2.1, ou um bearer token vbm_.
 ---
 
-Cursor and Windsurf speak MCP with OAuth 2.1. Point the MCP server URL at:
+Cursor e Windsurf falam MCP com OAuth 2.1. Aponte a URL do servidor MCP para:
 
 ```
 https://mcpbrain.valor.digital/mcp
@@ -15,11 +15,11 @@ Discovery:
 https://mcpbrain.valor.digital/.well-known/oauth-authorization-server
 ```
 
-`POST /oauth/register` (RFC 7591) on that host returns 201. You do not need
-to pre-register a client.
+`POST /oauth/register` (RFC 7591) nesse host devolve 201. Você não precisa
+pré-registrar um cliente.
 
-If the editor does not complete OAuth, create a dedicated token in the app
-(Settings → MCP tokens) and pass `Authorization: Bearer vbm_…`.
+Se o editor não completar o OAuth, crie um token dedicado no app
+(Settings → MCP tokens) e passe `Authorization: Bearer vbm_…`.
 
 ```bash
 npx @valorbrain/cli init --agent --agent-caller cursor

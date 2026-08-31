@@ -1,38 +1,38 @@
 ---
 title: Tokens
-description: Three prefixes, three jobs. The token carries the tenant. Do not invent a tenant header.
+description: Três prefixos, três funções. O token carrega o tenant. Não invente um header de tenant.
 ---
 
-| Prefix | Issued by | Talks to | Example use |
+| Prefixo | Emitido por | Fala com | Exemplo de uso |
 |---|---|---|---|
-| `vb_agent_…` | `valorbrain init --agent` → `POST /api/v1/agents/signup` | REST on `valorbrain-api` | CLI `add` / `search` |
-| `vbm_…` | App → Settings → MCP tokens, or OAuth | MCP on `mcpbrain` | Editor MCP, `@valorbrain/connect` |
-| `fk_….sk_…` | App → API keys | SaaS `POST /api/v1/ingest` (and some SaaS routes) | External systems pushing documents |
+| `vb_agent_…` | `valorbrain init --agent` → `POST /api/v1/agents/signup` | REST em `valorbrain-api` | CLI `add` / `search` |
+| `vbm_…` | App → Settings → tokens MCP, ou OAuth | MCP em `mcpbrain` | MCP no editor, `@valorbrain/connect` |
+| `fk_….sk_…` | App → API keys | SaaS `POST /api/v1/ingest` (e algumas rotas do SaaS) | Sistemas externos empurrando documentos |
 
-They are **not** interchangeable. A `vb_agent_` key on `mcpbrain` is the wrong
-audience. A `vbm_` token is what the MCP server card advertises
+Eles **não** são intercambiáveis. Uma chave `vb_agent_` no `mcpbrain` é a
+audience errada. Um token `vbm_` é o que o card do servidor MCP anuncia
 (`tokenPrefix: "vbm_"`).
 
-## Tenant is on the token
+## O tenant está no token
 
-The CLI does not send `X-Tenant-ID`. The engine resolves the tenant from the
-bearer token and exposes the result as `X-Resolved-Tenant-ID`.
+A CLI não envia `X-Tenant-ID`. O engine resolve o tenant a partir do bearer
+token e expõe o resultado como `X-Resolved-Tenant-ID`.
 
-Do not invent a tenant UUID. Do not copy one from a tutorial.
+Não invente um UUID de tenant. Não copie um de tutorial.
 
-Older pages on the marketing `/docs` showed REST examples with both
-`Authorization: Bearer vb_…` **and** `X-Tenant-ID`. That header is not
-required for a tenant-scoped key, and the prefix is `vb_agent_`, not a bare
-`vb_`.
+Páginas antigas no `/docs` de marketing mostravam exemplos REST com
+`Authorization: Bearer vb_…` **e** `X-Tenant-ID`. Esse header não é
+necessário para uma chave com escopo de tenant, e o prefixo é `vb_agent_`,
+não um `vb_` solto.
 
-## Scopes
+## Escopos
 
-MCP tokens have a toolset (`agent` by default for new tokens, or `graph` /
-`ops` / `all`). New tokens see the **agent** working set, not the 80-name
-catalog. See [MCP tools](/docs/api/mcp-tools).
+Tokens MCP têm um toolset (`agent` por padrão para tokens novos, ou `graph` /
+`ops` / `all`). Tokens novos veem o working set do **agent**, não o catálogo
+de 80 nomes. Veja [Ferramentas MCP](/docs/api/mcp-tools).
 
-## One token per agent
+## Um token por agente
 
-Use one token per agent or persona so writes stay attributable and revocation
-does not interrupt everyone else. Never paste a token into chat, a git repo,
-or ValorBrain itself.
+Use um token por agente ou persona, para que as escritas fiquem atribuíveis e
+a revogação não interrompa todo mundo. Nunca cole um token em chat,
+repositório git ou no próprio ValorBrain.

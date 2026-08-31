@@ -1,83 +1,83 @@
 ---
-title: MCP tools
-description: Canonical names from src/tool-catalog.ts. Aliases still work; new integrations should call the canonical tool.
+title: Ferramentas MCP
+description: Nomes canônicos de src/tool-catalog.ts. Aliases continuam funcionando; integrações novas devem chamar a ferramenta canônica.
 ---
 
-Source of truth: `src/tool-catalog.ts` in the engine. Counts and names in
-this page come from that file, not from a README.
+Fonte da verdade: `src/tool-catalog.ts` no engine. Contagens e nomes desta
+página vêm desse arquivo, não de um README.
 
-New MCP tokens default to the **agent** toolset. Tokens created before
-2026-08-17 see `all` (fail-open). `graph` and `ops` are additive.
+Tokens MCP novos usam o toolset **agent** por padrão. Tokens criados antes de
+2026-08-17 veem `all` (fail-open). `graph` e `ops` são aditivos.
 
-Deprecated tools stay visible in `all` during the alias window. Do not
-teach them to a new client.
+Ferramentas deprecadas continuam visíveis em `all` durante a janela de alias.
+Não as ensine a um cliente novo.
 
-## Agent toolset (default)
+## Toolset agent (padrão)
 
 Recall:
 
-| Tool | Use for |
+| Ferramenta | Serve para |
 |---|---|
-| `memory_retrieve` | One well-formed question. Server expands and fuses. REST twin: `POST /search`. |
-| `memory_prepare` | Assemble context for a task. REST twin: `POST /api/v1/memory/prepare`. |
-| `working_context` | Cheapest session start: stable facts + recent decisions. |
-| `memory_grep` | Exact string, id, date, key. |
-| `get` / `multi_get` | Full body of a doc you already found. |
-| `keyed_facts_as_of` | Time-travel fact snapshots. |
-| `whoami` | Confirm tenant / user / agent. HTTP-only. |
-| `memory_health` | Index and pipeline health. |
+| `memory_retrieve` | Uma pergunta bem formada. O servidor expande e funde. Gêmea REST: `POST /search`. |
+| `memory_prepare` | Montar contexto para uma tarefa. Gêmea REST: `POST /api/v1/memory/prepare`. |
+| `working_context` | Início de sessão mais barato: fatos estáveis + decisões recentes. |
+| `memory_grep` | String exata, id, data, chave. |
+| `get` / `multi_get` | Corpo completo de um doc que você já achou. |
+| `keyed_facts_as_of` | Snapshots de fatos com viagem no tempo. |
+| `whoami` | Confirmar tenant / usuário / agente. Só HTTP. |
+| `memory_health` | Saúde do índice e do pipeline. |
 
-Write and correct:
+Escrita e correção:
 
-| Tool | Use for |
+| Ferramenta | Serve para |
 |---|---|
-| `memory_store` | Typed durable outcome (`decision`, `problem`, `lesson`, …). |
-| `memory_used` | Declare docids you actually relied on. Optional `verdict`. |
-| `upsert_keyed_fact` | Write a dated fact snapshot. |
-| `assert_authority_correction` | Correct a wrong value so the next session sees the truth. |
-| `record_lesson` | A takeaway that should change future behaviour. |
+| `memory_store` | Resultado durável e tipado (`decision`, `problem`, `lesson`, …). |
+| `memory_used` | Declarar os docids em que você realmente se apoiou. `verdict` opcional. |
+| `upsert_keyed_fact` | Escrever um snapshot de fato datado. |
+| `assert_authority_correction` | Corrigir um valor errado para a próxima sessão ver a verdade. |
+| `record_lesson` | Um aprendizado que deve mudar comportamento futuro. |
 | `memory_curate` | pin / snooze / unpin / unsnooze. |
-| `memory_forget` | Least reversible write — standalone on purpose. |
-| `append_entity_card` | KG write path agents actually use. |
-| `diary` | Agent diary read/write. |
+| `memory_forget` | A escrita menos reversível — standalone de propósito. |
+| `append_entity_card` | Caminho de escrita no KG que agentes realmente usam. |
+| `diary` | Leitura/escrita do diário do agente. |
 
-Working state and team:
+Estado de trabalho e time:
 
-| Tool | Use for |
+| Ferramenta | Serve para |
 |---|---|
-| `scratchpad` | Session scratch. |
-| `task_state` | Goal / progress ledger. |
-| `profile` | User profile. |
-| `team_briefing` | Inbox, handoffs, mission. |
+| `scratchpad` | Rascunho de sessão. |
+| `task_state` | Ledger de objetivo / progresso. |
+| `profile` | Perfil do usuário. |
+| `team_briefing` | Inbox, handoffs, missão. |
 | `team_handoff` | create / consume. |
-| `team_inbox` / `team_message` / `team_notify_human` / `team_roster` | Team OS (no-op if the tenant has no members). |
-| `episodes` | list / get episodic memories. |
+| `team_inbox` / `team_message` / `team_notify_human` / `team_roster` | Team OS (no-op se o tenant não tem membros). |
+| `episodes` | list / get de memórias episódicas. |
 | `notifications` | check / mark_read. |
-| `list_lessons` | Lessons recorded for this tenant. |
+| `list_lessons` | Lições gravadas para este tenant. |
 
-## Graph toolset
+## Toolset graph
 
-Knowledge graph, decisions, provenance, conflicts. Canonical names:
+Grafo de conhecimento, decisões, proveniência, conflitos. Nomes canônicos:
 `kg_query`, `kg_explain`, `kg_entity_resolve_report`, `kg_quarantine`,
 `list_entity_cards`, `find_causal_links`, `memory_evolution_status`,
 `provenance`, `conflicts`, `memory_arcs`, `timeline`, `find_similar`,
-`decisions`. `ripple_rag_retrieve` is **beta**.
+`decisions`. `ripple_rag_retrieve` é **beta**.
 
-Older names (`record_decision`, `trace_lineage`, `detect_conflicts`, …)
-are **aliases** of those canonical tools. They still work.
+Nomes antigos (`record_decision`, `trace_lineage`, `detect_conflicts`, …)
+são **aliases** dessas ferramentas canônicas. Continuam funcionando.
 
-## Ops toolset
+## Toolset ops
 
-Curation and metering: `lifecycle_*`, `reindex`, `index_stats`,
+Curadoria e medição: `lifecycle_*`, `reindex`, `index_stats`,
 `import_docs`, `export_docs`, `vault_sync`, `list_vaults`, `beads_sync`,
 `build_graphs`, `operations`, `usage_report`, `feedback`.
 
-## Deprecated — do not teach
+## Deprecadas — não ensine
 
-| Name | Reality |
+| Nome | Realidade |
 |---|---|
-| `store` | HTTP-only duplicate of `memory_store`. |
-| `list_proposals` | HTTP-only; `memory_health` already surfaces proposals. |
+| `store` | Duplicata só-HTTP de `memory_store`. |
+| `list_proposals` | Só HTTP; `memory_health` já mostra propostas. |
 
-The marketing `/docs` page still says "MCP store tool". That name is the
-deprecated one. Call `memory_store`.
+A página de marketing em `/docs` ainda diz "MCP store tool". Esse nome é o
+deprecado. Chame `memory_store`.

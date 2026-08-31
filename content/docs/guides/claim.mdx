@@ -1,19 +1,19 @@
 ---
-title: Claim an agent account
-description: Bind an email without rotating the key.
+title: Claim de conta de agente
+description: Vincular um e-mail sem rotacionar a chave.
 ---
 
-The agent already has a working key. A human claims ownership later.
+O agente já tem uma chave funcional. Um humano assume a posse depois.
 
 ```bash
 npx @valorbrain/cli init --email you@company.com
 ```
 
-ValorBrain emails a one-time code. The journal does not print the OTP in
-cleartext on the success path (fixed 2026-08-30). Paste the code when the
-CLI asks, or pass `--otp`.
+O ValorBrain envia um código de uso único por e-mail. O journal não imprime o
+OTP em cleartext no caminho de sucesso (corrigido em 2026-08-30). Cole o código
+quando o CLI pedir, ou passe `--otp`.
 
-Acceptance, verified 2026-08-30 from a clean network: the response is
-**"Same API key. All memories preserved."** The `vb_agent_` value does not
-change. MCP tokens (`vbm_`) are still created in the app if you want an
-editor connected.
+Aceitação, verificada em 2026-08-30 de uma rede limpa: a resposta é
+**"Same API key. All memories preserved."** O valor `vb_agent_` não muda.
+Tokens MCP (`vbm_`) continuam criados no app se você quiser um editor
+conectado.

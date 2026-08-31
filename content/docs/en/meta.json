@@ -1,18 +1,4 @@
 {
   "title": "Documentation",
-  "pages": [
-    "index",
-    "quickstart",
-    "cli",
-    "---Concepts---",
-    "concepts",
-    "---Integrate---",
-    "mcp",
-    "rest",
-    "integrations",
-    "---Reference---",
-    "api",
-    "---Guides---",
-    "guides"
-  ]
+  "pages": ["index", "quickstart", "cli", "concepts", "mcp", "rest", "integrations", "api", "guides"]
 }

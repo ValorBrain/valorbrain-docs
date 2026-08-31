@@ -1,11 +1,11 @@
 ---
-title: Correct a wrong fact
-description: A document can rank first and still be false. Write a keyed fact. The next session should not repeat the error.
+title: Corrija um fato errado
+description: Um documento pode ranquear em primeiro e ainda estar errado. Escreva um keyed fact. A próxima sessão não deve repetir o erro.
 ---
 
-1. Retrieve as usual (`memory_retrieve` or CLI `search`).
-2. If the human says the value is wrong, do **not** only store another
-   prose document. Write a keyed fact:
+1. Recupere como de costume (`memory_retrieve` ou `search` no CLI).
+2. Se o humano disser que o valor está errado, **não** armazene só mais um
+   documento em prosa. Escreva um keyed fact:
 
 MCP:
 
@@ -18,13 +18,13 @@ MCP:
 }
 ```
 
-Tool: `upsert_keyed_fact`. For a value that already misled someone,
+Ferramenta: `upsert_keyed_fact`. Para um valor que já enganou alguém,
 `assert_authority_correction`.
 
-3. Call `memory_used` with `verdict: "corrected"` on the stale docid.
-4. In a **new** session, retrieve the same question. The keyed fact should
-   win. If a document still ranks first with the old value, it should
-   arrive with a `SUPERSEDED:` line — believe the fact, not the body.
+3. Chame `memory_used` com `verdict: "corrected"` no docid velho.
+4. Numa sessão **nova**, recupere a mesma pergunta. O keyed fact deve vencer.
+   Se um documento ainda ranquear em primeiro com o valor antigo, ele deve
+   chegar com uma linha `SUPERSEDED:` — acredite no fato, não no corpo.
 
-That is correctability. If this loop fails, it is a product defect: say so
-with `feedback` rather than working around it.
+Isso é corrigibilidade (correctability). Se esse loop falha, é um defeito do
+produto: diga isso com `feedback` em vez de contornar.
