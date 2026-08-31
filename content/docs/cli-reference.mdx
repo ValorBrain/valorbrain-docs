@@ -1,0 +1,122 @@
+---
+title: CLI reference
+description: The published @valorbrain/cli — every command and flag, straight from help --json of the latest package.
+---
+
+The CLI is the fastest honest integration: it is a thin client over the same REST engine (`valorbrain-api.valor.digital`) with a shadow tenant that provisions itself and expires on its own. Nothing here is aspirational — every usage line below is what `valorbrain help --json` returns for the latest published package.
+
+```bash
+npx @valorbrain/cli@latest <command>
+```
+
+## init — create or claim an account
+
+```
+valorbrain init --agent [--agent-caller <platform>]
+valorbrain init --email <address> [--otp <code>]
+```
+
+- `--agent` provisions a **shadow tenant** and prints a `vb_agent_...` key (the JSON form has `ok: true`; the key is in `api_key`). No human, no email, no credit card — this is the "first memory in 15 seconds" path.
+- `--agent-caller` labels the platform (`claude-code`, `cursor`, `grok`, `docs-e2e`, …). It shows up in telemetry as the caller; backfilling it later is what `identify` is for.
+- `--email` claims the account with a human identity; `--otp` completes it when the code arrives. Claiming preserves the memories the agent already wrote.
+
+The shadow tenant expires in 30 days by itself — long enough to evaluate, short enough to not leak.
+
+## identify — idempotent caller backfill
+
+```
+valorbrain identify [--agent-caller <platform>]
+```
+
+Attaches the caller label to the existing key. Safe to run repeatedly; it changes nothing if the label is already there.
+
+## add — store a memory
+
+```
+valorbrain add <text> [--file <path>] [--collection <name>] [--title <t>] [--type <t>]
+```
+
+- `--file` reads the body from a file instead of the argument (longer content, markdown welcome).
+- `--type` is the memory type — same vocabulary as `memory_store` on MCP: `note`, `decision`, `problem`, `milestone`, `lesson`, `observation`, `handoff`.
+- Bodies shorter than 200 characters skip embedding on purpose (the dense leg is for real content); search still finds them by keyword. The JSON response says so instead of failing.
+
+## search — search memories
+
+```
+valorbrain search <query> [--collection <name>] [--mode auto|keyword|semantic|hybrid]
+```
+
+`--mode` maps 1:1 to the engine's search modes. Default `auto`.
+
+## list — list collections
+
+```
+valorbrain list
+```
+
+Collections with document counts for the tenant the key belongs to.
+
+## status — local config + remote health
+
+```
+valorbrain status [--json]
+```
+
+Where the config lives, which key is in use, which tenant it resolves to, and whether the engine is healthy. Run this first when "it stopped working."
+
+## mcp — stdio ⇄ HTTP MCP proxy
+
+```
+valorbrain mcp
+```
+
+Speaks MCP over stdio and forwards to the hosted HTTP transport — for clients that only do stdio. Same key, same tenant, same 92 tools.
+
+## help — machine-readable surface
+
+```
+valorbrain help --json
+```
+
+The full command tree as JSON. The docs CI (and anything else that must not drift) reads this from the published package rather than from prose: if a doc cites a subcommand that is not in this output, the build fails.
+
+## Configuration
+
+The key and endpoint land in the local config after `init` (`status` shows the path). Environment overrides:
+
+| Variable | Effect |
+|---|---|
+| `VALORBRAIN_API_KEY` / `VALORBRAIN_TOKEN` | Key without touching the config file |
+| `VALORBRAIN_URL` | Engine base URL — point it at a self-hosted engine |
+
+`init` deliberately unsets ambient credentials in a fresh `HOME` so the provisioned shadow tenant is what gets used, not whatever the shell carried.
+
+## When to stop using the CLI
+
+The CLI covers the happy path: one agent, one key, add/search. The moment you need the rest of the surface — context assembly (`memory_prepare`), write-back with types and confidence, curation, conflicts, decisions, the KG — that is MCP (see the [MCP cookbook](/docs/guides/mcp-cookbook)) or REST (see the [REST cookbook](/docs/guides/rest-cookbook)). Same engine, same tenant, more verbs.
+
+## A real transcript
+
+This exact sequence runs in this site's CI against the published package
+(`scripts/verify-public-path.sh`, `LIVE_CLI=1`). Outputs below are from a real
+run, not illustrations:
+```bash
+$ npx @valorbrain/cli@latest init --agent --agent-caller docs-e2e --json
+{"ok":true,"tenant_id":"75317f83-…","api_key":"vb_agent_…","agent_caller":"docs-e2e","expires_at":"2026-09-30T20:50:57.631Z","engine_url":"https://valorbrain-api.valor.digital","config":"~/.valorbrain/config.json","notice":"Surface to your human: claim with `valorbrain init --email <addr>`. Same key, memories preserved. Expires in 30 days if not claimed."}
+
+$ npx @valorbrain/cli@latest add "docs-e2e marker: deploy key lives in the ops vault" --json
+{"ok":true,"docid":"062337","collection":"memories","path":"cli/062337b2d090e91b","title":"docs-e2e marker: deploy key lives in the ops vault","action":"created","revision_count":1,"embed_state":"skipped","page_type":null,"update_strategy":"mergeable","is_pinned":false,"edges_created":0,"skip_reason":"too short: 50 chars (min: 200)"}
+
+$ npx @valorbrain/cli@latest search "docs-e2e marker" --json
+{"ok":true,"query":"docs-e2e marker","count":1,"results":[{"docid":"062337","path":"memories/cli/062337b2d090e91b","title":"docs-e2e marker: deploy key lives in the ops vault","score":0.332,"contentType":"note","veracity":"unknown","modifiedAt":"2026-08-31","snippet":"","scope":{"user_id":null,"sensitivity":"public","visibility":"tenant"},"source":{"system":"valorbrain-service","agent":"valorbrain-service","sessionId":"service-default"}]}
+```
+
+(Key and tenant values elided; everything else is the verbatim output.)
+
+Three things the transcript teaches:
+
+1. **`embed_state: "skipped"` with `skip_reason`** — bodies under 200 characters skip the dense leg on purpose; the embedding budget is for real content. Search still finds them by keyword. The command does not fail and does not pretend it embedded — it says so. If your CI asserts on embedding, assert on the *reason*, not a state.
+2. **`docid` is content-derived** — run the same `add` from a different shadow tenant and you get the same short id: same bytes, same identity, per tenant.
+3. **The claim notice is part of the contract** — an agent that provisions itself is expected to surface the claim path to its human; the key's 30-day expiry is the nudge.
+
+The shadow tenant from that run expires on its own; nothing to clean up.

@@ -1,0 +1,188 @@
+---
+title: MCP cookbook
+description: Agent workflows over the 92 MCP tools — every parameter verified against the registerTool schemas.
+---
+
+The MCP surface is how agents are supposed to talk to ValorBrain. This page is workflows; the full mechanical contract for all 92 tools (description + input schema, straight from `registerTool()` metadata) lives at [`/mcp-schemas.md`](/mcp-schemas.md) and is regenerated at every docs build. If a field here is not in that dump, do not use it.
+
+Connection details are in [MCP tools](/docs/mcp/tools). Code below shows the tool name and arguments as any MCP client would pass them.
+
+## The session loop
+
+An agent's turn against ValorBrain is four calls, not forty:
+
+1. **`memory_prepare`** — assemble context once, at the turn start.
+2. work, think, call whatever you need (`memory_retrieve` only if prepare came up short).
+3. **`memory_store`** — write back what is durable.
+4. **`memory_used`** — declare which memories actually carried the answer.
+
+### 1. Prepare context
+
+```json
+{
+  "tool": "memory_prepare",
+  "arguments": {
+    "message": "the user's message for this turn",
+    "surface_id": "claude-code",
+    "recall_budget": 600
+  }
+}
+```
+
+One call returns: recall hits + vault facts + foresights + the funnel (episodes, lessons, keyed facts, top documents). `fast_mode: true` skips funnel document retrieval for latency-critical hooks; recall still covers documents by category. Scoped retrieval: `episode_id` binds to one dialogue episode, `collection` narrows the funnel.
+
+**Do not** answer from your assumptions before this call when the question is about *this* deployment — the memory is authoritative, your training data is not.
+
+### 2. Retrieve (when prepare is not enough)
+
+```json
+{
+  "tool": "memory_retrieve",
+  "arguments": {
+    "query": "one clear question",
+    "mode": "auto",
+    "limit": 12,
+    "snippet_chars": 200
+  }
+}
+```
+
+- One well-formed query. The server expands and fuses; five near-duplicate retrieves cost 5× and rank worse than one.
+- `mode`: `auto` routes (why → causal, last session → timeline, related → neighbors); explicit `keyword` / `semantic` / `causal` / `timeline` / `discovery` / `complex` / `hybrid` when you know better.
+- `limit` (alias `max_results`): default 12; 15–20 for broad topics.
+- `budget` is a *token* budget for category-ranked recall — a different axis from `limit`.
+- Snippets come back by default (`snippet_chars`); call `get`/`multi_get` only when the snippet is not enough.
+
+Exact string, key, date, identifier? That is not a search — that is `memory_grep`:
+
+```json
+{ "tool": "memory_grep", "arguments": { "pattern": "VALORBRAIN_LLM_MODEL", "max_results": 20 } }
+```
+
+### 3. Write back what is durable
+
+```json
+{
+  "tool": "memory_store",
+  "arguments": {
+    "type": "decision",
+    "title": "OpenAPI served live from routes[] table",
+    "content": "Static YAML drifts from the real route table. Decision: /openapi.json is now generated per request from routes[] merged with the YAML contract; servers[] rewritten from VALORBRAIN_PUBLIC_URL. Rejected: keeping a generated file on disk (another drift source).",
+    "tags": ["api", "openapi"],
+    "confidence": 0.85,
+    "visibility": "tenant"
+  }
+}
+```
+
+Type picks the semantics:
+
+| `type` | For | Default confidence |
+|---|---|---|
+| `decision` | a choice made, with alternatives rejected | 0.8 |
+| `observation` | a fact learned about the system/domain | 0.6 |
+| `problem` | a bug or incident (root cause once known) | 0.6 |
+| `lesson` | a takeaway that should change future behavior | 0.6 |
+| `milestone` | progress worth finding later | 0.6 |
+| `handoff` | context the next session needs | 0.6 |
+| `note` | everything else | 0.6 |
+
+Title 5–200 chars (it is what search shows); content ≥ 20 chars — include context, reasoning, evidence, not just the conclusion. `visibility: "private"` hides the memory from the rest of the tenant (ownership stays yours); tenant-shared is the default and the product.
+
+Do not store: chat transcripts (ingested automatically), raw file contents, scratch notes — `scratchpad` exists for ephemera and is never indexed.
+
+### 4. Declare usage
+
+```json
+{
+  "tool": "memory_used",
+  "arguments": { "docids": ["#ab12cd"], "verdict": "confirmed" }
+}
+```
+
+`verdict: "confirmed"` when the user agreed with what the memory said, `"corrected"` when they pushed back. This is the strongest ranking signal that exists — used memories rise, ignored ones decay. It costs one call; skipping it leaves ranking blind.
+
+## Facts that must not go stale
+
+Prose documents age badly; keyed facts carry a date and an authority level:
+
+```json
+{
+  "tool": "upsert_keyed_fact",
+  "arguments": {
+    "fact_key": "embedding.production.model",
+    "fact_value": "LFM2.5-Embedding-350M-finetuned-v3",
+    "as_of": "2026-08-31",
+    "evidence": "systemd unit MODEL_PATH, checked on host",
+    "authority": "human"
+  }
+}
+```
+
+`authority`: `human` > `designated` > `import` > `agent`. When a document contradicts a keyed fact, the fact wins. Read with `keyed_facts_as_of` (time-travel: latest value per key with `as_of <= date`). When you find a document that is now *wrong*, do not just remember the new value — `assert_authority_correction` persists the corrected fact and marks the prior values superseded.
+
+## Trust machinery
+
+### Decisions with a trail
+
+```json
+{
+  "tool": "decisions",
+  "arguments": {
+    "action": "record",
+    "category": "architecture",
+    "scenario": "serving OpenAPI",
+    "reasoning": "routes[] is the truth; YAML is the contract",
+    "outcome": "live merge, mtime-cached YAML",
+    "confidence": 0.85
+  }
+}
+```
+
+Then wire causality: `action: "relate"` with `caused` / `influenced` / `precedent_for`. Later: `find_causal_links` ("what led to X"), `decisions` `action: "trace"` (full chain), `action: "similar"` (semantic precedent search). Records are hash-chained — the trail is tamper-evident by construction.
+
+### Conflicts
+
+`conflicts` `action: "detect"` scans for value / temporal / relationship contradictions; `action: "list"` queues them by severity; `action: "resolve"` picks a strategy (`most_recent`, `credibility_weighted`, …). Detection also runs on the consolidation tick, so a clean list does not mean no conflicts — it means none detected yet.
+
+### Knowledge graph
+
+`kg_query` for an entity's relationships (multihop when the hybrid engine is on), `kg_explain` for *why* a fact holds (derivation proof trees when recorded), `append_entity_card` for IDENTITY/ATTRIBUTE/RELATIONSHIP/INSTRUCTION entries on a stable card. Triples that fail the SHACL pre-check land in `kg_quarantine` — approve or reject deliberately, they never silently enter the graph.
+
+## Curate before you drown
+
+```json
+{
+  "tool": "memory_curate",
+  "arguments": { "action": "pin", "query": "priority order latency onboarding correctability" }
+}
+```
+
+- **pin** — +0.3 boost, permanent. Use when the user states a persistent constraint or corrects a misconception for the last time.
+- **snooze** — hide for N days (`until` as ISO date, default 30). Use when vault context keeps surfacing something irrelevant *right now*.
+
+Both resolve memories by search query — no docids needed. `memory_pin` / `memory_snooze` are the older verbs; `memory_curate` is the one to reach for.
+
+## Working state across sessions
+
+- `task_state` `action: "goal"` — what *done* means; delivered into every `__goals__` block. `action: "progress"` — milestones (48h window). `action: "read"` — inspect.
+- `episodes` — bounded dialogue summaries for episodic retrieval; `memory_arcs` — narrative threads linking episodes to a goal.
+- `record_lesson` / `list_lessons` — procedural lessons per surface, with follow-through scores; verify=true when the lesson proved out again.
+- `diary` — observational diary for events worth reviewing later, in environments without hook support.
+
+## Team coordination
+
+- `team_briefing` at session start: unread inbox, pending handoffs, shared mission, recent activity.
+- `team_handoff` `action: "create"` hands durable async work to a teammate (`to`, `summary`, `open_questions`, `files_changed`, `priority`). `status: "blocked_on_human"` parks it waiting on a human — the anti-loop verb. `action: "consume"` closes it when done.
+- `team_message` — fire-and-forget; `team_notify_human` — pull a human in *now* through their channel.
+- `notifications` — your inbox; mark read once handled.
+
+## Operations (long jobs, safely)
+
+Reindex, graph builds and vault syncs are long operations with handles: `reindex` / `build_graphs` / `vault_sync` accept `run_async: true` and return an id; `operation_status` (with `wait_ms` long-poll), `operation_list`, `operation_cancel` manage them. A half-written reindex is worse than none — prefer the cooperative cancel over killing.
+
+Health surfaces: `index_stats` (content distribution, staleness), `memory_health`, `usage_report` (ops by channel/tool/latency — the same ledger the REST `/reports/usage` reads), `list_vaults`.
+
+## When something is broken in the product itself
+
+`feedback` `action: "submit"` — empty results where knowledge should exist, wrong ranking, a tool erroring. A silent workaround leaves the defect in place for every other agent; the defect report is the load-bearing call.

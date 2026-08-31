@@ -11,6 +11,108 @@ info:
     url: https://valor.digital
   license:
     name: Proprietary
+  x-valorbrain-generated-at: '2026-08-31T20:52:36.063Z'
+  x-valorbrain-public-url: https://valorbrain-api.valor.digital
+  x-valorbrain-yaml-operations: 135
+  x-valorbrain-live-operations: 207
+  x-valorbrain-missing-from-yaml:
+  - GET /openapi.yaml
+  - GET /health/admin
+  - GET /reports/usage
+  - GET /api/v1/memory/team-activity
+  - GET /dashboard
+  - GET /memory-map
+  - GET /api/v1/knowledge-gaps
+  - POST /api/v1/knowledge-gaps/{id}/resolve
+  - POST /conversations
+  - GET /contradictions
+  - GET /documents/changes
+  - GET /documents/{id}/chain
+  - PATCH /documents/{id}/veracity
+  - PATCH /api/v1/documents/{id}/veracity
+  - PATCH /documents/veracity/bulk
+  - PATCH /api/v1/documents/veracity/bulk
+  - GET /collections/health
+  - POST /collections/{id}/lifecycle
+  - GET /api/v1/memory/working-context
+  - GET /memory/working-context
+  - GET /api/v1/scratchpad
+  - PUT /api/v1/scratchpad
+  - POST /api/v1/scratchpad
+  - DELETE /api/v1/scratchpad
+  - GET /scratchpad
+  - PUT /scratchpad
+  - POST /scratchpad
+  - DELETE /scratchpad
+  - GET /setup/artifacts
+  - GET /api/v1/entity-cards
+  - PATCH /api/v1/entities/{name}/card
+  - DELETE /api/v1/entities/{name}/card
+  - GET /api/v1/pins
+  - POST /api/v1/pins
+  - GET /api/v1/pins/{id}
+  - PATCH /api/v1/pins/{id}
+  - DELETE /api/v1/pins/{id}
+  - POST /api/v1/session-handoffs
+  - GET /api/v1/session-handoffs
+  - GET /api/v1/team/members
+  - POST /api/v1/team/messages
+  - GET /api/v1/team/inbox
+  - POST /api/v1/team/handoffs
+  - GET /api/v1/team/handoffs
+  - GET /api/v1/team/briefing
+  - GET /api/v1/team/stream
+  - GET /api/v1/memory/episodes
+  - GET /api/v1/memory/episodes/{id}
+  - GET /admin/queues
+  - POST /admin/queues
+  - POST /api/v1/admin/tenants/{id}/api-tokens
+  - GET /api/v1/admin/tenants/{id}/api-tokens
+  - DELETE /api/v1/admin/tenants/{id}/api-tokens/{id2}
+  - POST /api/v1/memory/refine
+  - POST /api/v1/runtimes/register
+  - POST /api/v1/runtimes/heartbeat
+  - GET /api/v1/runtimes
+  - GET /api/v1/kg/explore
+  - GET /api/v1/kg/entity-documents
+  - POST /api/v1/memory/store
+  - GET /api/v1/memory/confirm-sample
+  - GET /api/v1/tenant/trust-summary
+  - GET /api/v1/tenant/perf-summary
+  - GET /api/v1/tenant/impact
+  - POST /api/v1/users/resolve-caller
+  - GET /api/v1/users/channel-identities
+  - POST /api/v1/users/channel-identities
+  - GET /api/v1/lessons
+  - POST /api/v1/lessons/record
+  - POST /api/v1/lessons/feedback
+  - GET /api/v1/arcs
+  - POST /api/v1/arcs
+  - GET /api/v1/keyed-facts/as-of
+  - POST /api/v1/keyed-facts
+  - POST /api/v1/keyed-facts/correct
+  - POST /api/v1/memory/prepare
+  - GET /api/v1/kg/quarantine
+  - GET /api/v1/kg/entity-resolve/report
+  - POST /api/v1/kg/rag-retrieve
+  - GET /api/v1/usage/answers
+  - GET /api/v1/credits/summary
+  - POST /api/v1/session-bootstrap
+  - POST /api/v1/decisions
+  - POST /api/v1/decisions/relations
+  - GET /api/v1/decisions/chain
+  - GET /api/v1/decisions/similar
+  - GET /api/v1/decisions/impact
+  - GET /api/v1/decisions
+  - POST /api/v1/provenance
+  - GET /api/v1/provenance/lineage
+  - GET /api/v1/provenance/export
+  - GET /api/v1/provenance/verify
+  - POST /api/v1/conflicts/detect
+  - GET /api/v1/fact-conflicts
+  - POST /api/v1/conflicts/resolve
+  - GET /api/v1/contradictions
+  - POST /api/v1/contradictions/{n}/resolve
 servers:
 - url: https://valorbrain-api.valor.digital
   description: Hosted engine REST
@@ -1163,10 +1265,10 @@ paths:
             application/json:
               schema:
                 type: object
-        '404':
-          $ref: '#/components/responses/NotFound'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
     post:
       operationId: upsertEntityCard
       summary: Create or update an entity card
@@ -1207,6 +1309,24 @@ paths:
                     type: boolean
         '401':
           $ref: '#/components/responses/Unauthorized'
+    patch:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_PATCH__api_v1_entities_name_card
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+    delete:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_DELETE__api_v1_entities_name_card
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
   /api/v1/triples:
     post:
       operationId: createTriple
@@ -3318,10 +3438,10 @@ paths:
             application/json:
               schema:
                 type: object
-        '404':
-          $ref: '#/components/responses/NotFound'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
     patch:
       operationId: patchForesight
       summary: Update a foresight
@@ -4048,6 +4168,940 @@ paths:
             application/json:
               schema:
                 type: object
+  /openapi.yaml:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__openapi_yaml
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /health/admin:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__health_admin
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /reports/usage:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__reports_usage
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/memory/team-activity:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__api_v1_memory_team_activity
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /dashboard:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__dashboard
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /memory-map:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__memory_map
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/knowledge-gaps:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__api_v1_knowledge_gaps
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/knowledge-gaps/{id}/resolve:
+    post:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_POST__api_v1_knowledge_gaps_id_resolve
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /conversations:
+    post:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_POST__conversations
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /contradictions:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__contradictions
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /documents/changes:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__documents_changes
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /documents/{id}/chain:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__documents_id_chain
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /documents/{id}/veracity:
+    patch:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_PATCH__documents_id_veracity
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/documents/{id}/veracity:
+    patch:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_PATCH__api_v1_documents_id_veracity
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /documents/veracity/bulk:
+    patch:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_PATCH__documents_veracity_bulk
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/documents/veracity/bulk:
+    patch:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_PATCH__api_v1_documents_veracity_bulk
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /collections/health:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__collections_health
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /collections/{id}/lifecycle:
+    post:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_POST__collections_id_lifecycle
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/memory/working-context:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__api_v1_memory_working_context
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /memory/working-context:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__memory_working_context
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/scratchpad:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__api_v1_scratchpad
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+    put:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_PUT__api_v1_scratchpad
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+    post:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_POST__api_v1_scratchpad
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+    delete:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_DELETE__api_v1_scratchpad
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /scratchpad:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__scratchpad
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+    put:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_PUT__scratchpad
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+    post:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_POST__scratchpad
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+    delete:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_DELETE__scratchpad
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /setup/artifacts:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__setup_artifacts
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/entity-cards:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__api_v1_entity_cards
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/pins:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__api_v1_pins
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+    post:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_POST__api_v1_pins
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/pins/{id}:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__api_v1_pins_id_
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+    patch:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_PATCH__api_v1_pins_id_
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+    delete:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_DELETE__api_v1_pins_id_
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/session-handoffs:
+    post:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_POST__api_v1_session_handoffs
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__api_v1_session_handoffs
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/team/members:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__api_v1_team_members
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/team/messages:
+    post:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_POST__api_v1_team_messages
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/team/inbox:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__api_v1_team_inbox
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/team/handoffs:
+    post:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_POST__api_v1_team_handoffs
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__api_v1_team_handoffs
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/team/briefing:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__api_v1_team_briefing
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/team/stream:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__api_v1_team_stream
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/memory/episodes:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__api_v1_memory_episodes
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/memory/episodes/{id}:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__api_v1_memory_episodes_id_
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /admin/queues:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__admin_queues
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+    post:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_POST__admin_queues
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/admin/tenants/{id}/api-tokens:
+    post:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_POST__api_v1_admin_tenants_id_api_tokens
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__api_v1_admin_tenants_id_api_tokens
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/admin/tenants/{id}/api-tokens/{id2}:
+    delete:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_DELETE__api_v1_admin_tenants_id_api_tokens_id2_
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/memory/refine:
+    post:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_POST__api_v1_memory_refine
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/runtimes/register:
+    post:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_POST__api_v1_runtimes_register
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/runtimes/heartbeat:
+    post:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_POST__api_v1_runtimes_heartbeat
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/runtimes:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__api_v1_runtimes
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/kg/explore:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__api_v1_kg_explore
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/kg/entity-documents:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__api_v1_kg_entity_documents
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/memory/store:
+    post:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_POST__api_v1_memory_store
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/memory/confirm-sample:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__api_v1_memory_confirm_sample
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/tenant/trust-summary:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__api_v1_tenant_trust_summary
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/tenant/perf-summary:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__api_v1_tenant_perf_summary
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/tenant/impact:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__api_v1_tenant_impact
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/users/resolve-caller:
+    post:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_POST__api_v1_users_resolve_caller
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/users/channel-identities:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__api_v1_users_channel_identities
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+    post:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_POST__api_v1_users_channel_identities
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/lessons:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__api_v1_lessons
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/lessons/record:
+    post:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_POST__api_v1_lessons_record
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/lessons/feedback:
+    post:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_POST__api_v1_lessons_feedback
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/arcs:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__api_v1_arcs
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+    post:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_POST__api_v1_arcs
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/keyed-facts/as-of:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__api_v1_keyed_facts_as_of
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/keyed-facts:
+    post:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_POST__api_v1_keyed_facts
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/keyed-facts/correct:
+    post:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_POST__api_v1_keyed_facts_correct
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/memory/prepare:
+    post:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_POST__api_v1_memory_prepare
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/kg/quarantine:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__api_v1_kg_quarantine
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/kg/entity-resolve/report:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__api_v1_kg_entity_resolve_report
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/kg/rag-retrieve:
+    post:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_POST__api_v1_kg_rag_retrieve
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/usage/answers:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__api_v1_usage_answers
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/credits/summary:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__api_v1_credits_summary
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/session-bootstrap:
+    post:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_POST__api_v1_session_bootstrap
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/decisions:
+    post:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_POST__api_v1_decisions
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__api_v1_decisions
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/decisions/relations:
+    post:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_POST__api_v1_decisions_relations
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/decisions/chain:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__api_v1_decisions_chain
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/decisions/similar:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__api_v1_decisions_similar
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/decisions/impact:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__api_v1_decisions_impact
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/provenance:
+    post:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_POST__api_v1_provenance
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/provenance/lineage:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__api_v1_provenance_lineage
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/provenance/export:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__api_v1_provenance_export
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/provenance/verify:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__api_v1_provenance_verify
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/conflicts/detect:
+    post:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_POST__api_v1_conflicts_detect
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/fact-conflicts:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__api_v1_fact_conflicts
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/conflicts/resolve:
+    post:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_POST__api_v1_conflicts_resolve
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/contradictions:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__api_v1_contradictions
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/contradictions/{n}/resolve:
+    post:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_POST__api_v1_contradictions_n_resolve
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
 components:
   securitySchemes:
     bearerAuth:
