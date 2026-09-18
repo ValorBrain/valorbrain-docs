@@ -1,6 +1,6 @@
 # MCP tool schemas
 
-Generated from `/opt/valorbrain/src/mcp-tools.ts`. 92 registerTool() calls.
+Generated from `/opt/valorbrain/src/mcp-tools.ts`. 93 registerTool() calls.
 This is the description and input shape the MCP server advertises.
 
 ## memory_retrieve
@@ -268,21 +268,23 @@ z.object({
 
 ## memory_used
 
-Declare quais memórias você realmente usou na resposta (docids como '#ab12cd', ou caminhos). Uma linha no seu prompt de sistema chamando esta ferramenta depois de responder fecha o laço de qualidade: a memória usada sobe no ranking, a ignorada decai, e o relatório de uso passa a mostrar aproveitamento medido em vez de estimado. Opcional, mas é o sinal mais forte que existe.
+Declare quais memórias você realmente usou na resposta (docids como '#ab12cd', ou caminhos). Uma linha no seu prompt de sistema chamando esta ferramenta antes da resposta final registra uso declarado separado de recuperação. Para um comprovante antes da resposta final, envie receipt:{task_id,result} e note explicando a contribuição. Retorna receipt.summary sem LLM adicional; uso declarado, não prova causalidade ou economia. docids:[] com receipt declara ausência de uso.
 
 ```
 z.object({
               docids: z
                 .array(z.string())
-                .min(1)
+                .min(0)
                 .describe("Docids ('#ab12cd') ou caminhos das memórias efetivamente usadas"),
               verdict: z
                 .enum(["confirmed", "corrected"])
                 .optional()
                 .describe("V5: o usuário CONFIRMOU o que a memória dizia ('confirmed') ou CORRIGIU/contradisse ('corrected') nesta resposta. Declare junto com os docids."),
               note: z.string().optional().describe("Por que serviu (opcional, entra no registro)"),
+              receipt: ContributionReceiptRequestSchema.optional(),
               vault: z.string().optional(),
-            }),
+            }).refine((input) => input.docids.length > 0 || input.receipt !== undefined,
+              "docids must not be empty unless receipt is requested"),
     }
 ```
 
@@ -319,6 +321,21 @@ z.object({
                 .describe("Janela do relatório (padrão: month = 30 dias)"),
               vault: z.string().optional(),
             }),
+    }
+```
+
+## harness_coverage
+
+Cobertura de entrega dos harnesses/agentes deste tenant: cruza atividade (uso de ferramentas) com ingestão (sessões entregues). Um agente listado como SILENT consulta a memória mas nunca entrega sessões — configurado pela metade. Use quando o usuário perguntar se a integração está completa/saudável, ou periodicamente: a saída traz o conserto exato para levar ao usuário.
+
+```
+z.object({
+        days: z.number().int().min(1).max(90).optional()
+          .describe("Janela em dias (padrão 7)"),
+        min_activity: z.number().int().min(1).optional()
+          .describe("Mínimo de chamadas para contar como ativo (padrão 10)"),
+        vault: z.string().optional(),
+      }),
     }
 ```
 
@@ -734,7 +751,7 @@ z.object({
 
 ## upsert_keyed_fact
 
-Insert or update a temporal keyed fact snapshot (tenant, key, as_of unique).
+Insert or update a temporal keyed fact snapshot (tenant, key, as_of unique). Runs the same authority policy as corrections: a weaker caller over a protected winner becomes a pending proposal instead of a write.
 
 ```
 z.object({

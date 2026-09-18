@@ -181,7 +181,7 @@ Ambos resolvem memórias por consulta de busca — sem docids. `memory_pin` / `m
 
 Reindex, builds de grafo e syncs de vault são operações longas com handles: `reindex` / `build_graphs` / `vault_sync` aceitam `run_async: true` e devolvem um id; `operation_status` (com long-poll via `wait_ms`), `operation_list`, `operation_cancel` os gerenciam. Um reindex escrito pela metade é pior que nenhum — prefira o cancel cooperativo a matar o processo.
 
-Superfícies de saúde: `index_stats` (distribuição de conteúdo, staleness), `memory_health`, `usage_report` (ops por canal/ferramenta/latência — o mesmo ledger que o REST `/reports/usage` lê), `list_vaults`.
+Superfícies de saúde: `index_stats` (distribuição de conteúdo, staleness), `memory_health`, `usage_report`, `harness_coverage` (quem usa MCP mas nunca entrega sessões) (ops por canal/ferramenta/latência — o mesmo ledger que o REST `/reports/usage` lê), `list_vaults`.
 
 ## Quando algo está quebrado no próprio produto
 

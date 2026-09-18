@@ -1,6 +1,6 @@
 {
   "name": "@valorbrain/cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "config": "~/.valorbrain/config.json",
   "default_rest_base_url": "https://valorbrain-api.valor.digital",
   "default_mcp_url": "https://mcpbrain.valor.digital/mcp",

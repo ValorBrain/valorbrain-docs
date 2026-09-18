@@ -11,10 +11,10 @@
     "license": {
       "name": "Proprietary"
     },
-    "x-valorbrain-generated-at": "2026-08-31T22:18:16.753Z",
+    "x-valorbrain-generated-at": "2026-09-18T17:39:25.680Z",
     "x-valorbrain-public-url": "https://valorbrain-api.valor.digital",
     "x-valorbrain-yaml-operations": 135,
-    "x-valorbrain-live-operations": 207,
+    "x-valorbrain-live-operations": 212,
     "x-valorbrain-missing-from-yaml": [
       "GET /openapi.yaml",
       "GET /health/admin",
@@ -25,6 +25,7 @@
       "GET /api/v1/knowledge-gaps",
       "POST /api/v1/knowledge-gaps/{id}/resolve",
       "POST /conversations",
+      "GET /harness-coverage",
       "GET /contradictions",
       "GET /documents/changes",
       "GET /documents/{id}/chain",
@@ -91,6 +92,10 @@
       "GET /api/v1/keyed-facts/as-of",
       "POST /api/v1/keyed-facts",
       "POST /api/v1/keyed-facts/correct",
+      "POST /api/v1/authority/mandates",
+      "GET /api/v1/authority/mandates",
+      "POST /api/v1/harness-integrations",
+      "GET /api/v1/harness-integrations",
       "POST /api/v1/memory/prepare",
       "GET /api/v1/kg/quarantine",
       "GET /api/v1/kg/entity-resolve/report",
@@ -6770,6 +6775,21 @@
         }
       }
     },
+    "/harness-coverage": {
+      "get": {
+        "tags": [
+          "Runtime"
+        ],
+        "summary": "Registered on this process; not yet in docs/reference/openapi.yaml",
+        "operationId": "live_GET__harness_coverage",
+        "x-valorbrain-live": true,
+        "responses": {
+          "200": {
+            "description": "See the running handler"
+          }
+        }
+      }
+    },
     "/contradictions": {
       "get": {
         "tags": [
@@ -7692,6 +7712,62 @@
         ],
         "summary": "Registered on this process; not yet in docs/reference/openapi.yaml",
         "operationId": "live_POST__api_v1_keyed_facts_correct",
+        "x-valorbrain-live": true,
+        "responses": {
+          "200": {
+            "description": "See the running handler"
+          }
+        }
+      }
+    },
+    "/api/v1/authority/mandates": {
+      "post": {
+        "tags": [
+          "Runtime"
+        ],
+        "summary": "Registered on this process; not yet in docs/reference/openapi.yaml",
+        "operationId": "live_POST__api_v1_authority_mandates",
+        "x-valorbrain-live": true,
+        "responses": {
+          "200": {
+            "description": "See the running handler"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Runtime"
+        ],
+        "summary": "Registered on this process; not yet in docs/reference/openapi.yaml",
+        "operationId": "live_GET__api_v1_authority_mandates",
+        "x-valorbrain-live": true,
+        "responses": {
+          "200": {
+            "description": "See the running handler"
+          }
+        }
+      }
+    },
+    "/api/v1/harness-integrations": {
+      "post": {
+        "tags": [
+          "Runtime"
+        ],
+        "summary": "Registered on this process; not yet in docs/reference/openapi.yaml",
+        "operationId": "live_POST__api_v1_harness_integrations",
+        "x-valorbrain-live": true,
+        "responses": {
+          "200": {
+            "description": "See the running handler"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Runtime"
+        ],
+        "summary": "Registered on this process; not yet in docs/reference/openapi.yaml",
+        "operationId": "live_GET__api_v1_harness_integrations",
         "x-valorbrain-live": true,
         "responses": {
           "200": {
