@@ -107,7 +107,9 @@ Implementar em commits separados, cada um com teste:
 - `vbm_` REST agora exige audience/escopo; `read` não muta, exporta nem cria credenciais. O worker de embed não executa mais cleanup global de hashes.
 - Offboarding de usuário revoga somente tokens MCP/API ligados ao usuário; offboarding de company revoga tokens do tenant, suspende o tenant no Engine e só então marca a empresa/usuários inativos em transação.
 - Cutover Engine/SaaS foi reiniciado com health gate; Engine `ok`, SaaS `ok` com database/engine/workers `true`, Agents e workers principais ativos. Testes focados e typechecks passaram.
+- Continuidade verificada sem rotação: hashes de `JWT_SECRET`, `JWT_SECRET_PREVIOUS` e `AUTH_SECRET` conferem entre Agent e fallback; uma sessão JWT legada de usuário ativo retornou `200`, enquanto usuário desativado foi recusado com `401`. Nenhum token foi revogado nesta etapa; nenhuma credencial existente foi rotacionada.
 - A suíte Engine completa foi executada com o role de seed isolado: 4059 passaram, 68 foram ignorados e 41 falharam/7 erros; os restantes majoritariamente em baselines de subprocessos, schema drift, contrato OpenClaw e testes de concorrência; não houve escrita em produção. Esses itens permanecem tracked como dívida de CI, sem ocultar o resultado.
+- Após o endurecimento de autenticação, os jobs de anomalia, hybrid sync, ROI e triagem de feedback foram executados novamente com sucesso; coverage/family-drift continuam sendo alarmes nonzero por design, não serviços quebrados. Jobs cross-tenant de ROI/family usam peer authentication sem senha administrativa no processo.
 
 ### Fase 6 — Jira
 
