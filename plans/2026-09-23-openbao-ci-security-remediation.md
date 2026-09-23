@@ -116,9 +116,10 @@ Implementar em commits separados, cada um com teste:
 - O audit log do OpenBao em `peace.atrative.com.br` foi rotacionado com `logrotate` (`copytruncate`, 30 rotações, compressão): caiu de ~4,2 GB para ~113 MB. Um snapshot Raft diário foi criado em `/var/backups/openbao` (root-only, 14 cópias) e testado com sucesso.
 - A causa da explosão do audit log era o loop de `auth/token/renew-self`: as policies dos AppRoles não concediam `update` nesse path, então os quatro agents renovavam em retry contínuo. As policies `vb-*-read` receberam `auth/token/renew-self` e `auth/token/lookup-self`; após o restart, as renovações passaram a ocorrer em intervalo normal e o audit log caiu para ~149 KB.
 - A suíte CI ganhou grants de schema alinhados à produção (`deltax`, `pgtrickle`, `_pg_ripple`), a expectativa de triggers do schema drift foi atualizada para as migrations 0210/0212/0213, e o canary passou a cobrir `memory_recent`/`entity_cards` em vez do alias `list_entity_cards`. Permanecem falhas de conflito/conversational resolution e um caso de rerank dependente de ordem de teste, registradas como dívida.
+- A causa dos failures de conflito/conversational resolution foi identificada e corrigida no fixture: os testes semeavam o mesmo `authority` com `as_of` diferentes, e `isTemporalHistoryPair` (ADR-030) classificava o par como histórico temporal. Os fixtures agora usam autoridade mais alta no fato mais antigo, e ambos os arquivos passam 10/10 isoladamente.
 - Débitos remanescentes: runner CI ainda no host de produção; `.env` de fallback ainda contêm valores; a suíte Engine completa continua com falhas abertas; e a custódia offline do recovery material ainda depende de decisão humana.
 - O isolamento lógico do runner foi verificado: o usuário `ci` não tem sudo, não lê `/opt/valorbrain/.env`, `/www/valorbrain-saas/.env` nem `/run/openbao-agent/*`, e recebe `permission denied for database "valorbrain"` no PostgreSQL de produção. A separação física de host/rede continua sendo o débito principal da Fase 4.
-- O job de compressão deltax foi movido para peer authentication e executou com sucesso; o KG drift detector passou a autenticar por peer e o backfill idempotente de 36 triplos do tenant principal zerou o alarme (`Drift sample: 0/30`).
+- O job de compressão deltax foi movido para peer authentication e executou com sucesso; o KG drift detector passou a autenticar por peer e o backfill idempotente de 36 triplos do tenant principal zerou o alarme (`Drift sample: 0/30`). O backfill foi estendido a todos os 19 tenants: 915 triplos faltantes foram gravados, sem duplicação.
 
 ### Fase 6 — Jira
 
@@ -142,7 +143,7 @@ Implementar em commits separados, cada um com teste:
 - **E:** parcial — systemd/OpenBao são específicos do host; CI terá adapter separado.
 - **R:** sim — secret source e delivery layer devem ser substituíveis.
 
-**Resultado:** 2 débitos técnicos documentados; prosseguir com gates e sem改变 sem aprovação.
+**Resultado:** 2 débitos técnicos documentados; prosseguir com gates e sem mudanças sem aprovação.
 
 ## Riscos e rollback
 
