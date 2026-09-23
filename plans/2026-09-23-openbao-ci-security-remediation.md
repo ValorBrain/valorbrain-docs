@@ -1,7 +1,7 @@
 # Plano — OpenBao, isolamento de CI e remediação de segurança
 
 **Data:** 2026-09-23
-**Status:** OpenBao/agents, CI database isolation, P0 auth/authorization corridors, unit secret cleanup, audit rotation, Raft snapshots e suíte Engine verde validados; runner ainda fisicamente no host, remoção dos `.env` fallback e custódia offline do recovery material pendentes
+**Status:** OpenBao/agents, CI database isolation, P0 auth/authorization corridors, unit secret cleanup, audit rotation, Raft snapshots, suítes Engine/SaaS verdes e Ops unit verde validados; runner ainda fisicamente no host, remoção dos `.env` fallback e custódia offline do recovery material pendentes
 **Escopo:** Engine, SaaS, Ops, runners, Jira e hosts auxiliares
 
 ## Objetivo
@@ -117,6 +117,7 @@ Implementar em commits separados, cada um com teste:
 - A causa da explosão do audit log era o loop de `auth/token/renew-self`: as policies dos AppRoles não concediam `update` nesse path, então os quatro agents renovavam em retry contínuo. As policies `vb-*-read` receberam `auth/token/renew-self` e `auth/token/lookup-self`; após o restart, as renovações passaram a ocorrer em intervalo normal e o audit log caiu para ~149 KB.
 - A suíte Engine completa (`tests/unit` + `tests/integration`) rodou verde no banco CI isolado: **4258 pass, 0 fail, 0 error, 43 skip** (`suite: PASS`). Foram corrigidos os grants de schema, a expectativa de triggers do schema drift, o canary de superfície, as permissões de `billing_events`, o isolamento do teste de rerank e os fixtures de conflito alinhados ao ADR-030. Typecheck Engine e SaaS verdes; teste unitário do Jira passou.
 - A suíte SaaS completa rodou verde no banco CI `valorbrain_saas_ci` com o role `ci`: **896 pass, 0 fail**. Foram corrigidos o teardown de `audit_logs` (trigger de cadeia), duas chaves i18n órfãs e os grants do app role no banco de teste. O template CI do SaaS precisa manter o role `ci` como owner dos objetos para o teardown funcionar.
+- Ops: typecheck e testes unitários verdes (9/9). O lint do source fica limpo com `--ignore-pattern '.next.rollback-*'`; o lint padrão continua pegando o diretório de rollback preexistente, que foi preservado.
 - A causa dos failures de conflito/conversational resolution foi identificada e corrigida no fixture: os testes semeavam o mesmo `authority` com `as_of` diferentes, e `isTemporalHistoryPair` (ADR-030) classificava o par como histórico temporal. Os fixtures agora usam autoridade mais alta no fato mais antigo, e ambos os arquivos passam 10/10 isoladamente.
 - Débitos remanescentes: runner CI ainda no host de produção; `.env` de fallback ainda contêm valores; e a custódia offline do recovery material ainda depende de decisão humana.
 - O isolamento lógico do runner foi verificado: o usuário `ci` não tem sudo, não lê `/opt/valorbrain/.env`, `/www/valorbrain-saas/.env` nem `/run/openbao-agent/*`, e recebe `permission denied for database "valorbrain"` no PostgreSQL de produção. A separação física de host/rede continua sendo o débito principal da Fase 4.
