@@ -1,7 +1,7 @@
 # Plano — OpenBao, isolamento de CI e remediação de segurança
 
 **Data:** 2026-09-23
-**Status:** OpenBao/agents, CI database isolation e P0 auth/authorization corridors validados; runner ainda fisicamente no host, limpeza final de secrets inline, suíte completa e hardening backup/rotação pendentes
+**Status:** OpenBao/agents, CI database isolation, P0 auth/authorization corridors, unit secret cleanup, audit rotation and Raft snapshots validados; runner ainda fisicamente no host, remoção dos `.env` fallback, suíte completa verde e custódia offline do recovery material pendentes
 **Escopo:** Engine, SaaS, Ops, runners, Jira e hosts auxiliares
 
 ## Objetivo
@@ -110,6 +110,11 @@ Implementar em commits separados, cada um com teste:
 - Continuidade verificada sem rotação: hashes de `JWT_SECRET`, `JWT_SECRET_PREVIOUS` e `AUTH_SECRET` conferem entre Agent e fallback; uma sessão JWT legada de usuário ativo retornou `200`, enquanto usuário desativado foi recusado com `401`. Nenhum token foi revogado nesta etapa; nenhuma credencial existente foi rotacionada.
 - A suíte Engine completa foi executada com o role de seed isolado: 4059 passaram, 68 foram ignorados e 41 falharam/7 erros; os restantes majoritariamente em baselines de subprocessos, schema drift, contrato OpenClaw e testes de concorrência; não houve escrita em produção. Esses itens permanecem tracked como dívida de CI, sem ocultar o resultado.
 - Após o endurecimento de autenticação, os jobs de anomalia, hybrid sync, ROI e triagem de feedback foram executados novamente com sucesso; coverage/family-drift continuam sendo alarmes nonzero por design, não serviços quebrados. Jobs cross-tenant de ROI/family usam peer authentication sem senha administrativa no processo.
+- O endurecimento do PgBouncer expôs credenciais TCP antigas em apps vizinhos que antes dependiam de `trust`. Twenty CRM foi reconectado reutilizando a senha já existente do app no role `supabase_admin`; Manifest passou a usar o role dedicado `manifest_app`; CRM bridge ganhou o role de leitura `crm_bridge` e uma `CRM_DATABASE_URL` em arquivo root-only. Todos os três ficaram ativos e o PgBouncer ficou sem falhas de autenticação recentes.
+- Segredos inline foram removidos de 33 unit files: 5 units com drop-in OpenBao tiveram as cópias inline retiradas, e 28 units passaram a ler `/etc/valorbrain/units/<unit>.env` (modo `0600`, root). Os arquivos foram validados contra os backups e nenhum valor foi impresso; os processos atuais não foram reiniciados, então a mudança vale a partir do próximo start.
+- Templates systemd versionados no Engine/SaaS não contêm mais credenciais reais: deltax passou a usar peer authentication (`User=postgres`, socket Unix), kg-drift idem, e os demais passaram a referenciar os arquivos root-only ou o drop-in OpenBao.
+- O audit log do OpenBao em `peace.atrative.com.br` foi rotacionado com `logrotate` (`copytruncate`, 30 rotações, compressão): caiu de ~4,2 GB para ~113 MB. Um snapshot Raft diário foi criado em `/var/backups/openbao` (root-only, 14 cópias) e testado com sucesso.
+- Débitos remanescentes: runner CI ainda no host de produção; `.env` de fallback ainda contêm valores; a suíte Engine completa continua com falhas abertas; o KG drift detector agora autentica corretamente e segue alarmando porque o grafo precisa de backfill; e a custódia offline do recovery material ainda depende de decisão humana.
 
 ### Fase 6 — Jira
 
