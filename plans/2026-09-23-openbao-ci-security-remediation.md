@@ -177,3 +177,14 @@ Implementar em commits separados, cada um com teste:
 1. Host do OpenBao: `vps-valor`, `desktop-brj0r2g-1` ou outro.
 2. Máquina destino do CI: a mesma do staging ou `vps-valor`.
 3. Se a política permite que o runner CI leia somente paths `ci/*` e nunca `production/*`.
+
+## Backlog para próxima janela (2026-09-23)
+
+1. **CI verde**: acompanhar os runs após `15b5d464` (engine) e `022a5cb` (saas); em caso de falha, `gh run view <id> --log-failed`.
+2. **Runner CI em host separado**: provisionar em `vps-valor`/staging, sem `.env` de produção; só aposentar o runner atual após dois workflows verdes no novo.
+3. **Remover fallbacks de secrets**: migrar scripts/CLIs restantes para Agent/OpenBao, mover o PAT de `/root/.git-credentials` para OpenBao/`gh auth` e sanitizar `.env` com backup + health gate.
+4. **Auto-unseal com TPM/KMS externo**: eliminar a dependência do `recovery-2.7.0.json` em claro no host, mantendo rollback Shamir.
+5. **Restore drill do snapshot Raft**: restaurar um snapshot em instância descartável e conferir dados.
+6. **Custódia da chave de backup offsite**: tratar `/opt/backups/.encryption-key` como o kit do OpenBao (chave fora do host + drill de restore).
+7. **Cosmético**: lint padrão do Ops ignorar `.next.rollback-*`; próxima release do Docs ganha tag nova.
+8. **Decisão humana**: pricing/self-service continua intocado (`talk-to-us` preservado).
