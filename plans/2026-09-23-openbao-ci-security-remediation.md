@@ -114,7 +114,8 @@ Implementar em commits separados, cada um com teste:
 - Segredos inline foram removidos de 33 unit files: 5 units com drop-in OpenBao tiveram as cópias inline retiradas, e 28 units passaram a ler `/etc/valorbrain/units/<unit>.env` (modo `0600`, root). Os arquivos foram validados contra os backups e nenhum valor foi impresso; os processos atuais não foram reiniciados, então a mudança vale a partir do próximo start.
 - Templates systemd versionados no Engine/SaaS não contêm mais credenciais reais: deltax passou a usar peer authentication (`User=postgres`, socket Unix), kg-drift idem, e os demais passaram a referenciar os arquivos root-only ou o drop-in OpenBao.
 - O audit log do OpenBao em `peace.atrative.com.br` foi rotacionado com `logrotate` (`copytruncate`, 30 rotações, compressão): caiu de ~4,2 GB para ~113 MB. Um snapshot Raft diário foi criado em `/var/backups/openbao` (root-only, 14 cópias) e testado com sucesso.
-- Débitos remanescentes: runner CI ainda no host de produção; `.env` de fallback ainda contêm valores; a suíte Engine completa continua com falhas abertas; o KG drift detector agora autentica corretamente e segue alarmando porque o grafo precisa de backfill; e a custódia offline do recovery material ainda depende de decisão humana.
+- Débitos remanescentes: runner CI ainda no host de produção; `.env` de fallback ainda contêm valores; a suíte Engine completa continua com falhas abertas; e a custódia offline do recovery material ainda depende de decisão humana.
+- O job de compressão deltax foi movido para peer authentication e executou com sucesso; o KG drift detector passou a autenticar por peer e o backfill idempotente de 36 triplos do tenant principal zerou o alarme (`Drift sample: 0/30`).
 
 ### Fase 6 — Jira
 
