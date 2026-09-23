@@ -180,7 +180,7 @@ Implementar em commits separados, cada um com teste:
 
 ## Backlog para próxima janela (2026-09-23)
 
-1. **CI verde**: acompanhar os runs após `15b5d464` (engine) e `022a5cb` (saas); em caso de falha, `gh run view <id> --log-failed`.
+1. **CI verde — concluído em 2026-09-23**: Engine `35931909769` success (4m51s) e SaaS `35931202844` success (3m39s). Os fixes foram `15b5d464`/`8499fe17` (engine) e `022a5cb` (saas).
 2. **Runner CI em host separado**: provisionar em `vps-valor`/staging, sem `.env` de produção; só aposentar o runner atual após dois workflows verdes no novo.
 3. **Remover fallbacks de secrets**: migrar scripts/CLIs restantes para Agent/OpenBao, mover o PAT de `/root/.git-credentials` para OpenBao/`gh auth` e sanitizar `.env` com backup + health gate.
 4. **Auto-unseal com TPM/KMS externo**: eliminar a dependência do `recovery-2.7.0.json` em claro no host, mantendo rollback Shamir.
