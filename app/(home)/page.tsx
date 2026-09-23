@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { BrandMark } from '@/lib/layout.shared';
+import { BrandSymbol } from '@/lib/layout.shared';
 import { REST_URL, MCP_URL, SAAS_URL } from '@/lib/shared';
 
 const cards = [
@@ -40,18 +40,21 @@ export default function HomePage() {
     <main className="mx-auto w-full max-w-6xl px-4 pb-24 pt-16 sm:px-6">
       <div className="mx-auto max-w-3xl text-center">
       <div className="mb-5 flex justify-center">
-        <BrandMark className="size-12" />
+        <BrandSymbol size={48} />
       </div>
       <p className="mb-4 text-xs font-medium uppercase tracking-[0.18em] text-fd-primary">
         Documentação
       </p>
-        <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
+        <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl">
           Construa com o <span className="text-fd-primary">ValorBrain</span>
         </h1>
         <p className="mx-auto mt-5 max-w-2xl text-base text-fd-muted-foreground sm:text-lg">
           O cérebro da empresa para pessoas e agentes. Memória persistente que
           cita as fontes, guarda português como português e deixa você corrigir
           um fato para a próxima sessão não repetir o erro.
+        </p>
+        <p className="mt-4 text-sm font-semibold text-fd-foreground/70">
+          Para pessoas e agentes.
         </p>
       </div>
 

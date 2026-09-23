@@ -7,7 +7,7 @@ export const revalidate = false;
 const PREAMBLE = `# ValorBrain
 
 > Company brain for people and AI agents. Persistent, sourced, correctable memory.
-> Hosted product (this file) — not an agent orchestrator.
+> Hosted product (this file), not an agent orchestrator.
 
 ## For agents reading this file
 
@@ -17,16 +17,16 @@ const PREAMBLE = `# ValorBrain
 npx @valorbrain/cli init --agent --agent-caller <your-name> --json
 \`\`\`
 
-Replace \`<your-name>\` with who you are (\`claude-code\`, \`cursor\`, \`grok\`, \`hermes\`, \`zcode\`, …). Identity is self-declared, never inferred. This mints a \`vb_agent_\` REST key against ${REST_URL} in a few seconds. Claim later with \`npx @valorbrain/cli init --email <addr>\` — same key, memories preserved.
+Replace \`<your-name>\` with who you are (\`claude-code\`, \`cursor\`, \`grok\`, \`hermes\`, \`zcode\`, …). Identity is self-declared, never inferred. This mints a \`vb_agent_\` REST key against ${REST_URL} in a few seconds. Claim later with \`npx @valorbrain/cli init --email <addr>\`, same key, memories preserved.
 
 \`npx @valorbrain/cli help --json\` is the command contract. There is no \`setup harness\` subcommand on the published CLI.
 
 ### Routing
 
-- REST (search, documents, agent signup): ${REST_URL} — Authorization: Bearer vb_agent_…
-- MCP: ${MCP_URL} — Authorization: Bearer vbm_… or OAuth 2.1 DCR
+- REST (search, documents, agent signup): ${REST_URL}, Authorization: Bearer vb_agent_…
+- MCP: ${MCP_URL}, Authorization: Bearer vbm_… or OAuth 2.1 DCR
 - App / ingest with fk_ keys: ${SAAS_URL}
-- Do **not** send /search or /documents to mcpbrain.valor.digital — non-OAuth paths there are MCP transport (401).
+- Do **not** send /search or /documents to mcpbrain.valor.digital: non-OAuth paths there are MCP transport (401).
 - After retrieve, call memory_used with the docids you relied on.
 - Canonical write tool is memory_store, not store (deprecated).
 - Text is stored verbatim. Do not translate.

@@ -1,6 +1,6 @@
 # MCP tool schemas
 
-Generated from `/opt/valorbrain/src/mcp-tools.ts`. 93 registerTool() calls.
+Generated from `/opt/valorbrain/src/mcp-tools.ts`. 95 registerTool() calls.
 This is the description and input shape the MCP server advertises.
 
 ## memory_retrieve
@@ -29,6 +29,7 @@ z.object({
               snippet_chars: z.number().optional().default(200).describe("Snippet length in compact mode (default 200)"),
               budget: z.number().optional().describe("TOKEN budget for category-ranked recall (not result count). Prefer limit/max_results for hit count."),
               recall_format: z.enum(["json", "markdown"]).optional(),
+              min_score: z.number().optional().describe("Descarta resultados com composite score abaixo deste valor (0-1)"),
             }),
     }
 ```
@@ -39,8 +40,10 @@ We decided to use PostgreSQL instead of MongoDBThe API rate limit is 100/minRoot
 
 ```
 z.object({
-              type: z.enum(['decision', 'observation', 'problem', 'milestone', 'handoff', 'lesson', 'note'])
-                .describe("Memory type. 'decision' for choices made, 'observation' for facts learned, 'problem' for issues found, 'milestone' for progress, 'handoff' for context to pass forward, 'lesson' for takeaways, 'note' for general."),
+              type: z.union([
+                z.enum(['decision', 'observation', 'problem', 'milestone', 'handoff', 'lesson', 'note']),
+                z.string(),
+              ]).describe("Memory type: decision | observation | problem | milestone | handoff | lesson | note. Near-misses (insight, fact, info, issue, bug, learning, task, plurals, any case) are auto-mapped; anything else is rejected with the allowed list."),
               title: z.string().min(5).max(200).describe("Short title (5-200 chars). Will appear in search results and dashboard."),
               content: z.string().min(20).describe("Full memory content in markdown. Include context, reasoning, and evidence."),
               collection: z.string().optional().describe("Collection name (default: '_valorbrain'). Use a custom name to group related memories."),
@@ -268,7 +271,7 @@ z.object({
 
 ## memory_used
 
-Declare quais memórias você realmente usou na resposta (docids como '#ab12cd', ou caminhos). Uma linha no seu prompt de sistema chamando esta ferramenta antes da resposta final registra uso declarado separado de recuperação. Para um comprovante antes da resposta final, envie receipt:{task_id,result} e note explicando a contribuição. Retorna receipt.summary sem LLM adicional; uso declarado, não prova causalidade ou economia. docids:[] com receipt declara ausência de uso.
+Declare quais memórias você realmente usou na resposta (docids como '#ab12cd', ou caminhos) — declare o conjunto COMPLETO do working set, não só as mais óbvias. Uma linha no seu prompt de sistema chamando esta ferramenta antes da resposta final registra uso declarado separado de recuperação. Para um comprovante antes da resposta final, envie receipt:{task_id,result} e note explicando a contribuição. Opcional (contabilidade honesta, graft-style): saved_tokens (economia estimada de tokens/contexto), waste_avoided (descreva O QUE foi evitado em linguagem humana, sem usar a palavra 'evitado' — ex.: '240 perguntas de benchmark desperdiçadas (protocolo errado)') e discounted (consultas que não geraram ganho). O receipt.summary estima tokens do conteúdo consultado e conta memórias criadas hoje que foram reutilizadas; economia aparece rotulada (declarada). Retorna receipt.summary sem LLM adicional; uso declarado, não prova causalidade. docids:[] com receipt declara ausência de uso.
 
 ```
 z.object({
@@ -277,11 +280,26 @@ z.object({
                 .min(0)
                 .describe("Docids ('#ab12cd') ou caminhos das memórias efetivamente usadas"),
               verdict: z
-                .enum(["confirmed", "corrected"])
+                .enum(["confirmed", "corrected"], { error: "verdict must be 'confirmed' or 'corrected'" })
                 .optional()
                 .describe("V5: o usuário CONFIRMOU o que a memória dizia ('confirmed') ou CORRIGIU/contradisse ('corrected') nesta resposta. Declare junto com os docids."),
+              outcome: z
+                .enum(["success", "failure", "partial"], { error: "outcome must be 'success', 'failure' or 'partial'" })
+                .optional()
+                .describe("Eixo outcome: agir sobre estas memórias FUNCIONOU ('success'), FALHOU ('failure') ou ajudou em parte ('partial')? Distinto do verdict — uma memória pode ser verdadeira e ainda assim não resolver a tarefa. Falha não é punida: é o sinal que alimenta a próxima correção."),
+              query: z
+                .string()
+                .max(2000)
+                .optional()
+                .describe("A pergunta/mensagem que motivou este uso — vira o lado esquerdo do par (query → memória) que treina o reranker de utilidade e alimenta o eixo de confiabilidade de produtor. Envie sempre que fizer sentido (a mensagem do usuário da resposta atual)."),
               note: z.string().optional().describe("Por que serviu (opcional, entra no registro)"),
               receipt: ContributionReceiptRequestSchema.optional(),
+              saved_tokens: z.number().int().min(1).max(100_000_000).optional()
+                .describe("Economia estimada de tokens/contexto (declarada, exibida rotulada como declarada)"),
+              waste_avoided: z.string().max(120).optional()
+                .describe("Uma linha do desperdício evitado (letras/números/pontuação básica). Ex.: 'run de 240 perguntas de LLM evitado'"),
+              discounted: z.number().int().min(0).max(50).optional()
+                .describe("Consultas que não geraram ganho — o desconto honesto"),
               vault: z.string().optional(),
             }).refine((input) => input.docids.length > 0 || input.receipt !== undefined,
               "docids must not be empty unless receipt is requested"),
@@ -297,6 +315,9 @@ z.object({
               pattern: z.string().describe("Expressão regular (sintaxe POSIX do Postgres)"),
               collection: z.string().optional().describe("Restringe a uma coleção"),
               since: z.string().optional().describe("Só documentos modificados desde esta data (ISO)"),
+              path: z.string().optional().describe("Restringe a um caminho exato (collection/path ou path)"),
+              docid: z.string().optional().describe("Restringe ao documento do docid (#abc123)"),
+              timeout_ms: z.number().optional().describe("Teto de tempo da varredura em ms (1000-30000; default do servidor)"),
               context: z
                 .boolean()
                 .optional()
@@ -449,12 +470,13 @@ z.object({
 
 ## memory_curate
 
-Curate a memory's surfacing: pin for permanent prioritization (+0.3 boost), unpin, snooze to hide for N days, or unsnooze. USE PROACTIVELY: pin when the user states a persistent constraint, makes an architecture decision, or corrects a misconception; snooze when vault-context repeatedly surfaces irrelevant content (30 days by default). Resolves by search query.
+Curate a memory's surfacing: pin for permanent prioritization (+0.3 boost), unpin, snooze to hide for N days, or unsnooze. USE PROACTIVELY: pin when the user states a persistent constraint, makes an architecture decision, or corrects a misconception; snooze when vault-context repeatedly surfaces irrelevant content (30 days by default). Resolves by docid (#abc123, exact), path, or search query. A search query needs at least one term in common with the target (path/title) — otherwise nothing is curated.
 
 ```
 z.object({
               action: z.enum(["pin", "unpin", "snooze", "unsnooze"]).describe("Curate verb"),
-              query: z.string().describe("Search query to find the memory"),
+              query: z.string().optional().describe("Target: path or search query (required when docid is absent)"),
+              docid: z.string().optional().describe("Exact document id (#abc123) — takes precedence over query"),
               until: z.string().optional().describe("snooze only: ISO date to snooze until (default 30 days)"),
               vault: z.string().optional().describe("Named vault (omit for default vault)"),
             }),
@@ -489,11 +511,12 @@ z.object({
 
 ## lifecycle_status
 
-Show document lifecycle statistics: active, archived, forgotten, pinned, snoozed counts and policy summary.
+Show document lifecycle statistics: active, archived, forgotten, pinned, snoozed counts and policy summary. Also lists the pin/snooze CANDIDATES with docid/path and metrics (FB-0028) so they can be acted on with memory_curate.
 
 ```
 z.object({
               vault: z.string().optional().describe("Named vault (omit for default vault)"),
+              candidates_limit: z.number().optional().default(10).describe("how many pin/snooze candidates to list (0 = counts only, max 100)"),
             }),
     }
 ```
@@ -513,14 +536,41 @@ z.object({
     }
 ```
 
+## entity_cards
+
+Entity surface in one place. action=list: stable identity cards do tenant (filtros entity_type, min_mentions/max_mentions, name_contains, quarantined=only para auditar). action=alias_propose: sugere fusões de entidades que são a MESMA coisa (nome curto prefixo de nome longo, co-ocorrendo em >= 3 docs) e marca AMBÍGUO quando o prenome tem vários candidatos. action=alias_merge: funde (decisão do tenant — nada é automático); action=alias_reject: registra que NÃO são a mesma pessoa/coisa (a sugestão não volta).
+
+```
+z.object({
+              action: z.enum(["list", "alias_propose", "alias_merge", "alias_reject"]).optional().default("list"),
+              limit: z.number().optional().default(50),
+              offset: z.number().optional().default(0),
+              entity_type: z.string().optional().describe("list: canonical type (person, org, project, service, tool, concept, product, agent, location)"),
+              min_mentions: z.number().optional().describe("list: minimum document mentions (evidence of the entity node)"),
+              max_mentions: z.number().optional().describe("list: maximum document mentions"),
+              name_contains: z.string().optional().describe("list: entity name or card text contains"),
+              quarantined: z.enum(["exclude", "include", "only"]).optional().default("exclude").describe("list: quarantine view: exclude (default), include, only (audit)"),
+              canonical: z.string().optional().describe("alias_merge: nome ou entity_id da canônica que fica"),
+              alias: z.string().optional().describe("alias_merge/reject: nome ou entity_id que vira apelido (merge aceita lista por vírgula)"),
+              longo: z.string().optional().describe("alias_reject: candidato rejeitado (omita para rejeitar o prenome inteiro)"),
+              vault: z.string().optional(),
+            }),
+    }
+```
+
 ## list_entity_cards
 
-List stable identity cards for entities in the current tenant.
+DEPRECATED — use entity_cards com action=list (a curadoria de apelido também vive lá).
 
 ```
 z.object({
               limit: z.number().optional().default(50),
               offset: z.number().optional().default(0),
+              entity_type: z.string().optional(),
+              min_mentions: z.number().optional(),
+              max_mentions: z.number().optional(),
+              name_contains: z.string().optional(),
+              quarantined: z.enum(["exclude", "include", "only"]).optional().default("exclude"),
               vault: z.string().optional(),
             }),
     }
@@ -660,7 +710,7 @@ z.object({
 
 ## record_lesson
 
-Record or verify a procedural lesson for a surface (PMB-style follow-through). Dedupes on surface_id + content; set verify=true to bump follow-through score.
+Record or verify a procedural lesson for a surface (PMB-style follow-through). Dedupes on surface_id + content; set verify=true to bump follow-through score. Pass approve_lesson_id to approve a pending candidate filed by an outcome=failure report (content optionally refines the lesson text); re-recording the same surface_id+content also activates a pending twin.
 
 ```
 z.object({
@@ -669,6 +719,7 @@ z.object({
               evidence: z.string().optional().describe("Supporting evidence or citation"),
               episode_id: z.string().optional().describe("Linked episode UUID"),
               verify: z.boolean().optional().default(false).describe("Bump verification count"),
+              approve_lesson_id: z.string().optional().describe("Approve this pending lesson candidate (from outcome=failure reports); content becomes the refined lesson text"),
               vault: z.string().optional().describe("Named vault (omit for default vault)"),
             }),
     }
@@ -676,12 +727,16 @@ z.object({
 
 ## list_lessons
 
-List procedural lessons for the tenant, optionally filtered by surface or min follow-through score.
+List procedural lessons for the tenant, optionally filtered by surface or min follow-through score. Defaults to ACTIVE lessons only — pass status="pending" to triage outcome=failure candidates.
 
 ```
 z.object({
               surface_id: z.string().optional().describe("Filter by surface"),
               min_score: z.number().optional().describe("Minimum follow_through_score (0–1)"),
+              status: z.enum(["pending", "active", "superseded", "invalidated", "archived"]).optional().describe("Filter by status (default: active)"),
+              since: z.string().optional().describe("Só lições criadas a partir desta data (ISO)"),
+              until: z.string().optional().describe("Só lições criadas até esta data (ISO)"),
+              content_chars: z.number().optional().default(0).describe("Trunca content/evidence em N chars (0 = completo); use com limit alto para não estourar tokens"),
               limit: z.number().optional().default(20),
               vault: z.string().optional(),
             }),
@@ -777,6 +832,9 @@ z.object({
               authority: z
                 .enum(["human", "designated", "agent", "import"])
                 .describe("human > designated > import > agent"),
+              confirmed_by_user: z.boolean().optional().describe(
+                "Set true only when the current authenticated human explicitly stated or approved this exact fact. The server derives identity from the token.",
+              ),
               evidence: z.string().optional(),
               losing_values: z
                 .array(z.string())
@@ -964,7 +1022,7 @@ z.object({
 
 ## feedback
 
-Channel to the ValorBrain product team (not end-user CRM). submit files a bug/feature/question/praise — returns FB-XXXX; check tracks status and team response by id or 'all'. WHEN TO CALL (agents): tool/MCP errors; empty or wrong memory_retrieve when knowledge should exist; ranking noise; missing capability; verified fix (praise). WHEN NOT TO: normal successful domain work, chat without a product defect, secrets in the body. One FB per distinct issue.
+Channel to the ValorBrain product team (not end-user CRM). submit files a bug/feature/question/praise — returns FB-XXXX; check tracks status and team response by id or 'all'. WHEN TO CALL (agents): **ValorBrain** tool/MCP errors (a bug in YOUR harness/CLI/editor — herdr, omp, codex, kiro, cursor, … — belongs to that project, not here); empty or wrong memory_retrieve when knowledge should exist; ranking noise; missing capability; verified fix (praise). WHEN NOT TO: normal successful domain work, chat without a product defect, secrets in the body. One FB per distinct issue.
 
 ```
 z.object({
@@ -982,7 +1040,7 @@ z.object({
 
 ## feedback_submit
 
-DEPRECATED — use feedback with action submit. Submit a bug report, feature request, question, praise, or improvement to the ValorBrain product team (not end-user CRM). Returns FB-XXXX for tracking via feedback action check. WHEN TO CALL (agents): ValorBrain tool/MCP errors; empty or wrong memory_retrieve when knowledge should exist; ranking noise; missing capability blocking work; verified fix (category=praise). WHEN NOT TO: normal successful domain work, chat without a product defect, secrets in the body. One FB per distinct issue. Human ops triage at ValorBrain Ops /feedback.
+DEPRECATED — use feedback with action submit. Submit a bug report, feature request, question, praise, or improvement to the ValorBrain product team (not end-user CRM). Returns FB-XXXX for tracking via feedback action check. WHEN TO CALL (agents): ValorBrain tool/MCP errors (not bugs in your harness/CLI/editor — those belong to their projects); empty or wrong memory_retrieve when knowledge should exist; ranking noise; missing capability blocking work; verified fix (category=praise). WHEN NOT TO: normal successful domain work, chat without a product defect, secrets in the body. One FB per distinct issue. Human ops triage at ValorBrain Ops /feedback.
 
 ```
 z.object({
@@ -993,6 +1051,22 @@ z.object({
               tags: z.array(z.string()).optional().describe("Optional tags for categorization"),
               vault: z.string().optional(),
             }),
+    }
+```
+
+## secrets
+
+Cofre de segredos do tenant. A memória guarda a referência `secret://<nome>`; o valor mora aqui e só sai por get (auditado). put cria/atualiza (write); get resolve o valor (read); list devolve só metadados (read); rotate re-embrulha a chave do tenant (write); delete remove (write). get aceita nome aproximado em linguagem natural: get name='senha da cloudflare' resolve para 'cloudflare-password' quando o candidato é único. QUANDO USAR: o usuário falou uma credencial (senha, token, chave) → put com um nome curto e estável (ex.: 'cloudflare-password'); o usuário perguntou uma credencial → get. Nunca escreva o valor em documento/memória: a memória só carrega a referência. Exige escopo 'secrets:read' (get/list) ou 'secrets:write' (put/rotate/delete) — 'read'/'write' legados não cobrem. Nunca é injetado em retrieval.
+
+```
+z.object({
+        action: z.enum(["put", "get", "list", "rotate", "delete"]).describe("Cofre: verbo"),
+        name: z.string().optional().describe("put/get/delete: nome do segredo (vira secret://<nome>)"),
+        value: z.string().optional().describe("put: valor — nunca é devolvido por list"),
+        description: z.string().optional().describe("put: para que serve"),
+        expires_at: z.string().optional().describe("put: validade ISO (opcional)"),
+        vault: z.string().optional(),
+      }),
     }
 ```
 
@@ -1076,7 +1150,7 @@ z.object({
               priority: z.enum(["low", "normal", "high", "critical"]).optional().default("normal"),
               status: z.enum(["pending", "blocked_on_human"]).optional().default("pending")
                 .describe("create: pending=actionable work; blocked_on_human=parked waiting on human (do not re-escalate)"),
-              handoff_id: z.union([z.string(), z.number()]).optional().describe("consume: handoff id to consume"),
+              handoff_id: z.union([z.string(), z.number()]).optional().describe("consume: handoff #id (from team_briefing) or its summary"),
               note: z.string().max(500).optional().describe("consume: optional completion note"),
               vault: z.string().optional(),
             }),
@@ -1160,7 +1234,7 @@ z.object({
         decision_maker: z.string().optional().describe("record: who or what made the decision"),
         valid_from: z.string().optional().describe("record: valid from (YYYY-MM-DD)"),
         valid_until: z.string().optional().describe("record: expires/superseded (YYYY-MM-DD)"),
-        source_doc_ids: z.array(z.string()).optional().describe("record: document IDs that informed this decision"),
+        source_doc_ids: z.array(z.string()).optional().describe("record: document refs that informed this decision — UUID, #docid, or collection/path"),
         source_decision_id: z.string().optional().describe("relate: UUID of the upstream decision"),
         target_decision_id: z.string().optional().describe("relate: UUID of the downstream decision"),
         relationship_type: z.enum(["caused", "influenced", "precedent_for"]).optional().describe("relate: how source relates to target"),
@@ -1304,6 +1378,11 @@ z.object({
         resolved_value: z.string().optional().describe("resolve: the chosen value"),
         resolved_source: z.enum(["source_a", "source_b", "merged", "custom"]).optional().describe("resolve: which source won"),
         resolution_note: z.string().optional().describe("resolve: optional note explaining the resolution"),
+        apply_canonical: z.boolean().optional().describe("resolve: apply a verified human decision to the canonical fact atomically"),
+        expected_revision: z.string().optional().describe("resolve: revision returned by conflicts list"),
+        as_of: z.string().optional().describe("resolve: effective date YYYY-MM-DD for canonical correction"),
+        human_confirmation: z.string().optional().describe("resolve: class-A act-bound envelope supplied by an enrolled harness; never invent this proof"),
+        confirmed_by_user: z.boolean().optional().describe("resolve: true only when the current authenticated human explicitly chose this value; makes canonical application the default"),
       }),
     }
 ```
@@ -1342,6 +1421,11 @@ z.object({
         resolved_value: z.string().describe("The chosen value"),
         resolved_source: z.enum(["source_a", "source_b", "merged", "custom"]).describe("Which source won"),
         resolution_note: z.string().optional().describe("Optional note explaining the resolution"),
+        apply_canonical: z.boolean().optional(),
+        expected_revision: z.string().optional(),
+        as_of: z.string().optional(),
+        human_confirmation: z.string().optional(),
+        confirmed_by_user: z.boolean().optional(),
       }),
     }
 ```

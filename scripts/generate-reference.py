@@ -47,6 +47,19 @@ LIVE_SPEC_URL = os.environ.get(
 SPEC_SOURCE_LABEL = str(OPENAPI_SRC)
 
 
+def escape_mdx_angle(text: str) -> str:
+    """Escape bare '<' in free-text prose before it lands in an MDX page.
+
+    Inline code spans are preserved verbatim; JSX-lookalike tokens like
+    ``secret://<nome>`` in tool notes/descriptions otherwise break the build
+    ("Expected a closing tag for <nome>").
+    """
+    parts = re.split(r"(`[^`]*`)", text)
+    for i in range(0, len(parts), 2):
+        parts[i] = parts[i].replace("<", "&lt;")
+    return "".join(parts)
+
+
 def load_spec() -> tuple[dict, str] | None:
     """Live spec first (the running process is the truth); YAML as fallback."""
     global SPEC_SOURCE_LABEL
@@ -114,7 +127,7 @@ def emit_rest(spec: dict) -> str:
             tags = op.get("tags") or ["Untagged"]
             tag = tags[0]
             summary = op.get("summary") or ""
-            desc = (op.get("description") or "").strip().replace("\n", " ")
+            desc = escape_mdx_angle((op.get("description") or "").strip().replace("\n", " "))
             auth = "none" if op.get("security") == [] else "bearer"
             params = op.get("parameters") or []
             q = [
@@ -196,7 +209,7 @@ def emit_mcp(src: Path) -> str:
             rest = rm.group(1)
         nm = re.search(r'note:\s*"([^"]+)"', extra)
         if nm:
-            note = nm.group(1)
+            note = escape_mdx_angle(nm.group(1))
         rows.append((toolset, name, status, alias, rest, note))
 
     by = defaultdict(list)

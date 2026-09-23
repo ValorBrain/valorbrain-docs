@@ -1,0 +1,56 @@
+/**
+ * ValorBrain design tokens — docs.valor.digital extract.
+ * Brand V. v2.0.0 (2026-09-22, direção V. final).
+ * Single source for brand hex in this repo: every other file references these
+ * vars; new brand hex goes HERE, nowhere else.
+ * Mirrors /www/valorbrain-saas/tokens.css (keep both in sync).
+ * Canonical kit: valorbrain-platform/deliverables/brand-kit/
+ * (brand_assets/valorbrain-tokens.{css,json}); ADR 0004.
+ */
+
+:root {
+  /* ── Brand V. v2.0.0 ────────────────────────────────────────── */
+  --vb-obsidian: #111317;   /* bloco preto da marca, fundos escuros (17.4:1 c/ branco) */
+  --vb-white: #FFFFFF;
+  --vb-green: #3F9E5E;      /* ValorGreen: SÓ símbolo/ponto/acento — NUNCA texto pequeno (3.2:1) */
+  --vb-graphite: #26292E;   /* superfícies escuras elevadas e bordas */
+  --vb-slate: #5F636B;      /* texto secundário sobre paper: 5.8:1 */
+  --vb-paper: #F6F7F3;      /* Brand Paper, fundo claro editorial */
+  --vb-ink: #192321;        /* texto principal sobre claros: 15.2:1 */
+  --vb-green-text: #31824C; /* verde p/ TEXTO normal (= green-600): 4.8:1 sobre branco, AA */
+
+  /* ── Neutral tonal scale (kit v2.0.0) ───────────────────────── */
+  --vb-neutral-50: #F8F9F7;
+  --vb-neutral-100: #F0F2EE;
+  --vb-neutral-200: #E2E5E0;
+  --vb-neutral-300: #D8DCD7; /* linhas e bordas primárias */
+  --vb-neutral-400: #9DA39E;
+  --vb-neutral-500: #5F636B; /* texto secundário / muted (= slate) */
+  --vb-neutral-700: #383C42;
+  --vb-neutral-800: #26292E; /* superfície dark elevada (= graphite) */
+  --vb-neutral-900: #191B1F; /* background dark principal */
+  --vb-neutral-950: #111317; /* Obsidian Deep (= obsidian) */
+
+  /* ── Brand green tonal scale (kit v2.0.0) ───────────────────── */
+  --vb-green-50: #F0F8F3;
+  --vb-green-100: #DCF0E3;
+  --vb-green-200: #BCE3C9;
+  --vb-green-300: #8FD0A5;
+  --vb-green-400: #5EBA7F;
+  --vb-green-500: #3F9E5E;  /* core (ponto V.) */
+  --vb-green-600: #31824C;  /* verde acessível AA sobre branco */
+  --vb-green-700: #26663C;
+  --vb-green-800: #1F4F30;
+  --vb-green-900: #143520;
+
+  /* ── Semantic product tokens (kit v2.0.0) ─────────────────────
+   * Estados de produto usam ESTES códigos, nunca o verde da marca:
+   * o ponto verde não é "sucesso", "online" nem "verdade confirmada". */
+  --vb-semantic-success: #16A34A;
+  --vb-semantic-warning: #D97706;
+  --vb-semantic-error: #DC2626;
+  --vb-semantic-info: #2563EB;
+  --vb-semantic-agent-ai: #7C3AED;      /* roxo exclusivo p/ entidades autônomas de IA */
+  --vb-semantic-success-text: #15803D;  /* texto pequeno AA sobre paper: 5.0:1 */
+  --vb-semantic-warning-text: #B45309;  /* texto pequeno AA sobre paper: 5.0:1 */
+}

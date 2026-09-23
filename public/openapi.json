@@ -11,10 +11,10 @@
     "license": {
       "name": "Proprietary"
     },
-    "x-valorbrain-generated-at": "2026-09-18T17:39:25.680Z",
+    "x-valorbrain-generated-at": "2026-09-23T02:13:51.512Z",
     "x-valorbrain-public-url": "https://valorbrain-api.valor.digital",
     "x-valorbrain-yaml-operations": 135,
-    "x-valorbrain-live-operations": 212,
+    "x-valorbrain-live-operations": 219,
     "x-valorbrain-missing-from-yaml": [
       "GET /openapi.yaml",
       "GET /health/admin",
@@ -47,6 +47,9 @@
       "DELETE /scratchpad",
       "GET /setup/artifacts",
       "GET /api/v1/entity-cards",
+      "POST /api/v1/feedback",
+      "GET /api/v1/secrets",
+      "POST /api/v1/secrets",
       "PATCH /api/v1/entities/{name}/card",
       "DELETE /api/v1/entities/{name}/card",
       "GET /api/v1/pins",
@@ -84,6 +87,9 @@
       "POST /api/v1/users/resolve-caller",
       "GET /api/v1/users/channel-identities",
       "POST /api/v1/users/channel-identities",
+      "GET /api/v1/audit/pubkey",
+      "GET /api/v1/audit/bundle",
+      "GET /api/v1/audit/status",
       "GET /api/v1/lessons",
       "POST /api/v1/lessons/record",
       "POST /api/v1/lessons/feedback",
@@ -103,6 +109,7 @@
       "GET /api/v1/usage/answers",
       "GET /api/v1/credits/summary",
       "POST /api/v1/session-bootstrap",
+      "POST /api/v1/hooks/run",
       "POST /api/v1/decisions",
       "POST /api/v1/decisions/relations",
       "GET /api/v1/decisions/chain",
@@ -7093,6 +7100,49 @@
         }
       }
     },
+    "/api/v1/feedback": {
+      "post": {
+        "tags": [
+          "Runtime"
+        ],
+        "summary": "Registered on this process; not yet in docs/reference/openapi.yaml",
+        "operationId": "live_POST__api_v1_feedback",
+        "x-valorbrain-live": true,
+        "responses": {
+          "200": {
+            "description": "See the running handler"
+          }
+        }
+      }
+    },
+    "/api/v1/secrets": {
+      "get": {
+        "tags": [
+          "Runtime"
+        ],
+        "summary": "Registered on this process; not yet in docs/reference/openapi.yaml",
+        "operationId": "live_GET__api_v1_secrets",
+        "x-valorbrain-live": true,
+        "responses": {
+          "200": {
+            "description": "See the running handler"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Runtime"
+        ],
+        "summary": "Registered on this process; not yet in docs/reference/openapi.yaml",
+        "operationId": "live_POST__api_v1_secrets",
+        "x-valorbrain-live": true,
+        "responses": {
+          "200": {
+            "description": "See the running handler"
+          }
+        }
+      }
+    },
     "/api/v1/pins": {
       "get": {
         "tags": [
@@ -7602,6 +7652,51 @@
         }
       }
     },
+    "/api/v1/audit/pubkey": {
+      "get": {
+        "tags": [
+          "Runtime"
+        ],
+        "summary": "Registered on this process; not yet in docs/reference/openapi.yaml",
+        "operationId": "live_GET__api_v1_audit_pubkey",
+        "x-valorbrain-live": true,
+        "responses": {
+          "200": {
+            "description": "See the running handler"
+          }
+        }
+      }
+    },
+    "/api/v1/audit/bundle": {
+      "get": {
+        "tags": [
+          "Runtime"
+        ],
+        "summary": "Registered on this process; not yet in docs/reference/openapi.yaml",
+        "operationId": "live_GET__api_v1_audit_bundle",
+        "x-valorbrain-live": true,
+        "responses": {
+          "200": {
+            "description": "See the running handler"
+          }
+        }
+      }
+    },
+    "/api/v1/audit/status": {
+      "get": {
+        "tags": [
+          "Runtime"
+        ],
+        "summary": "Registered on this process; not yet in docs/reference/openapi.yaml",
+        "operationId": "live_GET__api_v1_audit_status",
+        "x-valorbrain-live": true,
+        "responses": {
+          "200": {
+            "description": "See the running handler"
+          }
+        }
+      }
+    },
     "/api/v1/lessons": {
       "get": {
         "tags": [
@@ -7873,6 +7968,21 @@
         ],
         "summary": "Registered on this process; not yet in docs/reference/openapi.yaml",
         "operationId": "live_POST__api_v1_session_bootstrap",
+        "x-valorbrain-live": true,
+        "responses": {
+          "200": {
+            "description": "See the running handler"
+          }
+        }
+      }
+    },
+    "/api/v1/hooks/run": {
+      "post": {
+        "tags": [
+          "Runtime"
+        ],
+        "summary": "Registered on this process; not yet in docs/reference/openapi.yaml",
+        "operationId": "live_POST__api_v1_hooks_run",
         "x-valorbrain-live": true,
         "responses": {
           "200": {

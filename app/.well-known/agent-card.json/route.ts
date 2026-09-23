@@ -6,7 +6,7 @@ export function GET() {
   const card = {
     name: 'ValorBrain',
     description:
-      'Company brain — tenant-scoped shared memory for people and agents. Retrieve sourced context, store durable outcomes, correct facts.',
+      'Company brain: tenant-scoped shared memory for people and agents. Retrieve sourced context, store durable outcomes, correct facts.',
     url: SITE_URL,
     documentation: SITE_URL,
     provider: {
