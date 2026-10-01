@@ -83,7 +83,7 @@ export function DocsOGImage({
         }}
       >
         <p style={{ margin: 0, fontSize: 32, color: '#8FD0A5' /* green-300 p/ AA no obsidian */ }}>
-          docs.valor.digital
+          docs.valorbrain.com.br
         </p>
       </div>
     </div>

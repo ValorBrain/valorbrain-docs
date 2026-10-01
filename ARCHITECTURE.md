@@ -1,6 +1,6 @@
 # Arquitetura — valorbrain-docs (site de documentação)
 
-Site público de docs em **docs.valorbrain.valor.digital** (Fumadocs sobre
+Site público de docs em **docs.valorbrain.com.br** (Fumadocs sobre
 Next.js). Conteúdo é **regenerado a partir do engine vivo** — este repo não
 é a fonte da verdade técnica, é a superfície de publicação.
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Verify the documented public path against the live docs host + published CLI.
 set -euo pipefail
-DOCS="${DOCS_URL:-https://docs.valor.digital}"
+DOCS="${DOCS_URL:-https://docs.valorbrain.com.br}"
 REST="${REST_URL:-https://valorbrain-api.valor.digital}"
 
 echo "== $DOCS/llms.txt =="
