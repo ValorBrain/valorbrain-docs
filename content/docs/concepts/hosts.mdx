@@ -8,7 +8,7 @@ description: REST, MCP e o app são três hostnames com três funções. Mistur�
 | `valorbrain-api.valor.digital` | **REST** — `/search`, `/documents`, `/api/v1/agents/*`, `/health` | É o `--url` padrão da CLI. |
 | `mcpbrain.valor.digital` | **MCP** — `/mcp`, descoberta OAuth | Todo caminho **não-OAuth** é tratado como transporte MCP e devolve `401 missing_bearer`. `/search` aqui não busca. |
 | `valorbrain.valor.digital` | **App SaaS** — UI, `/api/v1/ingest` com chaves `fk_`, `/llms.txt` (marketing), conectores | O OpenAPI de marketing aqui tem 4 paths. Não é a spec do engine. |
-| `docs.valor.digital` | **Esta documentação** | `llms.txt` / `llms-full.txt` gerados. O `docs.valorbrain.valor.digital` aninhado precisa de ACM. |
+| `docs.valorbrain.com.br` | **Esta documentação** | `llms.txt` / `llms-full.txt` gerados. `docs.valor.digital` redireciona (301) para cá. |
 
 A descoberta OAuth (`/.well-known/oauth-authorization-server`) funciona no host
 MCP. O Dynamic Client Registration (`POST /oauth/register`) também funciona lá.
