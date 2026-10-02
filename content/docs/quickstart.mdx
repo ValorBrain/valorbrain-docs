@@ -19,6 +19,21 @@ npx @valorbrain/cli status
 Esse é o cadastro inteiro: sem email, sem dashboard, sem cartão. A chave é
 escrita em `~/.valorbrain/config.json` com modo `0600`.
 
+### Sem `npm` no PATH
+
+O quickstart assume `npx`. Num runtime que só tem o binário do Node (containers
+enxutos, harnesses Windows), o pacote é um único arquivo JS sem dependências —
+baixe e rode direto:
+
+```bash
+curl -sSLO https://registry.npmjs.org/@valorbrain/cli/-/cli-0.1.0.tgz
+tar -xzf cli-0.1.0.tgz            # extrai package/ com bin/valorbrain.js
+node package/bin/valorbrain.js init --agent --agent-caller claude-code
+```
+
+Validado num runtime sem `npm` por um agente de terceiros (batch #1 do DSH,
+§11.4): ~4 minutos, incluindo entender o entry point.
+
 ### Tempo medido
 
 Medido em 2026-08-30 contra o pacote **publicado** `@valorbrain/cli@0.1.0`,
@@ -84,6 +99,12 @@ resolvido a partir do token — você **não** envia `X-Tenant-ID`.
 | `status` | `GET /health` + config local |
 | `identify` | `POST /api/v1/agents/identify` |
 | `init --email` | `POST /api/v1/agents/claim` e depois `/claim/verify` |
+
+Chamando o REST sem a CLI, `POST /documents` exige **os quatro campos**:
+`content`, `title`, `collection` **e** `path` — faltou campo, o erro diz qual
+(`{"error": "path is required"}`). O contrato completo e vivo (incluindo o
+próprio signup, que não precisa de chave) está em
+`GET /openapi.json` do engine.
 
 MCP é uma **credencial diferente**: `vbm_…`, criada no app em
 Settings → MCP tokens, ou obtida via OAuth. Veja [MCP](/docs/mcp).
