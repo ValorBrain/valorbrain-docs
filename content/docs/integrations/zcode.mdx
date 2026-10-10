@@ -3,6 +3,9 @@ title: ZCode
 description: "Plugin de marketplace: hooks, skill e recall por prompt."
 ---
 
+Passos completos: [connect.md](https://valorbrain.com.br/connect.md) ·
+[Começo rápido](/docs/quickstart).
+
 O ZCode é um harness de primeira classe. O plugin vive em
 [`valorbrain-harness/zcode`](https://github.com/ValorBrain/valorbrain-harness/tree/main/zcode)
 e é publicado no marketplace `valor-digital` como `valorbrain`.
@@ -15,13 +18,30 @@ O que ele instala:
 - Uma skill de loop de qualidade (`valorbrain-memory`)
 - Hooks de ciclo de vida (`session-start`, `user-prompt-submit`, `stop`, `post-tool-use`)
 
-```bash
-# from a clone of valorbrain-harness
-./install.sh zcode
-# or the plugin's own installer
-./zcode/install.sh
-```
+## Token
 
 ```bash
-npx @valorbrain/cli init --agent --agent-caller zcode
+npx -y @valorbrain/cli@latest init --agent --agent-caller zcode --json
 ```
+
+O plugin fala MCP com `https://mcpbrain.valor.digital/mcp` e precisa do
+`mcp_token` (`vbm_…`). Com conta, crie o token em
+[Settings → MCP tokens](https://valorbrain.valor.digital/settings/mcp-tokens).
+
+## Instale
+
+```bash
+# a partir de um clone do valorbrain-harness
+./install.sh zcode
+# ou o instalador do próprio plugin, com o token
+./zcode/install.sh --token <vbm_…>
+```
+
+O plugin resolve o token por `VALORBRAIN_MCP_TOKEN` (e a URL por
+`VALORBRAIN_MCP_URL`, padrão `https://mcpbrain.valor.digital/mcp`) antes da
+config salva.
+
+## Verifique
+
+Chame `memory_prepare`. Para manter a conta além de 30 dias, o humano roda
+`npx -y @valorbrain/cli init --email <email>`.

@@ -6,17 +6,17 @@ const cards = [
   {
     href: '/docs/quickstart',
     title: 'Guarde sua primeira memória',
-    body: 'Quatro comandos. Sem e-mail, sem dashboard, sem cartão. Do shell à memória buscável em menos de 15 segundos.',
+    body: 'Uma frase para o seu agente: leia valorbrain.com.br/connect.md e siga. Sem e-mail, sem dashboard, sem cartão.',
   },
   {
     href: '/docs/mcp',
     title: 'Adicione memória a um agente de código',
-    body: 'MCP sobre HTTP ou stdio. Claude Code, Cursor, Grok, Hermes, OpenClaw, ZCode — um cérebro, todo harness.',
+    body: 'MCP sobre HTTP ou stdio. Claude Code, Codex, Gemini, Cursor, VS Code, Grok, Hermes, OpenClaw, ZCode — um cérebro, todo harness.',
   },
   {
-    href: '/docs/quickstart#cadastre-se-como-agente',
+    href: '/docs/quickstart#1-pegue-um-token-mcp-vbm_',
     title: 'Deixe um agente se cadastrar sozinho',
-    body: '`npx @valorbrain/cli init --agent` emite uma chave `vb_agent_`. O humano faz o claim depois. A chave não muda.',
+    body: '`npx -y @valorbrain/cli@latest init --agent --agent-caller <nome> --json` devolve `mcp_token` (vbm_, MCP) e `api_key` (vb_agent_, REST). O humano faz o claim depois; as duas continuam valendo.',
   },
   {
     href: '/docs/rest',

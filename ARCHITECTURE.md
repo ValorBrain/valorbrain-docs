@@ -11,7 +11,8 @@ Next.js). Conteúdo é **regenerado a partir do engine vivo** — este repo não
 | `content/` | Fonte MDX da documentação (produto, API, cookbook) |
 | `scripts/` | Regeneração: puxa referência do engine ao vivo (OpenAPI, tools, tabelas) |
 | `.source/` | Índice gerado pelo Fumadocs a partir de `content/` (não editar à mão) |
-| `app/` + `components/` | Shell Next.js/Fumadocs (navegação, busca, proxy em `proxy.ts`) |
+| `app/` + `components/` | Shell Next.js/Fumadocs (navegação, busca) |
+| `next.config.mjs` | Borda na origem: `X.md` e `Accept: text/markdown` → rota de Markdown (rewrites de config, não middleware), http→https 308, HSTS/nosniff/Referrer-Policy |
 
 ## Regras
 

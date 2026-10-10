@@ -3,7 +3,10 @@
   "pages": [
     "index",
     "claude-code",
+    "codex",
+    "gemini",
     "cursor",
+    "vscode",
     "grok",
     "hermes",
     "openclaw",

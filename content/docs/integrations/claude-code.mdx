@@ -1,47 +1,74 @@
 ---
 title: Claude Code
-description: MCP via Streamable HTTP, ou stdio via @valorbrain/connect.
+description: MCP por Streamable HTTP com bearer vbm_, ou stdio via npx -y @valorbrain/cli mcp.
 ---
 
-## Hospedado (recomendado)
+Passos completos: [connect.md](https://valorbrain.com.br/connect.md) ·
+[Começo rápido](/docs/quickstart).
+
+## 1. Token MCP
+
+Sem conta:
 
 ```bash
-claude mcp add --transport http valorbrain https://mcpbrain.valor.digital/mcp
+npx -y @valorbrain/cli@latest init --agent --agent-caller claude-code --json
 ```
 
-Autentique com OAuth quando pedido, ou coloque um token `vbm_` na configuração
-de headers do cliente. Depois:
+Use o `mcp_token` (`vbm_…`). A `api_key` (`vb_agent_…`) é só para a REST; no
+MCP ela volta `401 wrong_credential_type`. Com conta, crie o token em
+[Settings → MCP tokens](https://valorbrain.valor.digital/settings/mcp-tokens).
+
+## 2. Conecte
 
 ```bash
-npx @valorbrain/cli init --agent --agent-caller claude-code
+claude mcp add --transport http --scope user valorbrain https://mcpbrain.valor.digital/mcp --header "Authorization: Bearer <vbm_…>"
 ```
 
-A chave da CLI serve para a REST (`add` / `search`). A conexão MCP é um token
-`vbm_` ou OAuth. Você pode usar os dois: CLI para o shell, MCP para as
-ferramentas dentro do editor.
+Alternativa stdio (usa o token salvo pelo `init`):
 
-Alternativa stdio:
-
-```json
-{
-  "mcpServers": {
-    "valorbrain": {
-      "command": "npx",
-      "args": ["-y", "@valorbrain/connect", "--token", "vbm_…"]
-    }
-  }
-}
+```bash
+claude mcp add --scope user valorbrain -- npx -y @valorbrain/cli mcp
 ```
+
+Instalação completa com regras e hooks (opcional):
+
+```bash
+npx -y @valorbrain/connect@latest --token <vbm_…> --harness claude-code
+```
+
+**claude.ai / Claude Desktop** não usam este comando: Settings → Connectors →
+Add custom connector → URL `https://mcpbrain.valor.digital/mcp`, login por
+OAuth.
+
+## 3. Verifique
+
+Chame a ferramenta `memory_prepare`. Ela devolve quem você é neste workspace e
+a memória relevante para a tarefa.
+
+## 4. Avise o humano
+
+Para ver as memórias no app e manter a conta além de 30 dias:
+
+```bash
+npx -y @valorbrain/cli init --email <email>
+```
+
+O `mcp_token` e a `api_key` continuam funcionando depois do claim.
+
+## Shell e editor juntos
+
+A `api_key` que o `init` salvou serve para a REST pela CLI (`add` /
+`search`). O MCP usa o `vbm_`. Você pode usar os dois: CLI no shell, MCP para
+as ferramentas dentro do editor.
 
 ## O contrato que instalamos
 
-Quando você usa o repositório público de harness
-([ValorBrain/valorbrain-harness](https://github.com/ValorBrain/valorbrain-harness))
-para editores da família Claude, a instrução permanente é o mesmo loop de
-qualidade: consulte o ValorBrain antes de responder perguntas operacionais;
-chame `memory_used` depois.
+A instalação completa (`@valorbrain/connect`) escreve no arquivo de
+instruções do Claude Code um bloco gerenciado com o loop de qualidade:
+consulte o ValorBrain antes de responder perguntas operacionais; chame
+`memory_used` depois.
 
 ## Primeiras ferramentas
 
-`whoami` → `memory_prepare` ou `working_context` → trabalho → `memory_store`
-para qualquer coisa durável → `memory_used`.
+`memory_prepare` → trabalho → `memory_store` para qualquer coisa durável →
+`memory_used`.

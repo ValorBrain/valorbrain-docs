@@ -1,0 +1,57 @@
+---
+title: Gemini CLI
+description: httpUrl e header bearer vbm_ em ~/.gemini/settings.json.
+---
+
+Passos completos: [connect.md](https://valorbrain.com.br/connect.md) ·
+[Começo rápido](/docs/quickstart).
+
+## 1. Token MCP
+
+Sem conta:
+
+```bash
+npx -y @valorbrain/cli@latest init --agent --agent-caller gemini-cli --json
+```
+
+Use o `mcp_token` (`vbm_…`). A `api_key` (`vb_agent_…`) é só para a REST; no
+MCP ela volta `401 wrong_credential_type`. Com conta, crie o token em
+[Settings → MCP tokens](https://valorbrain.valor.digital/settings/mcp-tokens).
+
+## 2. Conecte
+
+Em `~/.gemini/settings.json`:
+
+```json
+{"mcpServers":{"valorbrain":{"httpUrl":"https://mcpbrain.valor.digital/mcp","headers":{"Authorization":"Bearer <vbm_…>"}}}}
+```
+
+A chave é `httpUrl` (Streamable HTTP). Se o arquivo já tem outros
+`mcpServers`, acrescente só a entrada `valorbrain`.
+
+Alternativa stdio (usa o token salvo pelo `init`):
+
+```json
+{"mcpServers":{"valorbrain":{"command":"npx","args":["-y","@valorbrain/cli","mcp"]}}}
+```
+
+Instalação completa com regras e hooks (opcional):
+
+```bash
+npx -y @valorbrain/connect@latest --token <vbm_…> --harness gemini-cli
+```
+
+## 3. Verifique
+
+Chame a ferramenta `memory_prepare`. Ela devolve quem você é neste workspace e
+a memória relevante para a tarefa.
+
+## 4. Avise o humano
+
+Para ver as memórias no app e manter a conta além de 30 dias:
+
+```bash
+npx -y @valorbrain/cli init --email <email>
+```
+
+O `mcp_token` e a `api_key` continuam funcionando depois do claim.

@@ -17,3 +17,11 @@ Filesystem watchers and webhooks are additional ingest paths on on-premise
 (Enterprise) installations. Hosted customers who just need "put this document in
 the brain" should use CLI `add`, MCP `memory_store`, or
 `POST /api/v1/ingest` with an `fk_` key.
+
+## claude.ai and Claude Desktop (custom connector)
+
+The claude.ai and Claude Desktop "custom connector" is a different thing: it
+is MCP. Settings → Connectors → Add custom connector → URL
+`https://mcpbrain.valor.digital/mcp`. Sign-in is OAuth; there is no token to
+paste. The other clients are in [connect.md](https://valorbrain.com.br/connect.md)
+and the [Quickstart](/en/docs/quickstart).

@@ -23,3 +23,11 @@ jobs:
         env:
           DOCS_URL: https://docs.valorbrain.com.br
           REST_URL: https://valorbrain-api.valor.digital
+      # Live site: run on the daily schedule (a push to main lands before the
+      # manual deploy, so the live host lags the commit by minutes).
+      - name: Live link checker
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        run: python3 scripts/check-links.py https://docs.valorbrain.com.br
+      - name: Live origin edge
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        run: bash scripts/check-edge.sh https://docs.valorbrain.com.br

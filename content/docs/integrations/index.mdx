@@ -6,23 +6,36 @@ icon: Blocks
 
 O ValorBrain conversa com qualquer cliente MCP e qualquer cliente HTTP. As
 páginas abaixo são as combinações que nós mesmos rodamos ou para as quais
-publicamos instaladores.
+publicamos instaladores. Os passos de conexão têm uma fonte única, o
+[connect.md](https://valorbrain.com.br/connect.md), repetida no
+[Começo rápido](/docs/quickstart).
 
 <Cards>
-  <Card title="Claude Code" href="/docs/integrations/claude-code" description="MCP HTTP ou stdio. Regras de consulte-então-declare." />
-  <Card title="Cursor / Windsurf" href="/docs/integrations/cursor" description="OAuth DCR ou um token vbm_." />
-  <Card title="Grok" href="/docs/integrations/grok" description="Templates de harness + @valorbrain/connect." />
+  <Card title="Claude Code" href="/docs/integrations/claude-code" description="claude mcp add --transport http com bearer vbm_, ou stdio." />
+  <Card title="Codex" href="/docs/integrations/codex" description="codex mcp add com --bearer-token-env-var VALORBRAIN_MCP_TOKEN." />
+  <Card title="Gemini CLI" href="/docs/integrations/gemini" description="httpUrl em ~/.gemini/settings.json." />
+  <Card title="Cursor / Windsurf" href="/docs/integrations/cursor" description="~/.cursor/mcp.json com bearer vbm_, ou OAuth DCR." />
+  <Card title="VS Code" href="/docs/integrations/vscode" description=".vscode/mcp.json com type http." />
+  <Card title="Grok" href="/docs/integrations/grok" description="Templates de harness + stdio pela CLI." />
   <Card title="Hermes" href="/docs/integrations/hermes" description="Plugin MemoryProvider nativo." />
   <Card title="OpenClaw" href="/docs/integrations/openclaw" description="Plugin de slot memory." />
   <Card title="ZCode" href="/docs/integrations/zcode" description="Plugin de marketplace com hooks e uma skill." />
-  <Card title="Conectores" href="/docs/integrations/connectors" description="Notion, Drive, Slack, GitHub, Linear — BYOK, Starter+." />
+  <Card title="Conectores" href="/docs/integrations/connectors" description="Notion, Drive, Slack, GitHub, Linear — BYOK, Starter+. E o custom connector do claude.ai." />
 </Cards>
 
 ## Hospedado vs on-premise
 
 **Hospedado (comece por aqui):** nenhum engine na sua máquina. O harness fala
-com o `mcpbrain` com um token `vbm_`, ou com a REST com uma chave `vb_agent_`
-vinda da CLI.
+com o MCP em `https://mcpbrain.valor.digital/mcp` com um token `vbm_` (o
+`mcp_token` do signup, ou um criado em
+[Settings → MCP tokens](https://valorbrain.valor.digital/settings/mcp-tokens)),
+ou com a REST em `https://valorbrain-api.valor.digital` com a chave
+`vb_agent_` (a `api_key` do signup). Cada credencial só funciona no seu host:
+uma chave `vb_` no MCP volta `401 wrong_credential_type`.
+
+Qualquer cliente que só fala stdio usa `npx -y @valorbrain/cli mcp` como
+comando do servidor. A instalação completa com regras e hooks, opcional, é
+`npx -y @valorbrain/connect@latest --token <vbm_…>`.
 
 **On-premise (Enterprise):** o engine na sua rede é parte do plano
 Enterprise — não existe versão comunitária ou self-service, nem `docker

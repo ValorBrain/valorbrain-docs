@@ -1,0 +1,57 @@
+---
+title: Codex
+description: codex mcp add with the vbm_ token in an environment variable.
+---
+
+Full steps: [connect.md](https://valorbrain.com.br/connect.md) ·
+[Quickstart](/en/docs/quickstart).
+
+## 1. MCP token
+
+No account:
+
+```bash
+npx -y @valorbrain/cli@latest init --agent --agent-caller codex --json
+```
+
+Use the `mcp_token` (`vbm_…`). The `api_key` (`vb_agent_…`) is REST only; on
+MCP it gets `401 wrong_credential_type`. With an account, create the token
+under [Settings → MCP tokens](https://valorbrain.valor.digital/settings/mcp-tokens).
+
+## 2. Connect
+
+```bash
+export VALORBRAIN_MCP_TOKEN=<vbm_…>
+codex mcp add valorbrain --url https://mcpbrain.valor.digital/mcp --bearer-token-env-var VALORBRAIN_MCP_TOKEN
+```
+
+Codex reads the bearer from the variable on each session; the token is not
+written into the config. Export `VALORBRAIN_MCP_TOKEN` in your shell profile
+for future sessions.
+
+stdio alternative (uses the token saved by `init`):
+
+```bash
+codex mcp add valorbrain -- npx -y @valorbrain/cli mcp
+```
+
+Full install with rules and hooks (optional):
+
+```bash
+npx -y @valorbrain/connect@latest --token <vbm_…> --harness codex
+```
+
+## 3. Verify
+
+Call the `memory_prepare` tool. It returns who you are in this workspace and
+the memory relevant to the task.
+
+## 4. Tell your human
+
+To see the memories in the app and keep the account beyond 30 days:
+
+```bash
+npx -y @valorbrain/cli init --email <email>
+```
+
+The `mcp_token` and the `api_key` keep working after the claim.

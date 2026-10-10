@@ -17,3 +17,11 @@ Watchers de filesystem e webhooks são caminhos de ingestão adicionais em
 instalações on-premise (Enterprise). Clientes hospedados que só precisam de "coloca esse
 documento no cérebro" devem usar o `add` da CLI, o `memory_store` do MCP, ou
 `POST /api/v1/ingest` com uma chave `fk_`.
+
+## claude.ai e Claude Desktop (custom connector)
+
+O "custom connector" do claude.ai e do Claude Desktop é outra coisa: é MCP.
+Settings → Connectors → Add custom connector → URL
+`https://mcpbrain.valor.digital/mcp`. O login é por OAuth; não há token para
+colar. Os outros clientes estão no [connect.md](https://valorbrain.com.br/connect.md)
+e no [Começo rápido](/docs/quickstart).
