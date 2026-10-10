@@ -1,80 +1,275 @@
 {
   "name": "@valorbrain/cli",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "config": "~/.valorbrain/config.json",
   "default_rest_base_url": "https://valorbrain-api.valor.digital",
   "default_mcp_url": "https://mcpbrain.valor.digital/mcp",
+  "connect_doc": "https://valorbrain.com.br/connect.md",
   "credentials": [
     {
       "prefix": "vb_agent_",
       "config_field": "api_key",
-      "env": "VALORBRAIN_TOKEN",
+      "env": "VALORBRAIN_API_KEY",
+      "flag": "--api-key",
       "accepted_on": "REST (default_rest_base_url)"
     },
     {
       "prefix": "vbm_",
       "config_field": "mcp_token",
       "env": "VALORBRAIN_MCP_TOKEN",
+      "flag": "--token (mcp)",
       "accepted_on": "MCP (default_mcp_url)"
     }
   ],
+  "env": {
+    "VALORBRAIN_API_KEY": "REST key",
+    "VALORBRAIN_MCP_TOKEN": "MCP token",
+    "VALORBRAIN_API_URL": "REST base URL",
+    "VALORBRAIN_MCP_URL": "MCP endpoint",
+    "deprecated": {
+      "VALORBRAIN_TOKEN": "vbm_ → MCP token, anything else → REST key (warning on stderr)",
+      "VALORBRAIN_API_TOKEN": "REST key (warning on stderr)",
+      "VALORBRAIN_URL": "REST base URL (warning on stderr)"
+    }
+  },
+  "exit_codes": {
+    "0": "ok",
+    "1": "server or network failure",
+    "2": "usage error",
+    "3": "credential missing, wrong type, or rejected"
+  },
+  "error_shape": "{ ok: false, error: <message>, code: <string>, exit_code: <int>, ... } on stdout with --json",
   "global_flags": [
     {
       "flag": "--json",
-      "aliases": [
-        "--agent"
-      ],
-      "description": "machine-readable output"
+      "type": "bool",
+      "description": "machine-readable single-object output; errors too"
+    },
+    {
+      "flag": "--api-key",
+      "type": "string",
+      "description": "REST API key (vb_agent_… or vb_…) override"
     },
     {
       "flag": "--key",
-      "description": "REST API key override"
+      "type": "string",
+      "description": "alias of --api-key (on `add`, after the command, --key is the memory key)"
     },
     {
       "flag": "--url",
-      "description": "REST base URL override"
+      "type": "string",
+      "description": "REST base URL override (on `mcp`: the MCP URL)"
+    },
+    {
+      "flag": "--agent",
+      "type": "bool",
+      "description": "init only: create an agent account"
+    },
+    {
+      "flag": "--help",
+      "type": "bool",
+      "aliases": [
+        "-h"
+      ],
+      "description": "this help"
+    },
+    {
+      "flag": "--version",
+      "type": "bool",
+      "aliases": [
+        "-V"
+      ],
+      "description": "print the version"
     }
   ],
   "commands": [
     {
       "name": "init",
-      "usage": "init --agent [--agent-caller <platform>] [--force] | init --email <address> [--otp <code>]",
-      "description": "create an agent account (REST key + MCP token) or claim it with an email"
+      "usage": "init --agent [--agent-caller <platform>] [--name <n>] [--force] | init --email <address> [--otp <code>]",
+      "description": "create an agent account (REST key + MCP token) or claim it with an email",
+      "positionals": "none",
+      "flags": [
+        {
+          "flag": "--agent-caller",
+          "type": "string",
+          "description": "which agent is signing up (self-declared)"
+        },
+        {
+          "flag": "--name",
+          "type": "string",
+          "description": "agent name"
+        },
+        {
+          "flag": "--force",
+          "type": "bool",
+          "description": "replace an existing config (a backup is written first)"
+        },
+        {
+          "flag": "--email",
+          "type": "string",
+          "description": "claim the account with this email (OTP)"
+        },
+        {
+          "flag": "--otp",
+          "type": "string",
+          "description": "the OTP from the email (verifies without sending a new one)"
+        }
+      ]
     },
     {
       "name": "identify",
       "usage": "identify <platform>",
-      "description": "idempotent agent_caller backfill"
+      "description": "set which agent is calling (idempotent)",
+      "positionals": "one",
+      "flags": []
     },
     {
       "name": "add",
-      "usage": "add <text> [--file <path>] [--collection <name>] [--title <t>] [--type <t>]",
-      "description": "store a memory"
+      "usage": "add <text> | --file <path> [--key <name>] [--collection <c>] [--title <t>] [--type <t>] [--supersedes <docid|path>] [--sensitivity <s>]",
+      "description": "store a memory; --key gives it a stable identity, so adding again is a revision",
+      "positionals": "rest",
+      "flags": [
+        {
+          "flag": "--file",
+          "type": "string",
+          "description": "read the text from a file"
+        },
+        {
+          "flag": "--key",
+          "type": "string",
+          "description": "memory key: stable path cli/key/<slug>; re-adding it revises the same memory"
+        },
+        {
+          "flag": "--path",
+          "type": "string",
+          "description": "explicit document path (instead of --key)"
+        },
+        {
+          "flag": "--collection",
+          "type": "string",
+          "description": "collection (default: memories)"
+        },
+        {
+          "flag": "--title",
+          "type": "string",
+          "description": "title (default: first line)"
+        },
+        {
+          "flag": "--type",
+          "type": "enum",
+          "values": [
+            "decision",
+            "observation",
+            "problem",
+            "milestone",
+            "handoff",
+            "lesson",
+            "note"
+          ],
+          "description": "content type (default: note)"
+        },
+        {
+          "flag": "--supersedes",
+          "type": "string",
+          "multiple": true,
+          "description": "mark an older memory as superseded by this one (repeatable)"
+        },
+        {
+          "flag": "--sensitivity",
+          "type": "enum",
+          "values": [
+            "public",
+            "internal",
+            "private",
+            "company_confidential"
+          ],
+          "description": "sensitivity (default: the server's)"
+        }
+      ]
     },
     {
       "name": "search",
-      "usage": "search <query> [--collection <name>] [--mode auto|keyword|semantic|hybrid]",
-      "description": "search memories"
+      "usage": "search <query> [--collection <c>] [--mode <m>] [--limit <n>]",
+      "description": "search memories",
+      "positionals": "rest",
+      "flags": [
+        {
+          "flag": "--collection",
+          "type": "string",
+          "description": "only this collection"
+        },
+        {
+          "flag": "--mode",
+          "type": "enum",
+          "values": [
+            "auto",
+            "keyword",
+            "semantic",
+            "hybrid"
+          ],
+          "description": "retrieval mode (default: auto)"
+        },
+        {
+          "flag": "--limit",
+          "type": "int",
+          "min": 1,
+          "max": 100,
+          "description": "maximum results (1-100)"
+        }
+      ]
+    },
+    {
+      "name": "forget",
+      "usage": "forget <docid>",
+      "description": "forget a memory (soft delete; it stops appearing in search)",
+      "positionals": "one",
+      "flags": []
     },
     {
       "name": "list",
       "usage": "list",
-      "description": "list collections"
+      "description": "list collections",
+      "positionals": "none",
+      "flags": []
     },
     {
       "name": "status",
       "usage": "status",
-      "description": "local config + remote health"
+      "description": "local config + remote health",
+      "positionals": "none",
+      "flags": []
     },
     {
       "name": "mcp",
-      "usage": "mcp [--token vbm_…] [--url <mcp-url>]",
-      "description": "stdio ⇄ HTTP MCP proxy"
+      "usage": "mcp [--token vbm_…] [--token-file <path>] [--url <mcp-url>]",
+      "description": "bridge stdio MCP clients to the hosted MCP server (uses the saved mcp_token)",
+      "positionals": "none",
+      "flags": [
+        {
+          "flag": "--token",
+          "type": "string",
+          "description": "MCP token override"
+        },
+        {
+          "flag": "--token-file",
+          "type": "string",
+          "description": "read the MCP token from a file"
+        }
+      ]
     },
     {
       "name": "help",
       "usage": "help [--json]",
-      "description": "this surface, machine-readable with --json"
+      "description": "this surface, machine-readable with --json",
+      "positionals": "none",
+      "flags": []
+    },
+    {
+      "name": "version",
+      "usage": "version",
+      "description": "print the version",
+      "positionals": "none",
+      "flags": []
     }
   ]
 }
