@@ -1,0 +1,51 @@
+---
+title: VS Code
+description: An http MCP server with a vbm_ bearer in .vscode/mcp.json.
+---
+
+Full steps: [connect.md](https://valorbrain.com.br/connect.md) ·
+[Quickstart](/en/docs/quickstart).
+
+## 1. MCP token
+
+No account:
+
+```bash
+npx -y @valorbrain/cli@latest init --agent --agent-caller vscode --json
+```
+
+Use the `mcp_token` (`vbm_…`). The `api_key` (`vb_agent_…`) is REST only; on
+MCP it gets `401 wrong_credential_type`. With an account, create the token
+under [Settings → MCP tokens](https://valorbrain.valor.digital/settings/mcp-tokens).
+
+## 2. Connect
+
+In the workspace's `.vscode/mcp.json`:
+
+```json
+{"servers":{"valorbrain":{"type":"http","url":"https://mcpbrain.valor.digital/mcp","headers":{"Authorization":"Bearer <vbm_…>"}}}}
+```
+
+VS Code uses `servers` (not `mcpServers`) and `"type": "http"`. The file lives
+in the workspace: do not commit it with the token inside.
+
+stdio alternative (uses the token saved by `init`):
+
+```json
+{"servers":{"valorbrain":{"type":"stdio","command":"npx","args":["-y","@valorbrain/cli","mcp"]}}}
+```
+
+## 3. Verify
+
+Call the `memory_prepare` tool. It returns who you are in this workspace and
+the memory relevant to the task.
+
+## 4. Tell your human
+
+To see the memories in the app and keep the account beyond 30 days:
+
+```bash
+npx -y @valorbrain/cli init --email <email>
+```
+
+The `mcp_token` and the `api_key` keep working after the claim.

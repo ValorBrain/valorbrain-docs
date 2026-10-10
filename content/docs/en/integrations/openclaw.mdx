@@ -3,20 +3,44 @@ title: OpenClaw
 description: memory-slot plugin with per-turn injection and end-of-session extraction.
 ---
 
+Full steps: [connect.md](https://valorbrain.com.br/connect.md) ·
+[Quickstart](/en/docs/quickstart).
+
 OpenClaw integrates as a `kind: memory` plugin: per-turn context injection
 and end-of-session extraction. Lifecycle hooks exist so the model does not
 have to remember to call retrieve.
 
-**Hosted:** MCP via `@valorbrain/connect` or HTTP to `mcpbrain`, same as
-any editor.
-
-The public harness README still says `valorbrain setup openclaw`. That
-subcommand is **not** on `@valorbrain/cli@0.1.0`. Use MCP + the plugin
-from the engine tree in the on-premise (Enterprise) installation; use the
-hosted MCP path when you do not have one.
+## Token
 
 ```bash
-npx @valorbrain/cli init --agent --agent-caller unspecified
+npx -y @valorbrain/cli@latest init --agent --agent-caller openclaw --json
 ```
 
-Pass a stable caller string you will reuse (`openclaw` is fine).
+Pass a stable caller string you will reuse (`openclaw` is fine). Use the
+`mcp_token` (`vbm_…`) on MCP; with an account, create the token under
+[Settings → MCP tokens](https://valorbrain.valor.digital/settings/mcp-tokens).
+
+## Hosted
+
+MCP like any client: HTTP to `https://mcpbrain.valor.digital/mcp` with
+`Authorization: Bearer <vbm_…>`, or stdio with:
+
+```bash
+npx -y @valorbrain/cli mcp
+```
+
+## Plugin
+
+The `kind: memory` plugin comes from the engine's `src/openclaw`. The public
+harness repo carries a vendored bundle: `./install.sh openclaw` copies the
+plugin to `~/.openclaw/extensions/valorbrain` without needing the engine tree.
+
+The public harness README used to say `valorbrain setup openclaw`. That
+subcommand is **not** on the published CLI. Use MCP + the plugin in the
+on-premise (Enterprise) installation; use the hosted MCP path when you do not
+have one.
+
+## Verify
+
+Call `memory_prepare`. To keep the account beyond 30 days, the human runs
+`npx -y @valorbrain/cli init --email <email>`.

@@ -11,10 +11,10 @@ info:
     url: https://valor.digital
   license:
     name: Proprietary
-  x-valorbrain-generated-at: '2026-09-23T02:22:53.986Z'
+  x-valorbrain-generated-at: '2026-10-10T23:05:04.014Z'
   x-valorbrain-public-url: https://valorbrain-api.valor.digital
-  x-valorbrain-yaml-operations: 135
-  x-valorbrain-live-operations: 219
+  x-valorbrain-yaml-operations: 148
+  x-valorbrain-live-operations: 231
   x-valorbrain-missing-from-yaml:
   - GET /openapi.yaml
   - GET /health/admin
@@ -29,22 +29,18 @@ info:
   - GET /contradictions
   - GET /documents/changes
   - GET /documents/{id}/chain
+  - GET /api/v1/documents/{id}/chain
+  - GET /documents/{id}/revisions
+  - GET /api/v1/documents/{id}/revisions
+  - GET /documents/{id}/revisions/{id2}
+  - GET /api/v1/documents/{id}/revisions/{id2}
   - PATCH /documents/{id}/veracity
   - PATCH /api/v1/documents/{id}/veracity
   - PATCH /documents/veracity/bulk
   - PATCH /api/v1/documents/veracity/bulk
   - GET /collections/health
-  - POST /collections/{id}/lifecycle
   - GET /api/v1/memory/working-context
   - GET /memory/working-context
-  - GET /api/v1/scratchpad
-  - PUT /api/v1/scratchpad
-  - POST /api/v1/scratchpad
-  - DELETE /api/v1/scratchpad
-  - GET /scratchpad
-  - PUT /scratchpad
-  - POST /scratchpad
-  - DELETE /scratchpad
   - GET /setup/artifacts
   - GET /api/v1/entity-cards
   - POST /api/v1/feedback
@@ -60,6 +56,8 @@ info:
   - POST /api/v1/session-handoffs
   - GET /api/v1/session-handoffs
   - GET /api/v1/team/members
+  - GET /api/v1/team/overview
+  - GET /api/v1/task-state
   - POST /api/v1/team/messages
   - GET /api/v1/team/inbox
   - POST /api/v1/team/handoffs
@@ -73,11 +71,11 @@ info:
   - POST /api/v1/admin/tenants/{id}/api-tokens
   - GET /api/v1/admin/tenants/{id}/api-tokens
   - DELETE /api/v1/admin/tenants/{id}/api-tokens/{id2}
+  - PATCH /api/v1/admin/tenants/{id}/status
   - POST /api/v1/memory/refine
   - POST /api/v1/runtimes/register
   - POST /api/v1/runtimes/heartbeat
   - GET /api/v1/runtimes
-  - GET /api/v1/kg/explore
   - GET /api/v1/kg/entity-documents
   - POST /api/v1/memory/store
   - GET /api/v1/memory/confirm-sample
@@ -90,6 +88,8 @@ info:
   - GET /api/v1/audit/pubkey
   - GET /api/v1/audit/bundle
   - GET /api/v1/audit/status
+  - GET /api/v1/audit/recent
+  - GET /api/v1/read-log/summary
   - GET /api/v1/lessons
   - POST /api/v1/lessons/record
   - POST /api/v1/lessons/feedback
@@ -110,6 +110,7 @@ info:
   - GET /api/v1/credits/summary
   - POST /api/v1/session-bootstrap
   - POST /api/v1/hooks/run
+  - POST /api/v1/hooks/cue
   - POST /api/v1/decisions
   - POST /api/v1/decisions/relations
   - GET /api/v1/decisions/chain
@@ -401,6 +402,19 @@ paths:
                 properties:
                   ok:
                     type: boolean
+                  action:
+                    type: string
+                    enum:
+                    - created
+                    - updated
+                    - deduplicated
+                    - skipped
+                    - unchanged
+                    description: '"unchanged" (VAL-172): posted content hash equals
+                      the stored hash for the same path — the engine performs no write
+                      and records no audit row.
+
+                      '
                   id:
                     type: integer
                   path:
@@ -422,40 +436,59 @@ paths:
           $ref: '#/components/responses/Unauthorized'
     get:
       operationId: listDocuments
-      summary: List documents
-      description: List documents with optional filtering by collection.
+      summary: Multi-get documents by glob pattern
+      description: 'Fetch multiple documents at once by path glob. The `pattern` query
+        parameter is mandatory; `max_bytes` bounds the total body payload and `collection`
+        narrows the glob to one collection. The same blocked-collection predicate
+        applied to search applies here.
+
+        '
       tags:
       - Documents
       parameters:
       - $ref: '#/components/parameters/TenantIdHeader'
+      - name: pattern
+        in: query
+        required: true
+        schema:
+          type: string
+        description: Glob pattern over document paths
       - name: collection
         in: query
         schema:
           type: string
-      - name: limit
+      - name: max_bytes
         in: query
         schema:
           type: integer
-          default: 50
-      - name: offset
-        in: query
-        schema:
-          type: integer
-          default: 0
+          default: 10240
+        description: Bound on total body payload returned
       responses:
         '200':
-          description: List of documents
+          description: Multi-get result
           content:
             application/json:
               schema:
                 type: object
                 properties:
+                  pattern:
+                    type: string
+                  collection:
+                    anyOf:
+                    - type: string
+                    - type: 'null'
+                  count:
+                    type: integer
                   documents:
                     type: array
                     items:
-                      $ref: '#/components/schemas/Document'
-                  total:
-                    type: integer
+                      type: object
+                  errors:
+                    type: array
+                    items:
+                      type: object
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
   /documents/{id}:
@@ -507,6 +540,9 @@ paths:
               properties:
                 visibility:
                   type: string
+                  enum:
+                  - private
+                  - tenant
       responses:
         '200':
           description: Visibility updated
@@ -627,13 +663,18 @@ paths:
             schema:
               type: object
               required:
-              - relevance
+              - feedback
               properties:
-                relevance:
+                feedback:
                   type: string
                   enum:
-                  - positive
-                  - negative
+                  - POSITIVE
+                  - NEGATIVE
+                  - VERY_NEGATIVE
+                reason:
+                  type: string
+                user_id:
+                  type: string
       responses:
         '200':
           description: Feedback recorded
@@ -644,14 +685,20 @@ paths:
                 properties:
                   ok:
                     type: boolean
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
   /documents/purge:
     delete:
       operationId: purgeDocuments
-      summary: Purge documents by collection
-      description: 'Delete all documents in a collection (exact or prefix match).
-        Cleans up vectors, triples, and orphan records. Requires X-Tenant-ID.
+      summary: Purge documents — targeted by docids, or a whole collection
+      description: 'Targeted mode: collection + docids purges only the documents whose
+        hash matches a listed docid prefix (any bearer credential; ambiguous prefixes
+        are rejected). Whole-collection mode: collection or collection_prefix requires
+        an admin credential AND confirm=<target>. dry_run=true previews without deleting;
+        unknown query parameters are rejected (VAL-388). Executed purges are recorded
+        in the mutation audit log (documents.purge). Requires X-Tenant-ID.
 
         '
       tags:
@@ -662,15 +709,36 @@ paths:
         in: query
         schema:
           type: string
-        description: Exact collection name
+        description: Exact collection name (required with docids)
       - name: collection_prefix
         in: query
         schema:
           type: string
         description: Collection name prefix (LIKE match)
+      - name: docids
+        in: query
+        schema:
+          type: string
+        description: Comma-separated docids (hex hash prefixes, optional leading '#',
+          max 100) — narrows the purge, never widens it
+      - name: dry_run
+        in: query
+        schema:
+          type: string
+          enum:
+          - 'true'
+          - 'false'
+        description: Preview (would_purge) without deleting; literal values only,
+          anything else is a 400
+      - name: confirm
+        in: query
+        schema:
+          type: string
+        description: Must equal the collection/collection_prefix value; required for
+          whole-collection purges
       responses:
         '200':
-          description: Purge result
+          description: Purge or dry-run preview result
           content:
             application/json:
               schema:
@@ -678,7 +746,17 @@ paths:
                 properties:
                   purged:
                     type: integer
+                  dry_run:
+                    type: boolean
+                  would_purge:
+                    type: integer
+                  not_found:
+                    type: array
+                    items:
+                      type: string
                   orphan_vectors_cleaned:
+                    type: integer
+                  orphan_content_cleaned:
                     type: integer
                   orphan_triples_cleaned:
                     type: integer
@@ -686,6 +764,9 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Whole-collection purge without an admin credential, or any
+            execution without a bearer credential
   /api/v1/documents/{id}/canonical:
     post:
       operationId: setCanonical
@@ -766,7 +847,10 @@ paths:
       operationId: search
       summary: Hybrid search (BM25 + vector + rerank)
       description: 'Full hybrid search with optional HyDE expansion, self-correct
-        retrieval, MMR diversity, and personalized graph ranking.
+        retrieval, and personalized graph ranking. Searches DOCUMENTS (prose): keyed
+        facts (upsert_keyed_fact / keyed_facts) are NOT part of the text index — query
+        them via keyed_facts_as_of, or receive the current values with declared precedence
+        via memory_prepare / working_context.
 
         '
       tags:
@@ -780,35 +864,50 @@ paths:
             schema:
               type: object
               required:
-              - q
+              - query
               properties:
-                q:
+                query:
                   type: string
                   description: Search query
                 collection:
                   type: string
-                  description: Filter to collection
+                  description: Filter to collection (comma-separated list is split)
                 limit:
                   type: integer
                   default: 10
-                offset:
-                  type: integer
-                  default: 0
+                order:
+                  type: string
+                  enum:
+                  - relevance
+                  - event_time
+                  description: Delivery order of the final set
+                intent:
+                  type: string
                 expand:
                   type: boolean
                   description: Force HyDE expansion on/off
+                self_correct:
+                  type: boolean
+                  description: Self-correct retrieval
                 mode:
                   type: string
                   enum:
                   - auto
                   - keyword
                   - semantic
-                  - causal
                   - hybrid
-                diverse:
+                compact:
                   type: boolean
                   default: true
-                  description: Apply MMR diversity filter
+                profile:
+                  type: string
+                  enum:
+                  - speed
+                  - balanced
+                  - deep
+                explain:
+                  type: boolean
+                  description: Attach retrieval channels per hit
       responses:
         '200':
           description: Search results
@@ -825,6 +924,8 @@ paths:
                     type: string
                   mode:
                     type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
   /search/temporal:
@@ -842,20 +943,22 @@ paths:
             schema:
               type: object
               required:
-              - q
+              - query
               properties:
-                q:
+                query:
                   type: string
-                collection:
+                reference_date:
                   type: string
+                  format: date-time
+                  description: Anchor for temporal intent detection (default now)
                 limit:
                   type: integer
-                from:
+                  default: 10
+                  maximum: 50
+                user_id:
                   type: string
-                  format: date-time
-                to:
+                run_id:
                   type: string
-                  format: date-time
       responses:
         '200':
           description: Temporally filtered results
@@ -868,6 +971,8 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/SearchResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
   /search/hierarchical:
@@ -885,12 +990,19 @@ paths:
             schema:
               type: object
               required:
-              - q
+              - query
               properties:
-                q:
+                query:
                   type: string
-                limit:
+                max_depth:
                   type: integer
+                  default: 3
+                top_k:
+                  type: integer
+                  default: 20
+                score_alpha:
+                  type: number
+                  default: 0.7
       responses:
         '200':
           description: Hierarchical results
@@ -898,6 +1010,8 @@ paths:
             application/json:
               schema:
                 type: object
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
   /retrieve:
@@ -916,10 +1030,11 @@ paths:
             schema:
               type: object
               required:
-              - q
+              - query
               properties:
-                q:
+                query:
                   type: string
+                  maxLength: 2000
                 mode:
                   type: string
                   enum:
@@ -931,10 +1046,25 @@ paths:
                   - discovery
                   - complex
                   - hybrid
+                  default: auto
                 limit:
                   type: integer
                 collection:
                   type: string
+                  description: Comma-separated list is split into multiple collections
+                compact:
+                  type: boolean
+                  default: true
+                profile:
+                  type: string
+                  enum:
+                  - speed
+                  - balanced
+                  - deep
+                include_structured:
+                  type: boolean
+                explain:
+                  type: boolean
       responses:
         '200':
           description: Retrieved results
@@ -949,8 +1079,12 @@ paths:
                       $ref: '#/components/schemas/SearchResult'
                   mode:
                     type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '413':
+          description: Query longer than 2000 chars
   /ask:
     post:
       operationId: ask
@@ -970,31 +1104,47 @@ paths:
             schema:
               type: object
               required:
-              - q
+              - query
               properties:
-                q:
+                query:
                   type: string
-                  description: User question
+                  description: User question (non-empty)
                 collection:
                   type: string
-                stream:
+                format:
+                  type: string
+                  enum:
+                  - json
+                  - stream
+                  default: json
+                  description: stream returns SSE
+                include_thinking:
                   type: boolean
-                  default: false
-                  description: Enable SSE streaming
+                  description: Include reader reasoning details
                 language:
                   type: string
                   enum:
-                  - pt-BR
                   - en
-                  default: pt-BR
+                  - pt
+                  - auto
+                  default: auto
                 limit:
                   type: integer
-                  default: 5
+                  default: 10
+                  maximum: 20
                   description: Max source documents to retrieve
+                session_id:
+                  type: string
+                  description: Or X-Session-ID header
+                history:
+                  type: array
+                  description: Prior turns; current question goes in query
+                  items:
+                    type: object
       responses:
         '200':
-          description: 'RAG answer. When stream=false, returns JSON with answer and
-            sources. When stream=true, returns text/event-stream.
+          description: 'RAG answer. When format=json, returns JSON with answer and
+            sources. When format=stream, returns text/event-stream.
 
             '
           content:
@@ -1121,23 +1271,6 @@ paths:
                           type: string
                         count:
                           type: integer
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-  /profile:
-    get:
-      operationId: getProfile
-      summary: Get current tenant/user profile
-      tags:
-      - Documents
-      parameters:
-      - $ref: '#/components/parameters/TenantIdHeader'
-      responses:
-        '200':
-          description: Profile data
-          content:
-            application/json:
-              schema:
-                type: object
         '401':
           $ref: '#/components/responses/Unauthorized'
   /graph/causal/{id}:
@@ -1361,14 +1494,43 @@ paths:
               - object
               properties:
                 subject:
-                  type: string
+                  type: object
+                  required:
+                  - name
+                  properties:
+                    name:
+                      type: string
+                    type:
+                      type: string
                 predicate:
                   type: string
                 object:
-                  type: string
+                  oneOf:
+                  - type: object
+                    required:
+                    - name
+                    properties:
+                      name:
+                        type: string
+                      type:
+                        type: string
+                  - type: object
+                    required:
+                    - literal
+                    properties:
+                      literal:
+                        type: string
                 confidence:
                   type: number
                   default: 0.8
+                sourceFact:
+                  type: string
+                validFrom:
+                  type: string
+                  format: date-time
+                validTo:
+                  type: string
+                  format: date-time
       responses:
         '200':
           description: Triple created
@@ -1381,6 +1543,241 @@ paths:
                     type: boolean
                   triple:
                     type: object
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /api/v1/kg/explore:
+    get:
+      operationId: kgExplore
+      summary: Graph for the knowledge map (ego network or facts)
+      description: 'ADR-062: `view=business` (default) keeps people, organizations,
+        projects, products, agents, services and locations whose names pass the admission
+        rule, seeded by the tenant organization when `seed` is `auto`; `view=all`
+        also returns technical tools and concepts. Mention counts use active documents
+        only.'
+      tags:
+      - Entity
+      parameters:
+      - $ref: '#/components/parameters/TenantIdHeader'
+      - name: seed
+        in: query
+        schema:
+          type: string
+          default: auto
+      - name: hops
+        in: query
+        schema:
+          type: integer
+          default: 2
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          default: 40
+      - name: mode
+        in: query
+        schema:
+          type: string
+          enum:
+          - network
+          - facts
+          default: network
+      - name: view
+        in: query
+        schema:
+          type: string
+          enum:
+          - business
+          - all
+          default: business
+      responses:
+        '200':
+          description: Nodes, edges, stats and the view that was applied
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  view:
+                    type: string
+                    enum:
+                    - business
+                    - all
+                  nodes:
+                    type: array
+                    items:
+                      type: object
+                  edges:
+                    type: array
+                    items:
+                      type: object
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /api/v1/meet/vocabulary:
+    get:
+      operationId: getMeetVocabulary
+      summary: Transcription vocabulary from the tenant graph (ADR-062)
+      description: 'Terms for the Meet extension to bias transcription: recognized
+        participants first, then entities seen in meetings and names that are hard
+        to transcribe. Counts only documents visible to the caller (source ACL, ADR-031).
+        Scope family `memory` (read).'
+      tags:
+      - Entity
+      parameters:
+      - $ref: '#/components/parameters/TenantIdHeader'
+      - name: participants
+        in: query
+        description: Comma-separated participant display names (at most 20 are used)
+        schema:
+          type: string
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 5
+          maximum: 120
+          default: 40
+      responses:
+        '200':
+          description: Vocabulary
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  terms:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        term:
+                          type: string
+                        kind:
+                          type: string
+                        score:
+                          type: number
+                        reason:
+                          type: string
+                          enum:
+                          - participant
+                          - meeting
+                          - related
+                          - frequent
+                  corrections:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        from:
+                          type: string
+                        to:
+                          type: string
+                  participants:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        entityId:
+                          type: string
+                          nullable: true
+                  generatedAt:
+                    type: string
+                    format: date-time
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      operationId: postMeetVocabulary
+      summary: Transcription vocabulary, with the participant names in the body (ADR-062)
+      description: Same answer as the GET. The names travel in the body so they never
+        end up in access logs of proxies/CDNs. Treated as a read by the scope guard.
+      tags:
+      - Entity
+      parameters:
+      - $ref: '#/components/parameters/TenantIdHeader'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                participants:
+                  type: array
+                  maxItems: 20
+                  items:
+                    type: string
+                limit:
+                  type: integer
+                  minimum: 5
+                  maximum: 120
+                  default: 40
+      responses:
+        '200':
+          description: Vocabulary (same shape as the GET)
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /api/v1/meet/aliases:
+    post:
+      operationId: recordMeetAliases
+      summary: Record accepted transcription corrections as entity aliases (ADR-062)
+      description: 'Each correction becomes an `entity_aliases` row with `source=''asr''`
+        pointing at the correct entity; future extraction resolves the misheard form
+        to it. Never merges nodes and never overwrites an existing alias. Refused
+        per item: `from` already an established entity (3+ mentions), similarity below
+        0.5, generic term, `to` not in the graph, `to` that is itself a recorded alias
+        (would swap names). Scope family `memory` (write). Audited as `entity_alias.create`.'
+      tags:
+      - Entity
+      parameters:
+      - $ref: '#/components/parameters/TenantIdHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - aliases
+              properties:
+                aliases:
+                  type: array
+                  maxItems: 50
+                  items:
+                    type: object
+                    required:
+                    - from
+                    - to
+                    properties:
+                      from:
+                        type: string
+                        description: What the transcription heard
+                      to:
+                        type: string
+                        description: The correct name, as it exists in the graph
+      responses:
+        '200':
+          description: Nothing recorded (every item skipped, with the reason)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeetAliasResult'
+        '201':
+          description: At least one alias recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeetAliasResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
   /foundations:
@@ -1432,17 +1829,22 @@ paths:
             schema:
               type: object
               required:
-              - path
+              - title
               - content
               properties:
-                path:
-                  type: string
-                content:
-                  type: string
                 title:
                   type: string
-                layer:
+                  description: Slug for the foundation path is derived from it
+                content:
                   type: string
+                user_id:
+                  type: string
+                page_type:
+                  type: string
+                  default: foundation
+                collection:
+                  type: string
+                  default: foundations
       responses:
         '200':
           description: Foundation created
@@ -1559,17 +1961,13 @@ paths:
             schema:
               type: object
               required:
-              - agent_name
+              - agent_caller
               properties:
-                agent_name:
+                agent_caller:
                   type: string
-                capabilities:
-                  type: array
-                  items:
-                    type: string
-                metadata:
-                  type: object
-                  additionalProperties: true
+                  maxLength: 100
+                user_agent:
+                  type: string
       responses:
         '200':
           description: Agent registered with API key
@@ -1586,10 +1984,13 @@ paths:
                     type: string
         '400':
           $ref: '#/components/responses/BadRequest'
+        '501':
+          description: Postgres backend required
   /api/v1/agents/identify:
     post:
       operationId: agentIdentify
       summary: Identify an agent by API key
+      description: Requires a Bearer API key (401 when absent).
       tags:
       - Agents
       security: []
@@ -1600,9 +2001,9 @@ paths:
             schema:
               type: object
               required:
-              - key
+              - agent_caller
               properties:
-                key:
+                agent_caller:
                   type: string
       responses:
         '200':
@@ -1616,12 +2017,15 @@ paths:
                     type: string
                   tenant_id:
                     type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
   /api/v1/agents/claim:
     post:
       operationId: agentClaim
       summary: Request ownership claim for an agent
+      description: Requires a Bearer API key (401 when absent).
       tags:
       - Agents
       security: []
@@ -1632,11 +2036,8 @@ paths:
             schema:
               type: object
               required:
-              - agent_name
               - email
               properties:
-                agent_name:
-                  type: string
                 email:
                   type: string
                   format: email
@@ -1649,10 +2050,13 @@ paths:
                 type: object
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
   /api/v1/agents/claim/verify:
     post:
       operationId: agentClaimVerify
       summary: Verify an agent ownership claim
+      description: Requires a Bearer API key (401 when absent).
       tags:
       - Agents
       security: []
@@ -1663,9 +2067,13 @@ paths:
             schema:
               type: object
               required:
-              - token
+              - email
+              - otp
               properties:
-                token:
+                email:
+                  type: string
+                  format: email
+                otp:
                   type: string
       responses:
         '200':
@@ -1677,10 +2085,16 @@ paths:
                 properties:
                   ok:
                     type: boolean
+                  tenant_id:
+                    type: string
                   api_key:
+                    type: string
+                  message:
                     type: string
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
   /api/v1/workspace/focus:
     get:
       operationId: listFocus
@@ -2063,6 +2477,8 @@ paths:
     put:
       operationId: setPricingAction
       summary: Set pricing for an action
+      description: Per-tenant price override; fills unspecified fields from the default
+        row.
       tags:
       - Billing
       security:
@@ -2081,10 +2497,18 @@ paths:
             schema:
               type: object
               required:
-              - cost
+              - price_user
               properties:
-                cost:
+                price_user:
                   type: number
+                  description: Non-negative; 400 when absent/invalid
+                cost_basis:
+                  type: number
+                description:
+                  type: string
+                active:
+                  type: boolean
+                  default: true
       responses:
         '200':
           description: Pricing updated
@@ -2595,6 +3019,9 @@ paths:
         required: true
         schema:
           type: string
+          enum:
+          - code
+        description: Only "code" is accepted
       - name: client_id
         in: query
         required: true
@@ -2602,16 +3029,36 @@ paths:
           type: string
       - name: redirect_uri
         in: query
+        required: true
         schema:
           type: string
+      - name: code_challenge
+        in: query
+        required: true
+        schema:
+          type: string
+        description: PKCE challenge (S256)
+      - name: code_challenge_method
+        in: query
+        schema:
+          type: string
+          default: S256
+          enum:
+          - S256
       - name: scope
         in: query
         schema:
           type: string
+          default: read
       - name: state
         in: query
         schema:
           type: string
+      - name: resource
+        in: query
+        schema:
+          type: string
+        description: RFC 8707 resource indicator; must be served by this AS
       responses:
         '302':
           description: Redirect to consent page
@@ -2863,6 +3310,409 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
+  /api/v1/acl/me:
+    get:
+      operationId: aclMe
+      summary: Effective source-ACL domains of the caller (the "why" trace)
+      description: 'Union of user + role + agent grants with the provenance of each
+        grant (who granted, reason, temporal validity). Feeds the permission trace
+        of the governance simulator. Requires a caller identity (bound user or agent
+        persona); 401 otherwise, with no regime structure leaked.
+
+        '
+      tags:
+      - Governance
+      parameters:
+      - $ref: '#/components/parameters/TenantIdHeader'
+      responses:
+        '200':
+          description: ACL trace for the caller
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tenant_id:
+                    type: string
+                  identity:
+                    type: object
+                    properties:
+                      user_id:
+                        type:
+                        - string
+                        - 'null'
+                      role:
+                        type:
+                        - string
+                        - 'null'
+                      agent:
+                        type:
+                        - string
+                        - 'null'
+                  acl:
+                    type: object
+                    properties:
+                      active:
+                        type: boolean
+                      state:
+                        type: string
+                      allowed_domains:
+                        type: array
+                        items:
+                          type: string
+                      denied_domains:
+                        type: array
+                        items:
+                          type: string
+                      known_domains:
+                        type: array
+                        items:
+                          type: string
+                      hidden_documents:
+                        type: integer
+                      grants:
+                        type: array
+                        items:
+                          type: object
+                  trace:
+                    type: object
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /api/v1/acl/grants:
+    get:
+      operationId: listAclGrants
+      summary: List source-ACL grants (ADMIN)
+      tags:
+      - Governance
+      parameters:
+      - $ref: '#/components/parameters/TenantIdHeader'
+      - name: subject_kind
+        in: query
+        schema:
+          type: string
+          enum:
+          - user
+          - role
+          - agent
+      - name: subject_id
+        in: query
+        schema:
+          type: string
+      - name: domain
+        in: query
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Grant list + domain mappings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  grants:
+                    type: array
+                    items:
+                      type: object
+                  domains:
+                    type: array
+                    items:
+                      type: object
+        '403':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      operationId: createAclGrant
+      summary: Create a source-ACL grant (ADMIN; reason required)
+      tags:
+      - Governance
+      parameters:
+      - $ref: '#/components/parameters/TenantIdHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - subject_kind
+              - subject_id
+              - domain
+              - reason
+              properties:
+                subject_kind:
+                  type: string
+                  enum:
+                  - user
+                  - role
+                  - agent
+                subject_id:
+                  type: string
+                domain:
+                  type: string
+                reason:
+                  type: string
+                valid_from:
+                  type: string
+                  format: date-time
+                  nullable: true
+                valid_to:
+                  type: string
+                  format: date-time
+                  nullable: true
+      responses:
+        '201':
+          description: Grant created
+        '409':
+          description: Grant already exists
+  /api/v1/acl/grants/{grantId}:
+    delete:
+      operationId: revokeAclGrant
+      summary: Revoke a source-ACL grant (ADMIN)
+      tags:
+      - Governance
+      parameters:
+      - $ref: '#/components/parameters/TenantIdHeader'
+      - name: grantId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Grant revoked
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/acl/domains:
+    get:
+      operationId: listAclDomains
+      summary: The collection→domain regime (ADMIN)
+      description: Collections without a mapping sit outside the ACL regime — readable
+        by everyone, even with the flag on.
+      tags:
+      - Governance
+      parameters:
+      - $ref: '#/components/parameters/TenantIdHeader'
+      responses:
+        '200':
+          description: Domain mappings
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      operationId: upsertAclDomain
+      summary: Upsert one collection→domain mapping (ADMIN)
+      tags:
+      - Governance
+      parameters:
+      - $ref: '#/components/parameters/TenantIdHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - collection
+              - domain
+              properties:
+                collection:
+                  type: string
+                domain:
+                  type: string
+                  description: lowercase business-domain slug (gtm
+                  finance: null
+                  …): null
+      responses:
+        '201':
+          description: Mapping upserted (applies on the next request)
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/acl/domains/{collection}:
+    delete:
+      operationId: removeAclDomain
+      summary: Remove a mapping — the collection leaves the ACL regime (ADMIN)
+      tags:
+      - Governance
+      parameters:
+      - $ref: '#/components/parameters/TenantIdHeader'
+      - name: collection
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Mapping removed
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/read-log:
+    get:
+      operationId: queryReadLog
+      summary: The query read-log — "who read which version" (LGPD tier)
+      description: 'One row per retrieval query (governance spec 2026-09-24 §2.2):
+        identity in the secret_access_log pattern (actor user/agent/harness, token
+        prefix, session), channel/operation, the query as a HASH (the text is never
+        stored — LGPD) and docs_touched, the (doc_hash, revision_count) pairs frozen
+        at read time (cap 20). Retention: 90 hot days plus the read_log_monthly anonymous
+        rollup. Access is privileged: persona (vbm_) tokens need the handler-scoped
+        `read_log:read` scope (legacy `read` and scopeless tokens do NOT cover it);
+        workspace credentials need the SaaS-resolved ADMIN role. Every query of this
+        log is itself audited in mutation_audit as `read_log.query`.
+
+        '
+      tags:
+      - Governance
+      parameters:
+      - $ref: '#/components/parameters/TenantIdHeader'
+      - name: doc
+        in: query
+        schema:
+          type: string
+        description: Doc hash (full or prefix) — who read THIS document
+      - name: actor
+        in: query
+        schema:
+          type: string
+        description: Actor user id — what THIS person read
+      - name: channel
+        in: query
+        schema:
+          type: string
+          enum:
+          - mcp
+          - rest
+          - hook
+          - cli
+      - name: operation
+        in: query
+        schema:
+          type: string
+      - name: from
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: to
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 50
+      responses:
+        '200':
+          description: Read-log entries (hashes only — no query text, no document
+            content)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tenant_id:
+                    type: string
+                  total:
+                    type: integer
+                  entries:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        created_at:
+                          type: string
+                        actor_user_id:
+                          type:
+                          - string
+                          - 'null'
+                        actor_agent:
+                          type:
+                          - string
+                          - 'null'
+                        actor_harness:
+                          type:
+                          - string
+                          - 'null'
+                        token_prefix:
+                          type:
+                          - string
+                          - 'null'
+                        session_id:
+                          type:
+                          - string
+                          - 'null'
+                        channel:
+                          type: string
+                        operation:
+                          type: string
+                        query_hash:
+                          type:
+                          - string
+                          - 'null'
+                        result_count:
+                          type: integer
+                        docs_touched:
+                          type:
+                          - array
+                          - 'null'
+                          description: Up to 20 {h, v} (doc hash, revision) pairs
+                            frozen at read time
+                          items:
+                            type: object
+                            properties:
+                              h:
+                                type: string
+                              v:
+                                type:
+                                - number
+                                - 'null'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/read-log/erase:
+    post:
+      operationId: eraseReadLogActor
+      summary: LGPD erasure of a data subject's identity in the read-log
+      description: 'Rights of the holder (governance spec 2026-09-24 §2.7): anonymizes
+        the actor (actor_user_id → ''erased'') on every read-log row of the tenant
+        via the SECURITY DEFINER function from migration 0223 — the only mutation
+        the append-only table admits. The access facts (which documents, which versions,
+        when) stay; the identity is gone, so the remaining rows no longer identify
+        the person; the anonymous read_log_monthly rollup is preserved. Tier: persona
+        tokens need explicit `read_log:write`; workspace credentials need the SaaS-resolved
+        ADMIN role. Audited in mutation_audit as `read_log.erase`.
+
+        '
+      tags:
+      - Governance
+      parameters:
+      - $ref: '#/components/parameters/TenantIdHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - actor_user_id
+              properties:
+                actor_user_id:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Actor anonymized (anonymized = rows affected)
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
   /metrics:
     get:
       operationId: metrics
@@ -3207,8 +4057,8 @@ paths:
                   type: array
                   items:
                     type: string
-                  minItems: 1
-                  description: Docids ('#ab12cd') or document paths
+                  description: Docids ('#ab12cd') or document paths; [] declares an
+                    empty working set (no usage event)
                 verdict:
                   type: string
                   enum:
@@ -3340,8 +4190,14 @@ paths:
               type: object
               required:
               - content
+              - category
+              - target_key
               properties:
                 content:
+                  type: string
+                category:
+                  type: string
+                target_key:
                   type: string
       responses:
         '200':
@@ -3353,12 +4209,22 @@ paths:
                 properties:
                   sanitized:
                     type: string
+                  sensitive_count:
+                    type: integer
+                  config_id:
+                    type: string
+                  version:
+                    type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
   /api/v1/privacy/restore:
     post:
       operationId: privacyRestore
       summary: Restore sanitized content
+      description: Stored values are reloaded from the database per (tenant, category,
+        target_key); no tokens array in the request.
       tags:
       - Observability
       parameters:
@@ -3370,15 +4236,16 @@ paths:
             schema:
               type: object
               required:
-              - content
-              - tokens
+              - sanitized
+              - category
+              - target_key
               properties:
-                content:
+                sanitized:
                   type: string
-                tokens:
-                  type: array
-                  items:
-                    type: object
+                category:
+                  type: string
+                target_key:
+                  type: string
       responses:
         '200':
           description: Restored content
@@ -3389,6 +4256,10 @@ paths:
                 properties:
                   restored:
                     type: string
+                  values_count:
+                    type: integer
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
   /api/v1/foresights:
@@ -3510,6 +4381,15 @@ paths:
     get:
       operationId: listConflicts
       summary: List canonical conflicts
+      description: 'When conflicts appear: detection runs on the consolidation tick
+        (every 5 minutes while VALORBRAIN_ENABLE_CONSOLIDATION=true; Phase 5) and
+        on demand via POST /api/v1/conflicts/detect (MCP `conflicts` action=detect).
+        Where they go: a conflict with a clear authority differential is auto-resolved
+        by authority at detection time (logged); ties and ambiguous cases stay listed
+        here for human review. Signaling never blocks writes — a superseding write
+        always lands (owner decision); the detector''s job is visibility, not gating.
+
+        '
       tags:
       - Canonical
       parameters:
@@ -3708,8 +4588,14 @@ paths:
     post:
       operationId: lifecycleSweep
       summary: Run lifecycle sweep
-      description: Archive stale docs, optionally purge old archives. Defaults to
-        dry run.
+      description: 'Archive stale docs of the calling tenant. Defaults to dry run.
+        Lifecycle is OPT-IN per tenant (2026-09-29): a tenant is swept only when its
+        `__tenant__` lifecycle row says `"enabled": true` (see `POST /collections/{name}/lifecycle`).
+        For a tenant that did not opt in the response is `enabled: false` with zero
+        candidates — nothing is archived. Collections whose row says `"enabled": false`
+        are never candidates.
+
+        '
       tags:
       - Lifecycle
       parameters:
@@ -3733,10 +4619,38 @@ paths:
                 properties:
                   dry_run:
                     type: boolean
-                  to_archive:
+                  enabled:
+                    type: boolean
+                    description: Whether the tenant opted into the lifecycle. `false`
+                      means nothing was (or would be) archived.
+                  candidates:
                     type: integer
-                  to_purge:
+                    description: Documents that would be archived (dry run, or `0`
+                      when `enabled` is false).
+                  archived:
                     type: integer
+                    description: Documents archived (real run, or `0` when `enabled`
+                      is false).
+                  documents:
+                    type: array
+                    description: Candidates (dry run). Empty when `enabled` is false.
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        path:
+                          type: string
+                        title:
+                          type: string
+                        content_type:
+                          type: string
+                        modified_at:
+                          type: string
+                        last_accessed_at:
+                          type:
+                          - string
+                          - 'null'
         '401':
           $ref: '#/components/responses/Unauthorized'
   /lifecycle/restore:
@@ -3772,6 +4686,119 @@ paths:
                     type: integer
         '401':
           $ref: '#/components/responses/Unauthorized'
+  /collections/{name}/lifecycle:
+    post:
+      operationId: setCollectionLifecycle
+      summary: Set lifecycle policy for a collection or the tenant (opt-in switch)
+      description: 'Writes `collection_settings.settings_json.lifecycle` for the calling
+        tenant. Use the reserved collection name `__tenant__` for the tenant-wide
+        values.
+
+
+        Merge semantics: a key absent from the body keeps its stored value; `null`
+        clears a TTL override (the tenant default applies again); a number sets it.
+        The SaaS lifecycle dialog sends only the three TTL keys, so a TTL edit never
+        changes `enabled`.
+
+
+        Opt-in (2026-09-29): the lifecycle sweep (nightly timer, `POST /lifecycle/sweep`,
+        CLI, staleness hook) archives and purges only tenants whose `__tenant__` row
+        has `"enabled": true`. Opt a tenant in with `POST /collections/__tenant__/lifecycle
+        {"enabled": true}`; exclude one collection of an opted-in tenant with `POST
+        /collections/<collection>/lifecycle {"enabled": false}`. A collection row
+        cannot turn on a tenant that is off. Sending `enabled` requires the ADMIN
+        actor role (admin credential + `X-Actor-Role: ADMIN`, or an admin-scoped token);
+        other callers get 403.
+
+        '
+      tags:
+      - Lifecycle
+      parameters:
+      - $ref: '#/components/parameters/TenantIdHeader'
+      - name: name
+        in: path
+        required: true
+        description: Collection name, or `__tenant__` for the tenant-wide policy.
+        schema:
+          type: string
+          pattern: ^[a-zA-Z0-9_./-]+$
+      - name: X-Actor-Role
+        in: header
+        required: false
+        description: 'Role resolved by the trusted caller (honored for the admin credential).
+          Must be `ADMIN` to send `enabled`.
+
+          '
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                enabled:
+                  type: boolean
+                  description: 'Opt-in switch. On `__tenant__`: `true` opts the tenant
+                    in, `false` opts it out. On a collection: `false` excludes it.
+                    Must be a boolean (400 otherwise); ADMIN only (403 otherwise).
+
+                    '
+                archive_after_days_inactive:
+                  type:
+                  - integer
+                  - 'null'
+                  minimum: 1
+                  maximum: 36500
+                archive_after_days_modified:
+                  type:
+                  - integer
+                  - 'null'
+                  minimum: 1
+                  maximum: 36500
+                purge_after_days_archived:
+                  type:
+                  - integer
+                  - 'null'
+                  minimum: 1
+                  maximum: 36500
+            examples:
+              optIn:
+                summary: Opt the tenant in
+                value:
+                  enabled: true
+              excludeCollection:
+                summary: Exclude one collection (POST to /collections/<collection>/lifecycle)
+                value:
+                  enabled: false
+              ttl:
+                summary: TTL edit (what the SaaS sends)
+                value:
+                  archive_after_days_inactive: 180
+                  archive_after_days_modified: null
+                  purge_after_days_archived: null
+      responses:
+        '200':
+          description: Stored lifecycle object after the merge
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  collection:
+                    type: string
+                  lifecycle:
+                    type: object
+                    additionalProperties: true
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
   /reindex:
     post:
       operationId: reindex
@@ -4068,15 +5095,22 @@ paths:
               type: object
               required:
               - name
+              - content
               properties:
                 name:
                   type: string
+                content:
+                  type: string
                 description:
                   type: string
-                handler:
+                category:
                   type: string
+                  default: pipeline
+                parameters:
+                  type: object
+                  additionalProperties: true
       responses:
-        '200':
+        '201':
           description: Skill registered
           content:
             application/json:
@@ -4310,6 +5344,56 @@ paths:
       responses:
         '200':
           description: See the running handler
+  /api/v1/documents/{id}/chain:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__api_v1_documents_id_chain
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /documents/{id}/revisions:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__documents_id_revisions
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/documents/{id}/revisions:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__api_v1_documents_id_revisions
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /documents/{id}/revisions/{id2}:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__documents_id_revisions_id2_
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/documents/{id}/revisions/{id2}:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__api_v1_documents_id_revisions_id2_
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
   /documents/{id}/veracity:
     patch:
       tags:
@@ -4360,16 +5444,6 @@ paths:
       responses:
         '200':
           description: See the running handler
-  /collections/{id}/lifecycle:
-    post:
-      tags:
-      - Runtime
-      summary: Registered on this process; not yet in docs/reference/openapi.yaml
-      operationId: live_POST__collections_id_lifecycle
-      x-valorbrain-live: true
-      responses:
-        '200':
-          description: See the running handler
   /api/v1/memory/working-context:
     get:
       tags:
@@ -4386,80 +5460,6 @@ paths:
       - Runtime
       summary: Registered on this process; not yet in docs/reference/openapi.yaml
       operationId: live_GET__memory_working_context
-      x-valorbrain-live: true
-      responses:
-        '200':
-          description: See the running handler
-  /api/v1/scratchpad:
-    get:
-      tags:
-      - Runtime
-      summary: Registered on this process; not yet in docs/reference/openapi.yaml
-      operationId: live_GET__api_v1_scratchpad
-      x-valorbrain-live: true
-      responses:
-        '200':
-          description: See the running handler
-    put:
-      tags:
-      - Runtime
-      summary: Registered on this process; not yet in docs/reference/openapi.yaml
-      operationId: live_PUT__api_v1_scratchpad
-      x-valorbrain-live: true
-      responses:
-        '200':
-          description: See the running handler
-    post:
-      tags:
-      - Runtime
-      summary: Registered on this process; not yet in docs/reference/openapi.yaml
-      operationId: live_POST__api_v1_scratchpad
-      x-valorbrain-live: true
-      responses:
-        '200':
-          description: See the running handler
-    delete:
-      tags:
-      - Runtime
-      summary: Registered on this process; not yet in docs/reference/openapi.yaml
-      operationId: live_DELETE__api_v1_scratchpad
-      x-valorbrain-live: true
-      responses:
-        '200':
-          description: See the running handler
-  /scratchpad:
-    get:
-      tags:
-      - Runtime
-      summary: Registered on this process; not yet in docs/reference/openapi.yaml
-      operationId: live_GET__scratchpad
-      x-valorbrain-live: true
-      responses:
-        '200':
-          description: See the running handler
-    put:
-      tags:
-      - Runtime
-      summary: Registered on this process; not yet in docs/reference/openapi.yaml
-      operationId: live_PUT__scratchpad
-      x-valorbrain-live: true
-      responses:
-        '200':
-          description: See the running handler
-    post:
-      tags:
-      - Runtime
-      summary: Registered on this process; not yet in docs/reference/openapi.yaml
-      operationId: live_POST__scratchpad
-      x-valorbrain-live: true
-      responses:
-        '200':
-          description: See the running handler
-    delete:
-      tags:
-      - Runtime
-      summary: Registered on this process; not yet in docs/reference/openapi.yaml
-      operationId: live_DELETE__scratchpad
       x-valorbrain-live: true
       responses:
         '200':
@@ -4585,6 +5585,26 @@ paths:
       - Runtime
       summary: Registered on this process; not yet in docs/reference/openapi.yaml
       operationId: live_GET__api_v1_team_members
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/team/overview:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__api_v1_team_overview
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/task-state:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__api_v1_task_state
       x-valorbrain-live: true
       responses:
         '200':
@@ -4716,6 +5736,16 @@ paths:
       responses:
         '200':
           description: See the running handler
+  /api/v1/admin/tenants/{id}/status:
+    patch:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_PATCH__api_v1_admin_tenants_id_status
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
   /api/v1/memory/refine:
     post:
       tags:
@@ -4752,16 +5782,6 @@ paths:
       - Runtime
       summary: Registered on this process; not yet in docs/reference/openapi.yaml
       operationId: live_GET__api_v1_runtimes
-      x-valorbrain-live: true
-      responses:
-        '200':
-          description: See the running handler
-  /api/v1/kg/explore:
-    get:
-      tags:
-      - Runtime
-      summary: Registered on this process; not yet in docs/reference/openapi.yaml
-      operationId: live_GET__api_v1_kg_explore
       x-valorbrain-live: true
       responses:
         '200':
@@ -4881,6 +5901,26 @@ paths:
       - Runtime
       summary: Registered on this process; not yet in docs/reference/openapi.yaml
       operationId: live_GET__api_v1_audit_status
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/audit/recent:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__api_v1_audit_recent
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/read-log/summary:
+    get:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_GET__api_v1_read_log_summary
       x-valorbrain-live: true
       responses:
         '200':
@@ -5078,6 +6118,16 @@ paths:
       - Runtime
       summary: Registered on this process; not yet in docs/reference/openapi.yaml
       operationId: live_POST__api_v1_hooks_run
+      x-valorbrain-live: true
+      responses:
+        '200':
+          description: See the running handler
+  /api/v1/hooks/cue:
+    post:
+      tags:
+      - Runtime
+      summary: Registered on this process; not yet in docs/reference/openapi.yaml
+      operationId: live_POST__api_v1_hooks_cue
       x-valorbrain-live: true
       responses:
         '200':
@@ -5314,6 +6364,29 @@ components:
           schema:
             $ref: '#/components/schemas/BillingEventErrorResponse'
   schemas:
+    MeetAliasResult:
+      type: object
+      properties:
+        recorded:
+          type: array
+          items:
+            type: object
+            properties:
+              from:
+                type: string
+              to:
+                type: string
+        skipped:
+          type: array
+          items:
+            type: object
+            properties:
+              from:
+                type: string
+              to:
+                type: string
+              reason:
+                type: string
     Document:
       type: object
       properties:

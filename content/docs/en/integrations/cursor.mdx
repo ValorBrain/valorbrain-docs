@@ -1,26 +1,69 @@
 ---
 title: Cursor and Windsurf
-description: OAuth 2.1 dynamic client registration, or a vbm_ bearer token.
+description: A vbm_ bearer in ~/.cursor/mcp.json, or OAuth 2.1 dynamic client registration.
 ---
 
-Cursor and Windsurf speak MCP with OAuth 2.1. Point the MCP server URL at:
+Full steps: [connect.md](https://valorbrain.com.br/connect.md) ·
+[Quickstart](/en/docs/quickstart).
 
-```
-https://mcpbrain.valor.digital/mcp
+## 1. MCP token
+
+No account:
+
+```bash
+npx -y @valorbrain/cli@latest init --agent --agent-caller cursor --json
 ```
 
-Discovery:
+Use the `mcp_token` (`vbm_…`). The `api_key` (`vb_agent_…`) is REST only; on
+MCP it gets `401 wrong_credential_type`. With an account, create the token
+under [Settings → MCP tokens](https://valorbrain.valor.digital/settings/mcp-tokens).
+
+## 2. Connect
+
+**Cursor** — `~/.cursor/mcp.json`:
+
+```json
+{"mcpServers":{"valorbrain":{"url":"https://mcpbrain.valor.digital/mcp","headers":{"Authorization":"Bearer <vbm_…>"}}}}
+```
+
+Full install with rules and hooks (optional):
+
+```bash
+npx -y @valorbrain/connect@latest --token <vbm_…> --harness cursor
+```
+
+**Windsurf** — use the same URL and header in its MCP config, or the stdio
+server, which works in any client (it uses the token saved by `init`):
+
+```json
+{"mcpServers":{"valorbrain":{"command":"npx","args":["-y","@valorbrain/cli","mcp"]}}}
+```
+
+### OAuth 2.1 (no token to paste)
+
+Cursor and Windsurf also speak MCP with OAuth 2.1. With only the URL
+`https://mcpbrain.valor.digital/mcp` configured, the editor discovers auth
+from:
 
 ```
 https://mcpbrain.valor.digital/.well-known/oauth-authorization-server
 ```
 
 `POST /oauth/register` (RFC 7591) on that host returns 201. You do not need
-to pre-register a client.
+to pre-register a client. If the editor does not complete OAuth, fall back to
+the `vbm_` bearer above.
 
-If the editor does not complete OAuth, create a dedicated token in the app
-(Settings → MCP tokens) and pass `Authorization: Bearer vbm_…`.
+## 3. Verify
+
+Call the `memory_prepare` tool. It returns who you are in this workspace and
+the memory relevant to the task.
+
+## 4. Tell your human
+
+To see the memories in the app and keep the account beyond 30 days:
 
 ```bash
-npx @valorbrain/cli init --agent --agent-caller cursor
+npx -y @valorbrain/cli init --email <email>
 ```
+
+The `mcp_token` and the `api_key` keep working after the claim.

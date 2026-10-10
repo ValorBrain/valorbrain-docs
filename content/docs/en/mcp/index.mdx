@@ -1,74 +1,124 @@
 ---
 title: MCP
-description: Streamable HTTP on mcpbrain, or stdio via @valorbrain/connect. Bearer vbm_ or OAuth 2.1.
+description: Streamable HTTP on mcpbrain with a vbm_ bearer or OAuth 2.1, or stdio via npx -y @valorbrain/cli mcp.
 icon: Plug
 ---
 
-ValorBrain exposes a Model Context Protocol server.
+ValorBrain exposes a Model Context Protocol server. The connection steps have
+one source, [connect.md](https://valorbrain.com.br/connect.md); the
+[Quickstart](/en/docs/quickstart) repeats them.
 
 - **Transport:** Streamable HTTP
 - **Endpoint:** `https://mcpbrain.valor.digital/mcp`
-- **Auth:** OAuth 2.1 (dynamic client registration) **or** `Authorization: Bearer vbm_…`
+- **Auth:** `Authorization: Bearer <vbm_…>` **or** OAuth 2.1 (dynamic client registration)
 - **Protocol:** `2025-11-25` (see the [server card](https://valorbrain.valor.digital/.well-known/mcp/server-card.json))
 
-## HTTP (Claude Code, Cursor, Windsurf)
+## The token: `vbm_` only
 
-Clients that speak Streamable HTTP:
+The MCP host accepts **only** `vbm_…` tokens. Two ways to get one:
+
+- **No account:** `npx -y @valorbrain/cli@latest init --agent --agent-caller <agent-name> --json`
+  returns `mcp_token` (`vbm_…`), `mcp_url` and `api_key` (`vb_agent_…`, REST
+  only), and saves them in the CLI config.
+- **With an account:** [valorbrain.valor.digital/settings/mcp-tokens](https://valorbrain.valor.digital/settings/mcp-tokens).
+
+A REST key (`vb_…`, `vb_agent_…`) or ingest key (`fk_…`) as an MCP bearer
+gets `401`:
 
 ```json
 {
-  "mcpServers": {
-    "valorbrain": {
-      "url": "https://mcpbrain.valor.digital/mcp",
-      "headers": {
-        "Authorization": "Bearer vbm_<your-token>"
-      }
-    }
-  }
+  "error": "wrong_credential_type",
+  "hint": "Authorization: Bearer vbm_…",
+  "docs": "https://valorbrain.com.br/connect.md"
 }
 ```
 
-Claude Code:
+The body also carries a message saying the signup returns both credentials
+and where to create a `vbm_` token.
+
+## HTTP
+
+**Claude Code**
 
 ```bash
-claude mcp add --transport http valorbrain https://mcpbrain.valor.digital/mcp
+claude mcp add --transport http --scope user valorbrain https://mcpbrain.valor.digital/mcp --header "Authorization: Bearer <vbm_…>"
 ```
 
-Then authenticate (OAuth) or add the bearer header in the client's config.
+**Codex**
+
+```bash
+export VALORBRAIN_MCP_TOKEN=<vbm_…>
+codex mcp add valorbrain --url https://mcpbrain.valor.digital/mcp --bearer-token-env-var VALORBRAIN_MCP_TOKEN
+```
+
+**Gemini CLI** — `~/.gemini/settings.json`
+
+```json
+{"mcpServers":{"valorbrain":{"httpUrl":"https://mcpbrain.valor.digital/mcp","headers":{"Authorization":"Bearer <vbm_…>"}}}}
+```
+
+**Cursor** — `~/.cursor/mcp.json`
+
+```json
+{"mcpServers":{"valorbrain":{"url":"https://mcpbrain.valor.digital/mcp","headers":{"Authorization":"Bearer <vbm_…>"}}}}
+```
+
+**VS Code** — `.vscode/mcp.json`
+
+```json
+{"servers":{"valorbrain":{"type":"http","url":"https://mcpbrain.valor.digital/mcp","headers":{"Authorization":"Bearer <vbm_…>"}}}}
+```
+
+**claude.ai / Claude Desktop** — Settings → Connectors → Add custom connector →
+URL `https://mcpbrain.valor.digital/mcp`. Sign-in is OAuth; there is no token
+to paste.
+
+## OAuth 2.1
 
 Clients with OAuth 2.1 DCR discover auth from:
 
 `https://mcpbrain.valor.digital/.well-known/oauth-authorization-server`
 
-## stdio (via CLI)
+`POST /oauth/register` (RFC 7591) on that host returns 201. You do not need to
+pre-register a client. The token OAuth issues is also a `vbm_`.
 
-Clients that only speak stdio:
+## stdio
 
-```json
-{
-  "mcpServers": {
-    "valorbrain": {
-      "command": "npx",
-      "args": ["-y", "@valorbrain/connect", "--token", "vbm_<your-token>"]
-    }
-  }
-}
+For clients that only speak stdio, use this as the server command:
+
+```bash
+npx -y @valorbrain/cli mcp
 ```
 
-`@valorbrain/connect` is a published alias of `valorbrain mcp`. It is not a
-separate protocol.
+It is a stdio ↔ Streamable HTTP proxy to the same endpoint. It uses the token
+saved by `init` (or `VALORBRAIN_MCP_TOKEN`, or `--token <vbm_…>`). It is not a
+separate protocol. See [CLI](/en/docs/cli#mcp-stdio-proxy).
+
+## Full install (optional)
+
+```bash
+npx -y @valorbrain/connect@latest --token <vbm_…>
+```
+
+`@valorbrain/connect` is the installer: it detects the harnesses on the
+machine and writes, for each one, the MCP server entry, the rules and the
+hooks. It is not an MCP server; do not use it as a stdio client's `command`.
 
 ## First calls
 
-1. `tools/list` — trust the live schema, not a screenshot.
+1. `memory_prepare` — step 3 verification: who you are in this workspace and
+   the memory relevant to the task.
 2. `whoami` — confirm tenant and user. Stop if either is wrong.
-3. `memory_retrieve` or `memory_prepare` — then `memory_used`.
+3. `memory_retrieve` while you work — then `memory_used`.
 
-The default **agent** toolset is the working set. It is not the full catalog.
-See [MCP tools](/en/docs/api/mcp-tools).
+`tools/list` is the live schema; trust it, not a screenshot. The default
+**agent** toolset is the working set, not the full catalog. The catalog and
+the tool count live in the [generated catalog](/en/docs/api/generated-mcp);
+the guide is [MCP tools](/en/docs/api/mcp-tools).
 
 ## What not to do
 
 - Do not point REST at `mcpbrain`. `/search` there is not search.
-- Do not send a `vb_agent_` key as an MCP bearer. MCP tokens start with `vbm_`.
+- Do not send a `vb_`, `vb_agent_` or `fk_` key as an MCP bearer. MCP tokens start with `vbm_`.
+- Do not use `@valorbrain/connect` as a stdio server. The stdio server is `npx -y @valorbrain/cli mcp`.
 - Do not call the deprecated tool `store`. The canonical write is `memory_store`.

@@ -1,9 +1,23 @@
 {
   "name": "@valorbrain/cli",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "config": "~/.valorbrain/config.json",
   "default_rest_base_url": "https://valorbrain-api.valor.digital",
   "default_mcp_url": "https://mcpbrain.valor.digital/mcp",
+  "credentials": [
+    {
+      "prefix": "vb_agent_",
+      "config_field": "api_key",
+      "env": "VALORBRAIN_TOKEN",
+      "accepted_on": "REST (default_rest_base_url)"
+    },
+    {
+      "prefix": "vbm_",
+      "config_field": "mcp_token",
+      "env": "VALORBRAIN_MCP_TOKEN",
+      "accepted_on": "MCP (default_mcp_url)"
+    }
+  ],
   "global_flags": [
     {
       "flag": "--json",
@@ -14,7 +28,7 @@
     },
     {
       "flag": "--key",
-      "description": "API key override"
+      "description": "REST API key override"
     },
     {
       "flag": "--url",
@@ -24,8 +38,8 @@
   "commands": [
     {
       "name": "init",
-      "usage": "init --agent [--agent-caller <platform>] | init --email <address> [--otp <code>]",
-      "description": "create an agent account or claim it with an email"
+      "usage": "init --agent [--agent-caller <platform>] [--force] | init --email <address> [--otp <code>]",
+      "description": "create an agent account (REST key + MCP token) or claim it with an email"
     },
     {
       "name": "identify",

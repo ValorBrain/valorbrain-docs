@@ -1,11 +1,4 @@
-import {
-  DEFAULT_LOCALE,
-  getPageImageUrl,
-  getPageMarkdownUrl,
-  getPageSourcePath,
-  source,
-  type Locale,
-} from '@/lib/source';
+import { DEFAULT_LOCALE, getPageImageUrl, getPageSourcePath, source, type Locale } from '@/lib/source';
 import {
   DocsBody,
   DocsDescription,
@@ -31,7 +24,8 @@ export function resolveDocsPage(slug: Slug, locale: Locale) {
 export async function DocsPageView({ slug, locale }: { slug: Slug; locale: Locale }) {
   const page = resolveDocsPage(slug, locale);
   const MDX = page.data.body;
-  const markdownUrl = getPageMarkdownUrl(page).url;
+  // Public twin (`/docs/x.md`), not the internal route behind the rewrite.
+  const markdownUrl = `${page.url}.md`;
 
   return (
     <DocsPage toc={page.data.toc} full={page.data.full}>

@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { loader } from 'fumadocs-core/source';
 import { lucideIconsPlugin } from 'fumadocs-core/source/lucide-icons';
 import { docsContentRoute, docsImageRoute, docsRoute } from './shared';
@@ -75,19 +77,19 @@ export function getPageMarkdownUrl(page: (typeof source)['$inferPage']) {
 
 /**
  * Real on-disk path of a page's source file, for the GitHub link. The storage
- * path has the locale dir stripped; put it back for non-default locales and
- * for `$` (locale-shared) files.
+ * path has the locale dir stripped; the file lives in the locale dir (non-default
+ * locales), in `$` (locale-shared generated pages) or at the root. Pick the one
+ * that exists — evaluated at build time, the pages are static.
  */
 export function getPageSourcePath(page: (typeof source)['$inferPage']): string {
   const candidates = [
-    page.locale && page.locale !== DEFAULT_LOCALE
-      ? `content/docs/${page.locale}/${page.path}`
-      : undefined,
-    `content/docs/$/${page.path}`,
-    `content/docs/${page.path}`,
+    page.locale && page.locale !== DEFAULT_LOCALE ? `${page.locale}/${page.path}` : undefined,
+    `$/${page.path}`,
+    page.path,
   ].filter((v): v is string => Boolean(v));
 
-  return candidates[0] ?? `content/docs/${page.path}`;
+  const found = candidates.find((p) => existsSync(join(process.cwd(), 'content', 'docs', p)));
+  return `content/docs/${found ?? page.path}`;
 }
 
 export async function getLLMText(page: (typeof source)['$inferPage']) {

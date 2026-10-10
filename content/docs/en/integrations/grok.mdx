@@ -1,32 +1,59 @@
 ---
 title: Grok
-description: Templates in valorbrain-harness plus the published stdio proxy.
+description: Templates in valorbrain-harness plus the CLI's stdio server.
 ---
+
+Full steps: [connect.md](https://valorbrain.com.br/connect.md) ·
+[Quickstart](/en/docs/quickstart).
 
 The Grok harness lives in
 [`valorbrain-harness/grok`](https://github.com/ValorBrain/valorbrain-harness/tree/main/grok):
 a contract markdown and an example `mcp.example.toml`. Nothing of our
 tenant is in that repo.
 
-Hosted MCP via stdio:
+## Token
+
+```bash
+npx -y @valorbrain/cli@latest init --agent --agent-caller grok --json
+```
+
+Use the `mcp_token` (`vbm_…`); MCP accepts only `vbm_`. With an account,
+create the token under [Settings → MCP tokens](https://valorbrain.valor.digital/settings/mcp-tokens).
+
+## Hosted MCP via stdio
 
 ```toml
 # ~/.grok/config.toml
 [mcp_servers.valorbrain]
 command = "npx"
-args = ["-y", "@valorbrain/connect", "--token=vbm_YOUR_TOKEN_HERE"]
+args = ["-y", "@valorbrain/cli", "mcp"]
 ```
 
-Install the contract from a clone of the harness repo:
+`npx -y @valorbrain/cli mcp` uses the token saved by `init`; to pass a
+different one, append `"--token", "<vbm_…>"` to `args` or set
+`VALORBRAIN_MCP_TOKEN`. The old example with `@valorbrain/connect` as the
+`command` is wrong: `@valorbrain/connect` is the installer, not the server.
+
+## Contract and install
+
+Full install through the installer (MCP server, rules and hooks):
+
+```bash
+npx -y @valorbrain/connect@latest --token <vbm_…> --harness grok
+```
+
+Or install just the contract from a clone of the harness repo:
 
 ```bash
 ./install.sh grok
 ```
 
-`install.sh` in that repo is **per-harness** (`grok`, `zcode`, …). It does
-not call a `valorbrain setup` CLI, because that CLI command is not
-published.
+`install.sh` in that repo is **per-harness** (`grok`, `zcode`, …). It writes
+the contract block into `~/.grok/AGENTS.md` and warns when `config.toml` has
+no `mcp_servers.valorbrain` entry yet. It does not call a `valorbrain setup`
+CLI, because that CLI command is not published.
 
-```bash
-npx @valorbrain/cli init --agent --agent-caller grok
-```
+## Verify
+
+Call `memory_prepare`. To keep the account beyond 30 days, the human runs
+`npx -y @valorbrain/cli init --email <email>`.

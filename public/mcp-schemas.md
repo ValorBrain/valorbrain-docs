@@ -1,104 +1,96 @@
 # MCP tool schemas
 
-Generated from `/opt/valorbrain/src/mcp-tools.ts`. 95 registerTool() calls.
+Generated from `/opt/valorbrain/src/mcp-tools.ts`: one section per registerTool() call.
 This is the description and input shape the MCP server advertises.
+Tool count: https://docs.valorbrain.com.br/docs/api/generated-mcp (catalog).
 
 ## memory_retrieve
 
-Unified memory retrieval — one call is enough for most questions (server expands/fuses queries). Prefer a SINGLE well-formed query; do not fire 5 near-duplicate retrieves.
-
-Auto-routing: why→causal, last session→timeline, related→neighbors, general→hybrid.
-
-Params:
-- limit / max_results: how many hits to return (default 12; try 15–20 for broad topics).
-- expand: server-side query expansion + score fusion (default true).
-- snippet_chars: chars of body preview per hit (default 200) so you often skip get().
-- budget: TOKEN budget for category-ranked recall mode (different from max_results).
-
-After search: multi_get only for full bodies when snippet is insufficient.
+Unified retrieval — one well-formed call is enough; the server expands and fuses. Routing: why→causal, last session→timeline, related→neighbors, else→hybrid.
 
 ```
 z.object({
-              query: z.string().describe("Your question or search query (one clear query; avoid spamming variants)"),
+              query: z.string(),
               mode: z.enum(["auto", "keyword", "semantic", "causal", "timeline", "discovery", "complex", "hybrid"]).optional().default("auto"),
-              limit: z.number().optional().default(12).describe("Max ranked results to return (alias: max_results)"),
-              max_results: z.number().optional().describe("Alias for limit — max ranked results (FB-0022)"),
+              limit: z.number().optional().default(12),
+              max_results: z.number().optional(),
               compact: z.boolean().optional().default(true),
               vault: z.string().optional(),
-              expand: z.boolean().optional().describe("Server-side expansion + RRF fusion. Default: auto (server decides based on corpus size). Set true to force, false for fastest response."),
-              snippet_chars: z.number().optional().default(200).describe("Snippet length in compact mode (default 200)"),
-              budget: z.number().optional().describe("TOKEN budget for category-ranked recall (not result count). Prefer limit/max_results for hit count."),
+              expand: z.boolean().optional().describe("Server-side expansion + fusion; default auto"),
+              snippet_chars: z.number().optional().default(200),
+              budget: z.number().optional(),
               recall_format: z.enum(["json", "markdown"]).optional(),
-              min_score: z.number().optional().describe("Descarta resultados com composite score abaixo deste valor (0-1)"),
+              min_score: z.number().optional().describe("Min composite score (0-1)"),
             }),
     }
 ```
 
-## memory_store
+## memory_recent
 
-We decided to use PostgreSQL instead of MongoDBThe API rate limit is 100/minRoot cause: missing FOR UPDATE in the queryDeployed v2.0 to production
+Answer "what did agent X do recently?" — work-product docs (decision/milestone/handoff/lesson/problem/observation) by source_agent, newest first.
+
+```
+z.object({
+              agent: z.string().optional().describe("Author slug"),
+              hours: z.number().optional().default(24).describe("Window hours (default 24, max 720)"),
+              since: z.string().optional().describe("ISO lower bound (overrides hours)"),
+              types: z.array(z.string()).optional(),
+              limit: z.number().optional().default(12).describe("Max items (default 12, max 40)"),
+              query: z.string().optional(),
+              vault: z.string().optional(),
+            }),
+    }
+```
+
+## memory_draft
+
+Prepare the exact memory content for a user-authorized save. Does not persist it. Returns a signed draft and an operation key; edited content needs a new draft.
+
+```
+memoryDraftSchema}
+```
+
+## memory_store
 
 ```
 z.object({
               type: z.union([
                 z.enum(['decision', 'observation', 'problem', 'milestone', 'handoff', 'lesson', 'note']),
                 z.string(),
-              ]).describe("Memory type: decision | observation | problem | milestone | handoff | lesson | note. Near-misses (insight, fact, info, issue, bug, learning, task, plurals, any case) are auto-mapped; anything else is rejected with the allowed list."),
-              title: z.string().min(5).max(200).describe("Short title (5-200 chars). Will appear in search results and dashboard."),
-              content: z.string().min(20).describe("Full memory content in markdown. Include context, reasoning, and evidence."),
-              collection: z.string().optional().describe("Collection name (default: '_valorbrain'). Use a custom name to group related memories."),
-              tags: z.array(z.string()).optional().describe("Optional tags for categorization."),
-              confidence: z.number().min(0).max(1).optional().describe("Confidence score 0-1 (default: 0.8 for decisions, 0.6 for observations)."),
+              ]),
+              title: z.string().min(5).max(200),
+              content: z.string().min(20),
+              collection: z.string().optional().describe("Default: your agent collection (agent-<you>), tenant-visible"),
+              tags: z.array(z.string()).optional(),
+              confidence: z.number().min(0).max(1).optional(),
               visibility: z.enum(['tenant', 'private'])
                 .optional()
                 .default('tenant')
-                .describe("Who can read this memory. 'tenant' (default) = everyone in the company sees it, with you as the author. 'private' = only you. Company memory is the product default — go private only for personal or sensitive notes."),
+                .describe("'tenant' (default) = whole company; 'private' = only you."),
             }),
     }
 ```
 
 ## task_state
 
-The working state of the current task, persisted and cross-session. goal sets what done means (appears in __goals__ of every memory_prepare); progress records milestones (__progress__, 48h); read returns goal + ledger + recent progress. ledger is the five-line J-Space discipline with SERVER-ENFORCED epistemic rules: ledger_open requires goal+next; ledger_checkpoint requires verified_by WITH stated coverage ('verified without coverage is a mood, not a result'); ledger_open_question requires settled_by (the cheapest test that could refute it); next is never empty. Open a goal when starting long-horizon work; checkpoint at each verified step; re-read after compaction or session boundaries.
+Cross-session working state. goal sets what done means (in memory_prepare __goals__ until complete); progress records milestones; read: goal+ledger+progress. Ledger: checkpoint needs verified_by with coverage; open question needs settled_by; next never empty.
 
 ```
 z.object({
         action: z.enum(["goal", "progress", "ledger_open", "ledger_checkpoint", "ledger_open_question", "ledger_next", "read"]),
-        slug: z.string().min(2).max(60).optional().describe("goal: short stable identifier, e.g. 'ship-v2-release'"),
-        description: z.string().min(10).max(500).optional().describe("goal/ledger_open: what done means; progress: the milestone title"),
-        status: z.string().optional().default("active").describe("goal: active, paused, complete"),
-        detail: z.string().optional().describe("progress: additional context, blockers, next steps"),
-        session: z.string().optional().describe("ledger/read: session key (defaults to the MCP token session)"),
-        what: z.string().optional().describe("ledger_checkpoint: what now holds"),
-        verified_by: z.string().optional().describe("ledger_checkpoint: what verified it AND what the verification covered (e.g. 'full suite, 2 passes, all files')"),
-        question: z.string().optional().describe("ledger_open_question: the unsettled question"),
-        settled_by: z.string().optional().describe("ledger_open_question: the cheapest test that could refute it"),
-        next: z.string().optional().describe("ledger_open/ledger_next: the single next action"),
-      }),
-    }
-```
-
-## set_goal
-
-DEPRECATED — use task_state with action goal. Create or update an active goal. Goals persist across sessions and are delivered to any agent via the __goals__ block in memory_prepare.
-
-```
-z.object({
-        slug: z.string().min(2).max(60).describe("Short stable identifier, e.g. 'ship-v2-release'"),
-        description: z.string().min(10).max(500).describe("What the goal is, current status, next steps"),
-        status: z.string().optional().default("active").describe("Goal status: active, paused, complete"),
-      }),
-    }
-```
-
-## report_progress
-
-DEPRECATED — use task_state with action progress. Record a progress milestone. Appears in the __progress__ block of memory_prepare for the next 48 hours.
-
-```
-z.object({
-        title: z.string().min(5).max(200).describe("What was accomplished, e.g. 'Completed API migration, 60% of release done'"),
-        detail: z.string().optional().describe("Additional context, blockers, or next steps"),
+        slug: z.string().min(2).max(60).optional(),
+        description: z.string().min(10).max(500).optional().describe("goal/ledger_open: what done means; progress: milestone title"),
+        status: z.string().optional().default("active").describe("goal: active|paused|complete"),
+        detail: z.string().optional(),
+        session: z.string().optional().describe("session key (default: MCP token session)"),
+        what: z.string().optional().describe("checkpoint: what now holds"),
+        verified_by: z.string().optional().describe("checkpoint: what verified it"),
+        coverage: z.string().optional().describe(
+          "checkpoint: coverage scope (count or named set)",
+        ),
+        question: z.string().optional().describe("open question text"),
+        settled_by: z.string().optional().describe("cheapest test that could refute it"),
+        next: z.string().optional().describe("open/next: single next action"),
       }),
     }
 ```
@@ -109,51 +101,22 @@ Remove a memory. Prefer path or docid for precise deletion. Query does fuzzy mat
 
 ```
 z.object({
-              query: z.string().optional().describe("What to forget — fuzzy search for closest match (less precise)"),
-              path: z.string().optional().describe("Exact collection/path to deactivate (e.g. 'gbrain_full_2026_06_20_companies/companies/vitru.md'). Safe — no fuzzy matching."),
-              docid: z.string().optional().describe("Exact doc ID (e.g. '#cbde70' or '850559'). Safe — no fuzzy matching."),
-              confirm: z.boolean().optional().default(true).describe("If true, deactivates. If false, previews what would be forgotten."),
-              vault: z.string().optional().describe("Named vault (omit for default vault)"),
-            }),
-    }
-```
-
-## profile
-
-Get the current user profile (static facts + dynamic context). Rebuild if stale.
-
-```
-z.object({
-              rebuild: z.boolean().optional().default(false).describe("Force rebuild the profile"),
-              rollback: z.boolean().optional().describe("Revert the profile to the previous snapshot (prime-agent /refine pattern)"),
-              rollback_hash: z.string().optional().describe("Roll back to a specific content hash (defaults to the most recent history entry)"),
-              vault: z.string().optional().describe("Named vault (omit for default vault)"),
+              query: z.string().optional().describe("fuzzy match"),
+              path: z.string().optional().describe("exact path — safe"),
+              docid: z.string().optional().describe("exact id — safe"),
+              confirm: z.boolean().optional().default(true).describe("true deactivates; false previews"),
+              vault: z.string().optional(),
             }),
     }
 ```
 
 ## working_context
 
-One-shot stable facts + recent decisions/how-tos + optional session scratchpad. Prefer this at session start.
+Slice of memory_prepare (compatibility): stable facts + recent decisions/how-tos. Prefer memory_prepare.
 
 ```
 z.object({
-              session_id: z.string().optional().describe("Session id for scratchpad slice"),
               format: z.enum(["markdown", "json"]).optional().default("markdown"),
-              vault: z.string().optional(),
-            }),
-    }
-```
-
-## scratchpad
-
-Read/write/clear ephemeral reasoning notes for this session. Not indexed in hybrid search.
-
-```
-z.object({
-              action: z.enum(["read", "write", "clear", "append"]).describe("Operation"),
-              session_id: z.string().describe("Session id (required)"),
-              text: z.string().optional().describe("Body for write/append"),
               vault: z.string().optional(),
             }),
     }
@@ -161,7 +124,7 @@ z.object({
 
 ## get
 
-USE THIS for reading a file. Returns the document content by path or docid with optional line range. If you only need a snippet, set fromLine/maxLines.
+Read a document by path or docid, with optional line range (fromLine/maxLines for a snippet).
 
 ```
 z.object({
@@ -271,60 +234,62 @@ z.object({
 
 ## memory_used
 
-Declare quais memórias você realmente usou na resposta (docids como '#ab12cd', ou caminhos) — declare o conjunto COMPLETO do working set, não só as mais óbvias. Uma linha no seu prompt de sistema chamando esta ferramenta antes da resposta final registra uso declarado separado de recuperação. Para um comprovante antes da resposta final, envie receipt:{task_id,result} e note explicando a contribuição. Opcional (contabilidade honesta, graft-style): saved_tokens (economia estimada de tokens/contexto), waste_avoided (descreva O QUE foi evitado em linguagem humana, sem usar a palavra 'evitado' — ex.: '240 perguntas de benchmark desperdiçadas (protocolo errado)') e discounted (consultas que não geraram ganho). O receipt.summary estima tokens do conteúdo consultado e conta memórias criadas hoje que foram reutilizadas; economia aparece rotulada (declarada). Retorna receipt.summary sem LLM adicional; uso declarado, não prova causalidade. docids:[] com receipt declara ausência de uso.
+Declare which memories you actually used BEFORE the final answer: docids ('#ab12cd') or paths — the COMPLETE working set; [] = empty. Declared use, not proof of causality.
 
 ```
 z.object({
+              // FB-0143: an explicit empty array is a legitimate
+              // empty-working-set declaration, with or without a receipt —
+              // it records no usage event. Some MCP clients (kiro-cli 2.20)
+              // drop an empty array from the arguments before sending, so an
+              // omitted docids also counts as [] when a receipt is present.
+              // Omitted without a receipt is still rejected by the refine below.
               docids: z
                 .array(z.string())
                 .min(0)
-                .describe("Docids ('#ab12cd') ou caminhos das memórias efetivamente usadas"),
+                .optional()
+                .describe("Docids or paths used; [] = empty working set"),
               verdict: z
                 .enum(["confirmed", "corrected"], { error: "verdict must be 'confirmed' or 'corrected'" })
                 .optional()
-                .describe("V5: o usuário CONFIRMOU o que a memória dizia ('confirmed') ou CORRIGIU/contradisse ('corrected') nesta resposta. Declare junto com os docids."),
+                .describe("User confirmed or corrected the memory"),
               outcome: z
                 .enum(["success", "failure", "partial"], { error: "outcome must be 'success', 'failure' or 'partial'" })
                 .optional()
-                .describe("Eixo outcome: agir sobre estas memórias FUNCIONOU ('success'), FALHOU ('failure') ou ajudou em parte ('partial')? Distinto do verdict — uma memória pode ser verdadeira e ainda assim não resolver a tarefa. Falha não é punida: é o sinal que alimenta a próxima correção."),
+                .describe("Did acting on these memories work"),
               query: z
                 .string()
                 .max(2000)
-                .optional()
-                .describe("A pergunta/mensagem que motivou este uso — vira o lado esquerdo do par (query → memória) que treina o reranker de utilidade e alimenta o eixo de confiabilidade de produtor. Envie sempre que fizer sentido (a mensagem do usuário da resposta atual)."),
-              note: z.string().optional().describe("Por que serviu (opcional, entra no registro)"),
+                .optional(),
+              note: z.string().optional(),
               receipt: ContributionReceiptRequestSchema.optional(),
-              saved_tokens: z.number().int().min(1).max(100_000_000).optional()
-                .describe("Economia estimada de tokens/contexto (declarada, exibida rotulada como declarada)"),
-              waste_avoided: z.string().max(120).optional()
-                .describe("Uma linha do desperdício evitado (letras/números/pontuação básica). Ex.: 'run de 240 perguntas de LLM evitado'"),
-              discounted: z.number().int().min(0).max(50).optional()
-                .describe("Consultas que não geraram ganho — o desconto honesto"),
+              saved_tokens: z.number().int().min(1).max(100_000_000).optional(),
+              waste_avoided: z.string().max(120).optional(),
+              discounted: z.number().int().min(0).max(50).optional(),
               vault: z.string().optional(),
-            }).refine((input) => input.docids.length > 0 || input.receipt !== undefined,
-              "docids must not be empty unless receipt is requested"),
+            }).refine((input) => input.docids !== undefined || input.receipt !== undefined,
+              "docids is required (empty array allowed) unless receipt is requested"),
     }
 ```
 
 ## memory_grep
 
-Busca por expressão regular no texto cru das memórias, devolvendo caminho e número de linha. Use quando a pergunta é exata e não aproximada: um valor, uma chave, um identificador, uma data, o que mudou entre duas versões. `memory_retrieve` acha o que é parecido; este acha o que é igual, e devolve só a linha — o que custa muito menos token que um trecho inteiro. Sintaxe do Postgres (ARE): \\d, \\y e classes funcionam, lookahead não.
+Regex search over raw memory text returning path + line — for EXACT things (value, key, id, date), unlike memory_retrieve's similarity. Postgres ARE syntax: \\d, \\y and classes work; lookahead does not.
 
 ```
 z.object({
-              pattern: z.string().describe("Expressão regular (sintaxe POSIX do Postgres)"),
-              collection: z.string().optional().describe("Restringe a uma coleção"),
-              since: z.string().optional().describe("Só documentos modificados desde esta data (ISO)"),
-              path: z.string().optional().describe("Restringe a um caminho exato (collection/path ou path)"),
-              docid: z.string().optional().describe("Restringe ao documento do docid (#abc123)"),
-              timeout_ms: z.number().optional().describe("Teto de tempo da varredura em ms (1000-30000; default do servidor)"),
+              pattern: z.string().describe("Regex (Postgres ARE)"),
+              collection: z.string().optional(),
+              since: z.string().optional(),
+              path: z.string().optional(),
+              docid: z.string().optional(),
+              timeout_ms: z.number().optional().describe("Scan cap ms (1000-30000)"),
               context: z
                 .boolean()
-                .optional()
-                .describe("Inclui a linha anterior e a seguinte de cada acerto"),
-              case_sensitive: z.boolean().optional().describe("Diferencia maiúscula (padrão: não)"),
-              limit: z.number().optional().describe("Teto de linhas (padrão 40, máx 200)"),
-              doc_limit: z.number().optional().describe("Teto de documentos varridos (padrão 200)"),
+                .optional(),
+              case_sensitive: z.boolean().optional(),
+              limit: z.number().optional().describe("Max lines (default 40, max 200)"),
+              doc_limit: z.number().optional(),
               vault: z.string().optional(),
             }),
     }
@@ -366,18 +331,6 @@ Detailed index statistics with content type distribution, staleness info, and me
 
 ```
 z.object({
-              vault: z.string().optional().describe("Named vault (omit for default vault)"),
-            }),
-    }
-```
-
-## beads_sync
-
-Sync Beads issues from Dolt backend (bd CLI) into ValorBrain search index. Queries live Dolt database — no stale JSONL dependency.
-
-```
-z.object({
-              project_path: z.string().optional().describe("Path to project with .beads/ directory (default: cwd)"),
               vault: z.string().optional().describe("Named vault (omit for default vault)"),
             }),
     }
@@ -427,7 +380,7 @@ z.object({
 
 ## kg_explain
 
-Explain why a KG fact holds, including Datalog inference proof trees when pg_ripple.record_derivations is enabled. Pass entity names/IDs for subject and object (or object_literal for literal facts).
+Explain why a KG fact holds: Datalog proof tree for inferred facts, absent when the triple is not in the caller's tenant graph, unverified when the triple exists without a recorded derivation (runtime-derived facts on the current pg_ripple) or without an extraction-mirror entry. Pass entity names/IDs for subject and object (or object_literal for literal facts).
 
 ```
 z.object({
@@ -470,41 +423,15 @@ z.object({
 
 ## memory_curate
 
-Curate a memory's surfacing: pin for permanent prioritization (+0.3 boost), unpin, snooze to hide for N days, or unsnooze. USE PROACTIVELY: pin when the user states a persistent constraint, makes an architecture decision, or corrects a misconception; snooze when vault-context repeatedly surfaces irrelevant content (30 days by default). Resolves by docid (#abc123, exact), path, or search query. A search query needs at least one term in common with the target (path/title) — otherwise nothing is curated.
+Curate a memory's surfacing: pin (+0.3 boost), unpin, snooze (hide N days, default 30), unsnooze. Target by docid, path, or query.
 
 ```
 z.object({
-              action: z.enum(["pin", "unpin", "snooze", "unsnooze"]).describe("Curate verb"),
-              query: z.string().optional().describe("Target: path or search query (required when docid is absent)"),
-              docid: z.string().optional().describe("Exact document id (#abc123) — takes precedence over query"),
-              until: z.string().optional().describe("snooze only: ISO date to snooze until (default 30 days)"),
-              vault: z.string().optional().describe("Named vault (omit for default vault)"),
-            }),
-    }
-```
-
-## memory_pin
-
-DEPRECATED — use memory_curate with action pin/unpin. Pin a memory for permanent prioritization (+0.3 boost). USE PROACTIVELY when: user states a persistent constraint, makes an architecture decision, or corrects a misconception. Don't wait for curator — pin critical decisions immediately.
-
-```
-z.object({
-              query: z.string().describe("Search query to find the memory to pin/unpin"),
-              unpin: z.boolean().optional().default(false).describe("Set true to unpin"),
-              vault: z.string().optional().describe("Named vault (omit for default vault)"),
-            }),
-    }
-```
-
-## memory_snooze
-
-DEPRECATED — use memory_curate with action snooze/unsnooze. Temporarily hide a memory from context surfacing. USE PROACTIVELY when vault-context repeatedly surfaces irrelevant content — snooze it for 30 days instead of ignoring it. Reduces noise for future sessions.
-
-```
-z.object({
-              query: z.string().describe("Search query to find the memory to snooze"),
-              until: z.string().optional().describe("ISO date to snooze until (e.g. 2026-03-01). Omit to unsnooze."),
-              vault: z.string().optional().describe("Named vault (omit for default vault)"),
+              action: z.enum(["pin", "unpin", "snooze", "unsnooze"]),
+              query: z.string().optional().describe("Path or search query (required if no docid)"),
+              docid: z.string().optional().describe("Doc id (#abc123); takes precedence"),
+              until: z.string().optional().describe("snooze: ISO date (default 30 days)"),
+              vault: z.string().optional(),
             }),
     }
 ```
@@ -538,39 +465,21 @@ z.object({
 
 ## entity_cards
 
-Entity surface in one place. action=list: stable identity cards do tenant (filtros entity_type, min_mentions/max_mentions, name_contains, quarantined=only para auditar). action=alias_propose: sugere fusões de entidades que são a MESMA coisa (nome curto prefixo de nome longo, co-ocorrendo em >= 3 docs) e marca AMBÍGUO quando o prenome tem vários candidatos. action=alias_merge: funde (decisão do tenant — nada é automático); action=alias_reject: registra que NÃO são a mesma pessoa/coisa (a sugestão não volta).
+Stable identity cards for the tenant + alias curation: alias_propose suggests merging same-thing names; alias_merge merges (tenant decision); alias_reject records NOT-same.
 
 ```
 z.object({
               action: z.enum(["list", "alias_propose", "alias_merge", "alias_reject"]).optional().default("list"),
               limit: z.number().optional().default(50),
               offset: z.number().optional().default(0),
-              entity_type: z.string().optional().describe("list: canonical type (person, org, project, service, tool, concept, product, agent, location)"),
-              min_mentions: z.number().optional().describe("list: minimum document mentions (evidence of the entity node)"),
-              max_mentions: z.number().optional().describe("list: maximum document mentions"),
-              name_contains: z.string().optional().describe("list: entity name or card text contains"),
-              quarantined: z.enum(["exclude", "include", "only"]).optional().default("exclude").describe("list: quarantine view: exclude (default), include, only (audit)"),
-              canonical: z.string().optional().describe("alias_merge: nome ou entity_id da canônica que fica"),
-              alias: z.string().optional().describe("alias_merge/reject: nome ou entity_id que vira apelido (merge aceita lista por vírgula)"),
-              longo: z.string().optional().describe("alias_reject: candidato rejeitado (omita para rejeitar o prenome inteiro)"),
-              vault: z.string().optional(),
-            }),
-    }
-```
-
-## list_entity_cards
-
-DEPRECATED — use entity_cards com action=list (a curadoria de apelido também vive lá).
-
-```
-z.object({
-              limit: z.number().optional().default(50),
-              offset: z.number().optional().default(0),
-              entity_type: z.string().optional(),
+              entity_type: z.string().optional().describe("list: person|org|project|service|tool|concept|product|agent|location"),
               min_mentions: z.number().optional(),
               max_mentions: z.number().optional(),
               name_contains: z.string().optional(),
               quarantined: z.enum(["exclude", "include", "only"]).optional().default("exclude"),
+              canonical: z.string().optional().describe("alias_merge: name that stays"),
+              alias: z.string().optional().describe("alias_merge/reject: name that becomes the alias (comma list ok)"),
+              longo: z.string().optional().describe("alias_reject: rejected candidate (omit = reject short name)"),
               vault: z.string().optional(),
             }),
     }
@@ -591,39 +500,14 @@ z.object({
 
 ## episodes
 
-Bounded dialogue episodes (MemCell summaries) for episodic retrieval. list shows recent episodes (optionally by user); get fetches one by UUID.
+Bounded dialogue episodes (MemCell summaries). list shows recent episodes (optionally by user); get fetches by UUID.
 
 ```
 z.object({
-              action: z.enum(["list", "get"]).describe("Episode verb"),
-              limit: z.number().optional().default(20).describe("list: max episodes"),
-              user_id: z.string().optional().describe("list: filter by user"),
-              episode_id: z.string().optional().describe("get: episode UUID"),
-              vault: z.string().optional(),
-            }),
-    }
-```
-
-## list_memory_episodes
-
-DEPRECATED — use episodes with action list. List bounded dialogue episodes (MemCell summaries) for episodic retrieval.
-
-```
-z.object({
+              action: z.enum(["list", "get"]),
               limit: z.number().optional().default(20),
               user_id: z.string().optional(),
-              vault: z.string().optional(),
-            }),
-    }
-```
-
-## get_memory_episode
-
-DEPRECATED — use episodes with action get. Fetch a single memory episode by UUID.
-
-```
-z.object({
-              episode_id: z.string(),
+              episode_id: z.string().optional().describe("get: episode UUID"),
               vault: z.string().optional(),
             }),
     }
@@ -690,53 +574,61 @@ z.object({ vault: z.string().optional() }),
 
 ## memory_prepare
 
-PMB-style single-call context assembly: recall + vault-facts + foresights + funnel (episodes, lessons, keyed facts, top docs).
+THE entry point — call FIRST at session start and before acting on assumptions. Returns identity, task state (goals/ledger/progress), what changed, notifications, and relevant memory. First session call carries the versioned guide.
 
 ```
 z.object({
-              message: z.string().describe("User message or query to prepare context for"),
-              surface_id: z.string().optional().describe("Surface for lesson filtering"),
-              collection: z.string().optional().describe("Collection scope for funnel search"),
-              episode_id: z.string().optional().describe("Episode UUID for scoped hybrid retrieval"),
+              // FB-0162: memory_retrieve uses `query`. An agent that reaches
+              // for memory_prepare with the same vocabulary should not have to
+              // rediscover `message`. Accept `query` as an alias; require one.
+              message: z.string().optional().describe("User message to prepare context for"),
+              query: z.string().optional(),
+              surface_id: z.string().optional(),
+              collection: z.string().optional(),
+              episode_id: z.string().optional(),
               recall_budget: z.number().optional().default(600),
               fast_mode: z.boolean().optional().default(false).describe(
-                "Skip funnel document retrieval (embedding + hybrid search). " +
-                "Recall still covers docs by category. Use for low-latency hooks."
+                "Skip funnel retrieval; recall still covers docs by category."
               ),
               vault: z.string().optional(),
+            }).refine((v) => Boolean((v.message ?? v.query ?? "").trim()), {
+              message: "memory_prepare requires `message` (or the `query` alias)",
             }),
     }
 ```
 
 ## record_lesson
 
-Record or verify a procedural lesson for a surface (PMB-style follow-through). Dedupes on surface_id + content; set verify=true to bump follow-through score. Pass approve_lesson_id to approve a pending candidate filed by an outcome=failure report (content optionally refines the lesson text); re-recording the same surface_id+content also activates a pending twin.
+Record or verify a procedural lesson; dedupes on surface_id+content; verify=true bumps follow-through. approve_lesson_id approves a pending candidate; content refines it. retire_lesson_id retires a lesson (invalidated/superseded/archived).
 
 ```
 z.object({
-              surface_id: z.string().describe("Surface or workflow this lesson applies to"),
-              content: z.string().describe("Lesson text (what to do / avoid)"),
-              evidence: z.string().optional().describe("Supporting evidence or citation"),
-              episode_id: z.string().optional().describe("Linked episode UUID"),
-              verify: z.boolean().optional().default(false).describe("Bump verification count"),
-              approve_lesson_id: z.string().optional().describe("Approve this pending lesson candidate (from outcome=failure reports); content becomes the refined lesson text"),
-              vault: z.string().optional().describe("Named vault (omit for default vault)"),
+              surface_id: z.string().describe("Target surface"),
+              content: z.string().describe("What to do / avoid"),
+              evidence: z.string().optional(),
+              episode_id: z.string().optional(),
+              verify: z.boolean().optional().default(false),
+              approve_lesson_id: z.string().optional().describe("Approve pending candidate; content refines text"),
+              retire_lesson_id: z.string().optional().describe("Retire a lesson by id instead of recording (sets status invalidated/superseded/archived)"),
+              retire_status: z.enum(["invalidated", "superseded", "archived"]).optional(),
+              retire_reason: z.string().optional(),
+              vault: z.string().optional(),
             }),
     }
 ```
 
 ## list_lessons
 
-List procedural lessons for the tenant, optionally filtered by surface or min follow-through score. Defaults to ACTIVE lessons only — pass status="pending" to triage outcome=failure candidates.
+List procedural lessons for the tenant, filtered by surface or min follow-through score. Defaults to ACTIVE; status="pending" triages outcome=failure candidates.
 
 ```
 z.object({
-              surface_id: z.string().optional().describe("Filter by surface"),
+              surface_id: z.string().optional(),
               min_score: z.number().optional().describe("Minimum follow_through_score (0–1)"),
-              status: z.enum(["pending", "active", "superseded", "invalidated", "archived"]).optional().describe("Filter by status (default: active)"),
-              since: z.string().optional().describe("Só lições criadas a partir desta data (ISO)"),
-              until: z.string().optional().describe("Só lições criadas até esta data (ISO)"),
-              content_chars: z.number().optional().default(0).describe("Trunca content/evidence em N chars (0 = completo); use com limit alto para não estourar tokens"),
+              status: z.enum(["pending", "active", "superseded", "invalidated", "archived"]).optional(),
+              since: z.string().optional(),
+              until: z.string().optional(),
+              content_chars: z.number().optional().default(0).describe("Truncate content/evidence to N chars (0 = full)"),
               limit: z.number().optional().default(20),
               vault: z.string().optional(),
             }),
@@ -798,7 +690,7 @@ Time-travel query: latest value per fact_key where as_of <= date (YYYY-MM-DD).
 ```
 z.object({
               as_of: z.string().describe("Query date YYYY-MM-DD"),
-              keys: z.array(z.string()).optional().describe("Restrict to these keys"),
+              keys: z.array(z.string()).optional(),
               vault: z.string().optional(),
             }),
     }
@@ -806,7 +698,7 @@ z.object({
 
 ## upsert_keyed_fact
 
-Insert or update a temporal keyed fact snapshot (tenant, key, as_of unique). Runs the same authority policy as corrections: a weaker caller over a protected winner becomes a pending proposal instead of a write.
+Insert/update a temporal keyed fact snapshot (tenant, key, as_of unique). Weaker caller over a protected winner → pending proposal.
 
 ```
 z.object({
@@ -822,26 +714,50 @@ z.object({
 
 ## assert_authority_correction
 
-Correctability (3C): persist a durable keyed fact with authority, mark prior values for the same key as superseded (non-winning), and soft-invalidate free-form docs in the tenant that still assert the old value without the new one. Pass losing_values when the wrong value only lived in prose (never as a keyed fact). Currency formats (R$20K vs 20000) are normalized. Tenant-scoped; no hardcoded accounts.
+Correct a wrong/stale memory: persists the right value as an authority-keyed fact, supersedes prior values, soft-hides prose asserting the old value (scope='tenant' = opt-in sweep; dry_run previews; >25 held until confirm_prose_demotion). Authority follows the speaker: a token bound to a user carries that user's voice — when the human states a fact through you, claim it with authority='human' (transport identity ≠ authorship); userless tokens are capped at 'agent'.
 
 ```
 z.object({
-              fact_key: z.string().describe("Stable key, e.g. account.alpha.received_brl"),
-              fact_value: z.string().describe("Correct value"),
-              as_of: z.string().describe("Snapshot date YYYY-MM-DD"),
+              fact_key: z.string(),
+              fact_value: z.string(),
+              as_of: z.string().describe("YYYY-MM-DD"),
               authority: z
                 .enum(["human", "designated", "agent", "import"])
-                .describe("human > designated > import > agent"),
-              confirmed_by_user: z.boolean().optional().describe(
-                "Set true only when the current authenticated human explicitly stated or approved this exact fact. The server derives identity from the token.",
-              ),
+                .describe("human > designated > import > agent — claim 'human' only when the human stated the fact through you (your token carries their identity); otherwise 'agent'"),
+              confirmed_by_user: z.boolean().optional(),
               evidence: z.string().optional(),
               losing_values: z
                 .array(z.string())
                 .optional()
-                .describe("Wrong prior values to demote in prose (e.g. ['20000','20k'] when correcting to 30000)"),
+                .describe("Wrong prior values to demote in prose"),
+              losing_values_scope: z
+                .enum(["fact_key", "tenant"])
+                .optional()
+                .describe("fact_key (default): docs also mentioning the key's entity; tenant: sweep, explicit opt-in."),
+              dry_run: z
+                .boolean()
+                .optional()
+                .describe("Preview only"),
+              confirm_prose_demotion: z
+                .boolean()
+                .optional()
+                .describe("Proceed with held preview (>25 docs)"),
               vault: z.string().optional(),
             }),
+    }
+```
+
+## authority_restore_demotion
+
+Undo one authority correction's prose demotion: restores confidences, un-hides docs, cancels pending work. Identify by demotion_work_id or fact_key; keyed fact untouched.
+
+```
+z.object({
+        demotion_work_id: z.string().uuid().optional().describe("Work id from assert_authority_correction"),
+        fact_key: z.string().optional().describe("Restore every doc demoted for this key"),
+        confirm: z.boolean().optional().describe("Required when winner has human/designated authority"),
+        vault: z.string().optional(),
+      }),
     }
 ```
 
@@ -852,18 +768,6 @@ DEPRECATED — use memory_arcs with action list. List narrative arcs (goal-orien
 ```
 z.object({
               status: z.enum(["active", "completed", "paused"]).optional().describe("Filter by status: active | completed | paused"),
-              vault: z.string().optional().describe("Named vault (omit for default vault)"),
-            }),
-    }
-```
-
-## lifecycle_sweep
-
-Run lifecycle policies: archive stale docs, optionally purge old archives. Defaults to dry_run (preview only).
-
-```
-z.object({
-              dry_run: z.boolean().optional().default(true).describe("Preview what would be archived/purged without acting"),
               vault: z.string().optional().describe("Named vault (omit for default vault)"),
             }),
     }
@@ -883,75 +787,25 @@ z.object({
     }
 ```
 
-## list_vaults
-
-Show all configured vault names and their SQLite paths. Returns empty if running in single-vault mode (default).
-
-```
-z.object({}),
-    }
-```
-
-## vault_sync
-
-Index markdown documents from a directory into a named vault. Use to populate a vault with content from a specific path.
-
-```
-z.object({
-              vault: z.string().describe("Target vault name (must be configured in config.yaml or VALORBRAIN_VAULTS)"),
-              content_root: z.string().describe("Directory path to index markdown files from"),
-              pattern: z.string().optional().default("**/*.md").describe("Glob pattern (default: **/*.md)"),
-              collection_name: z.string().optional().describe("Collection name in the vault. Defaults to vault name."),
-            }),
-    }
-```
-
 ## diary
 
-The agent's observational diary. WRITE to record events, decisions or context worth reviewing later (entries become searchable memories — useful where no hook support exists). READ recent entries to review past observations.
+The agent's observational diary. WRITE events/decisions worth reviewing later (become searchable memories); READ recent entries.
 
 ```
 z.object({
-              action: z.enum(["read", "write"]).describe("Diary verb"),
-              entry: z.string().optional().describe("write: diary entry text"),
-              topic: z.string().optional().describe("write: topic tag (e.g., 'technical', 'user_facts', 'session')"),
-              agent: z.string().optional().describe("write: agent name; read: filter by agent name"),
-              last_n: z.number().optional().describe("read: number of recent entries (default 10)"),
-              vault: z.string().optional().describe("Named vault (omit for default vault)"),
-            }),
-    }
-```
-
-## diary_write
-
-DEPRECATED — use diary with action write. Write to the agent's diary. Use for recording important events, decisions, or observations in environments without hook support. Entries are stored as memories and are searchable.
-
-```
-z.object({
-              entry: z.string().describe("Diary entry text"),
-              topic: z.string().optional().default("general").describe("Topic tag (e.g., 'technical', 'user_facts', 'session')"),
-              agent: z.string().optional().default("agent").describe("Agent name writing the entry"),
-              vault: z.string().optional().describe("Named vault (omit for default vault)"),
-            }),
-    }
-```
-
-## diary_read
-
-DEPRECATED — use diary with action read. Read recent diary entries. Use to review past observations and events recorded by the agent.
-
-```
-z.object({
-              last_n: z.number().optional().default(10).describe("Number of recent entries to return"),
-              agent: z.string().optional().describe("Filter by agent name"),
-              vault: z.string().optional().describe("Named vault (omit for default vault)"),
+              action: z.enum(["read", "write"]),
+              entry: z.string().optional().describe("write: entry text"),
+              topic: z.string().optional().describe("write: topic tag"),
+              agent: z.string().optional().describe("write: agent name; read: filter"),
+              last_n: z.number().optional().describe("read: recent entries (default 10)"),
+              vault: z.string().optional(),
             }),
     }
 ```
 
 ## whoami
 
-Returns who THIS MCP connection is: tenant, user, agent slug (from token), team member if any, and the tenant identity summary. Call after connect to verify multi-user setup. No extra headers needed — the Bearer token already identifies you.
+Returns who THIS MCP connection is: tenant, user, agent slug, team member, identity summary.
 
 ```
 z.object({}),
@@ -960,12 +814,12 @@ z.object({}),
 
 ## memory_health
 
-Returns open proposal/conflict counts, high-priority items, and canonical sources with drift. Call at end of substantive sessions.
+Returns open proposal/conflict counts, high-priority items, and canonical sources with drift. Call at end of sessions.
 
 ```
 z.object({
-                  entity: z.string().optional().describe("Filter proposals by path/title/summary substring"),
-                  limit: z.number().optional().describe("Max high-priority proposals (default 3)"),
+                  entity: z.string().optional(),
+                  limit: z.number().optional(),
                 }),
       }
 ```
@@ -1022,17 +876,19 @@ z.object({
 
 ## feedback
 
-Channel to the ValorBrain product team (not end-user CRM). submit files a bug/feature/question/praise — returns FB-XXXX; check tracks status and team response by id or 'all'. WHEN TO CALL (agents): **ValorBrain** tool/MCP errors (a bug in YOUR harness/CLI/editor — herdr, omp, codex, kiro, cursor, … — belongs to that project, not here); empty or wrong memory_retrieve when knowledge should exist; ranking noise; missing capability; verified fix (praise). WHEN NOT TO: normal successful domain work, chat without a product defect, secrets in the body. One FB per distinct issue.
+ValorBrain product-team channel (not end-user CRM). submit → FB-XXXX; check by id/'all'; respond writes ON the ticket (never your own platform's). No secrets.
 
 ```
 z.object({
-              action: z.enum(["submit", "check"]).describe("Feedback verb"),
-              title: z.string().min(5).max(200).optional().describe("submit: short title — what is this about?"),
-              description: z.string().min(10).max(5000).optional().describe("submit: what happened / expected / steps, or what you want and why"),
-              category: z.enum(["bug", "feature", "question", "improvement", "praise", "feedback"]).optional().default("feedback").describe("submit: type of feedback"),
-              priority: z.enum(["low", "normal", "high", "critical"]).optional().default("normal").describe("submit: suggested priority (team may adjust)"),
-              tags: z.array(z.string()).optional().describe("submit: optional tags"),
-              feedback_id: z.string().optional().describe("check: FB-XXXX or 'all' to list recent"),
+              action: z.enum(["submit", "check", "respond"]),
+              title: z.string().min(5).max(200).optional(),
+              description: z.string().min(10).max(5000).optional().describe("submit: what happened/expected/steps, or the ask"),
+              response: z.string().min(10).max(5000).optional(),
+              status: z.enum(["acknowledged", "in_progress", "resolved"]).optional(),
+              category: z.enum(["bug", "feature", "question", "improvement", "praise", "feedback"]).optional().default("feedback"),
+              priority: z.enum(["low", "normal", "high", "critical"]).optional().default("normal"),
+              tags: z.array(z.string()).optional(),
+              feedback_id: z.string().optional().describe("check/respond: FB-XXXX; check also 'all'"),
               vault: z.string().optional(),
             }),
     }
@@ -1040,7 +896,7 @@ z.object({
 
 ## feedback_submit
 
-DEPRECATED — use feedback with action submit. Submit a bug report, feature request, question, praise, or improvement to the ValorBrain product team (not end-user CRM). Returns FB-XXXX for tracking via feedback action check. WHEN TO CALL (agents): ValorBrain tool/MCP errors (not bugs in your harness/CLI/editor — those belong to their projects); empty or wrong memory_retrieve when knowledge should exist; ranking noise; missing capability blocking work; verified fix (category=praise). WHEN NOT TO: normal successful domain work, chat without a product defect, secrets in the body. One FB per distinct issue. Human ops triage at ValorBrain Ops /feedback.
+DEPRECATED — use feedback (actions submit/check/respond), the canonical product channel. One FB per distinct issue; no secrets.
 
 ```
 z.object({
@@ -1056,15 +912,79 @@ z.object({
 
 ## secrets
 
-Cofre de segredos do tenant. A memória guarda a referência `secret://<nome>`; o valor mora aqui e só sai por get (auditado). put cria/atualiza (write); get resolve o valor (read); list devolve só metadados (read); rotate re-embrulha a chave do tenant (write); delete remove (write). get aceita nome aproximado em linguagem natural: get name='senha da cloudflare' resolve para 'cloudflare-password' quando o candidato é único. QUANDO USAR: o usuário falou uma credencial (senha, token, chave) → put com um nome curto e estável (ex.: 'cloudflare-password'); o usuário perguntou uma credencial → get. Nunca escreva o valor em documento/memória: a memória só carrega a referência. Exige escopo 'secrets:read' (get/list) ou 'secrets:write' (put/rotate/delete) — 'read'/'write' legados não cobrem. Nunca é injetado em retrieval.
+Cofre de segredos do tenant: a memória guarda só a referência `secret://<nome>`; o valor mora aqui e só sai por get (auditado). put cria/atualiza — inline (`value`) só para credencial que o usuário acabou de falar; máquina usa `from_env`/`from_file` (VAL-309: valor não transita a chamada). get resolve o valor e aceita nome aproximado em linguagem natural; list só metadados; rotate re-embrulha a chave; delete remove. Use: falou credencial → put (nome curto e estável); perguntou → get. Nunca escreva o valor em memória. Escopos: 'secrets:read' (get/list) / 'secrets:write' (put/rotate/delete); 'read'/'write' legados não cobrem. Nunca entra em retrieval.
 
 ```
 z.object({
         action: z.enum(["put", "get", "list", "rotate", "delete"]).describe("Cofre: verbo"),
         name: z.string().optional().describe("put/get/delete: nome do segredo (vira secret://<nome>)"),
-        value: z.string().optional().describe("put: valor — nunca é devolvido por list"),
+        value: z.string().optional().describe("put inline: valor — nunca devolvido por list. PREFIRA from_env/from_file (VAL-309): inline vaza no transcript"),
+        from_env: z.string().optional().describe("put por referência (VAL-309): var VALORBRAIN_SECRET_IN_<NOME> do processo do MCP — valor não transita a chamada"),
+        from_file: z.string().optional().describe("put por referência (VAL-309): basename no staging (/etc/valorbrain/secret-staging) — valor não transita a chamada"),
         description: z.string().optional().describe("put: para que serve"),
         expires_at: z.string().optional().describe("put: validade ISO (opcional)"),
+        vault: z.string().optional(),
+      }),
+    }
+```
+
+## mental_models
+
+Standing answer for a recurring question: memory_prepare serves it via SELECT (no LLM); consolidation tick rewrites it when scoped memory changes (flag mental_models, default off). create needs question + scope_json ({collections?: string[]}; {} = whole tenant).
+
+```
+z.object({
+        action: z.enum(["list", "create", "update", "remove", "refresh"]),
+        id: z.string().optional().describe("update/remove/refresh: model id"),
+        question: z.string().optional().describe("create: recurring question; update: new question"),
+        scope_json: z.record(z.string(), z.unknown()).optional().describe("{collections?: string[]} prefix filter; {} = whole tenant"),
+        status: z.enum(["active", "paused"]).optional().describe("update: pause/resume"),
+        settings: z.record(z.string(), z.unknown()).optional(),
+      }),
+    }
+```
+
+## acl_me
+
+Your effective source-ACL domains (user+role+agent grants, with source/reason/validity) plus hidden-documents count. Missing domain can be permission, not a ranking miss.
+
+```
+z.object({}),
+    }
+```
+
+## acl_grants
+
+Administra os grants ALLOW do source ACL do tenant (user|role|agent → domínio de negócio, com validade temporal). list devolve grants + mapeamentos collection→domain (coleção sem mapeamento está FORA do regime — sempre legível); create exige reason (todo grant precisa dizer por quê) e aceita valid_from/valid_to ISO; revoke remove por id. Criar/revogar limpa o cache de resolução (60s) — vale no próximo request — e grava no mutation_audit. Exige escopo 'acl_grants:read' (list) ou 'acl_grants:write' (create/revoke) — legado read/write e token sem escopo não cobrem. Espelho REST: GET/POST/DELETE /api/v1/acl/grants (ADMIN do tenant).
+
+```
+z.object({
+        action: z.enum(["list", "create", "revoke"]).describe("Acl grants: verbo"),
+        subject_kind: z.enum(["user", "role", "agent"]).optional().describe("create: tipo do sujeito"),
+        subject_id: z.string().optional().describe("create: users.id (UUID) | 'STAFF' | persona slug"),
+        domain: z.string().optional().describe("create/list: domínio de negócio ('gtm', 'finance'…)"),
+        reason: z.string().optional().describe("create: OBRIGATÓRIO — por que este acesso existe"),
+        valid_from: z.string().optional().describe("create: ISO timestamp (opcional)"),
+        valid_to: z.string().optional().describe("create: ISO timestamp (opcional)"),
+        id: z.string().optional().describe("revoke: id do grant (UUID)"),
+        vault: z.string().optional(),
+      }),
+    }
+```
+
+## read_log
+
+Trilha de leitura do tenant (governança): quem leu, por meio de qual agente/canal, qual versão de cada documento entrou no contexto e quando. 1 linha por consulta; query é gravada como hash (nunca texto — LGPD); retenção 365 dias quentes + agregado. Filtros: doc (hash, prefixo ok), actor (user id), channel (mcp|rest|hook), operation, from/to ISO, limit (<=200). Toda consulta a esta trilha é registrada em mutation_audit (read_log.query). Exige escopo explícito 'read_log:read' — legado read/write e token sem escopo não cobrem. Espelho REST: GET /api/v1/read-log.
+
+```
+z.object({
+        doc: z.string().optional().describe("Filtrar por hash de documento (prefixo ok) — 'quem leu ESTE documento'"),
+        actor: z.string().optional().describe("Filtrar por user id do titular — 'o que ESTA pessoa leu'"),
+        channel: z.enum(["mcp", "rest", "hook", "cli"]).optional().describe("Filtrar por canal"),
+        operation: z.string().optional().describe("Filtrar por operação (ex.: memory_retrieve, 'POST /search', 'hook:context-surfacing')"),
+        from: z.string().optional().describe("ISO timestamp inicial (inclusive)"),
+        to: z.string().optional().describe("ISO timestamp final (inclusive)"),
+        limit: z.number().optional().describe("Máximo de linhas (default 50, teto 200)"),
         vault: z.string().optional(),
       }),
     }
@@ -1084,37 +1004,13 @@ z.object({
 
 ## notifications
 
-Your notification inbox for team and system messages: feedback responses, announcements, alerts. check returns unread count + recent items ('all' includes read; an N-XXXX id fetches one). mark_read dismisses by id or 'all'.
+Your notification inbox (feedback responses, announcements, alerts) — only notices to you or broadcast. check: unread count + items; mark_read: by id or 'all'.
 
 ```
 z.object({
-              action: z.enum(["check", "mark_read"]).describe("Inbox verb"),
-              filter: z.string().optional().describe("check: 'unread' (default), 'all', or a notification ID (N-XXXX)"),
-              notification_id: z.string().optional().describe("mark_read: notification ID (N-XXXX) or 'all'"),
-              vault: z.string().optional(),
-            }),
-    }
-```
-
-## notifications_check
-
-DEPRECATED — use notifications with action check. Check your notification inbox for unread messages from the team or system. Includes feedback responses, announcements, and alerts. Returns unread count + recent items. Use 'all' to include read items, or a specific notification ID.
-
-```
-z.object({
-              filter: z.string().optional().describe("'unread' (default), 'all', or a notification ID (N-XXXX)"),
-              vault: z.string().optional(),
-            }),
-    }
-```
-
-## notifications_mark_read
-
-DEPRECATED — use notifications with action mark_read. Mark a notification as read/dismissed. Use the notification ID (N-XXXX) or 'all' to mark everything read.
-
-```
-z.object({
-              notification_id: z.string().describe("Notification ID (N-XXXX) or 'all'"),
+              action: z.enum(["check", "mark_read"]),
+              filter: z.string().optional().describe("check: 'unread' (default), 'all', or ID (N-XXXX)"),
+              notification_id: z.string().optional().describe("mark_read: ID (N-XXXX) or 'all'"),
               vault: z.string().optional(),
             }),
     }
@@ -1122,14 +1018,14 @@ z.object({
 
 ## team_message
 
-Send an async message to a teammate (human or agent). They'll see it in their inbox on their next briefing or inbox check. For questions, context, or coordination that doesn't need an immediate reply.
+Send an async message to a teammate (human or agent); they see it on their next briefing/inbox check.
 
 ```
 z.object({
-              to: z.string().describe("Recipient: a teammate's name or member id"),
-              title: z.string().min(3).max(200).describe("Short subject"),
-              body: z.string().optional().describe("Message content"),
-              category: z.enum(["message", "request", "decision", "alert"]).default("message").describe("message = chat, request = asks for action, decision = record a choice, alert = needs attention"),
+              to: z.string().describe("Recipient: teammate name or member id"),
+              title: z.string().min(3).max(200),
+              body: z.string().optional(),
+              category: z.enum(["message", "request", "decision", "alert"]).default("message").describe("message = chat; request = asks action; decision = records a choice; alert = needs attention"),
               priority: z.enum(["low", "normal", "high", "critical"]).default("normal"),
               vault: z.string().optional(),
             }),
@@ -1138,33 +1034,20 @@ z.object({
 
 ## team_handoff
 
-Durable async work assignment in the shared brain. create hands work to a teammate with context — the recipient should DO something with it (open questions, files changed); shows in their briefing until consumed; status=blocked_on_human parks it waiting on a human (anti-loop). consume marks a handoff done after finishing the work or closing a duplicate/resolved loop — prevents briefing clutter.
+Durable async work assignment. create assigns work to a teammate with context (in their briefing until consumed; blocked_on_human parks it on a human). consume marks it done or closed.
 
 ```
 z.object({
-              action: z.enum(["create", "consume"]).optional().default("create").describe("Handoff verb (default create)"),
-              to: z.string().optional().describe("create: recipient teammate name or id"),
-              summary: z.string().min(5).max(500).optional().describe("create: what this handoff is about / what needs doing"),
-              open_questions: z.array(z.string()).optional().describe("create: questions for the recipient to resolve"),
-              files_changed: z.array(z.string()).optional().describe("create: files involved"),
+              action: z.enum(["create", "consume"]).optional().default("create"),
+              to: z.string().optional().describe("recipient name or id"),
+              summary: z.string().min(5).max(500).optional().describe("what needs doing"),
+              open_questions: z.array(z.string()).optional(),
+              files_changed: z.array(z.string()).optional(),
               priority: z.enum(["low", "normal", "high", "critical"]).optional().default("normal"),
               status: z.enum(["pending", "blocked_on_human"]).optional().default("pending")
-                .describe("create: pending=actionable work; blocked_on_human=parked waiting on human (do not re-escalate)"),
-              handoff_id: z.union([z.string(), z.number()]).optional().describe("consume: handoff #id (from team_briefing) or its summary"),
-              note: z.string().max(500).optional().describe("consume: optional completion note"),
-              vault: z.string().optional(),
-            }),
-    }
-```
-
-## team_handoff_consume
-
-DEPRECATED — use team_handoff with action consume. Mark a team handoff as consumed (done). Use after finishing the work or when closing a duplicate/resolved loop. Prevents briefing clutter from stale pending handoffs.
-
-```
-z.object({
-              handoff_id: z.union([z.string(), z.number()]).describe("Handoff id to consume"),
-              note: z.string().max(500).optional().describe("Optional completion note"),
+                .describe("pending=actionable; blocked_on_human=parked on human"),
+              handoff_id: z.union([z.string(), z.number()]).optional().describe("consume: handoff #id"),
+              note: z.string().max(500).optional().describe("consume: completion note"),
               vault: z.string().optional(),
             }),
     }
@@ -1172,7 +1055,7 @@ z.object({
 
 ## team_inbox
 
-Check messages sent to you by teammates. Returns unread count and recent messages. Mark read with notifications_mark_read once handled.
+Check messages sent to you by teammates; returns unread count and recent messages.
 
 ```
 z.object({
@@ -1184,7 +1067,7 @@ z.object({
 
 ## team_briefing
 
-Get oriented when starting work: your unread inbox, pending handoffs, the team's shared mission (foundations), and recent activity across the team. Call this at the start of a session to understand what needs attention and stay aligned with company direction.
+Slice of memory_prepare (compatibility): unread inbox, pending handoffs, team mission, recent activity.
 
 ```
 z.object({
@@ -1195,7 +1078,7 @@ z.object({
 
 ## team_roster
 
-List who's on the team (humans and agents), their roles, and how to reach them. Use before messaging to know who handles what.
+List the team (humans and agents), roles, and how to reach them.
 
 ```
 z.object({
@@ -1206,13 +1089,13 @@ z.object({
 
 ## team_notify_human
 
-Pull a human teammate into a conversation NOW via their messaging channel (Telegram/Discord/etc.). Use when you need a decision, approval, or unblock that only a human can make and it can't wait for them to check their inbox. The message is ALSO saved to their ValorBrain inbox. Resolve the human by name or role; 'manager'/'lead'/'human' match any human in your team. Reserve for things that genuinely need human attention — don't spam.
+Pull a human teammate into the conversation NOW via their messaging channel. For decisions/approvals only a human can make. 'manager'/'lead'/'human' match any human.
 
 ```
 z.object({
-              to: z.string().describe("Human teammate name, role, or 'manager'/'lead'/'human' to reach any human on the team"),
-              title: z.string().min(3).max(200).describe("What you need — short, action-oriented"),
-              body: z.string().optional().describe("Context: why you need them, what decision/approval"),
+              to: z.string().describe("Name, role, or 'manager'/'lead'/'human'"),
+              title: z.string().min(3).max(200).describe("What you need"),
+              body: z.string().optional(),
               priority: z.enum(["normal", "high", "critical"]).default("normal"),
               vault: z.string().optional(),
             }),
@@ -1234,7 +1117,7 @@ z.object({
         decision_maker: z.string().optional().describe("record: who or what made the decision"),
         valid_from: z.string().optional().describe("record: valid from (YYYY-MM-DD)"),
         valid_until: z.string().optional().describe("record: expires/superseded (YYYY-MM-DD)"),
-        source_doc_ids: z.array(z.string()).optional().describe("record: document refs that informed this decision — UUID, #docid, or collection/path"),
+        source_doc_ids: z.array(z.string()).optional().describe("record: document refs that informed this decision — UUID, #docid, or collection/path; each must resolve to an active document of the tenant, else nothing is recorded"),
         source_decision_id: z.string().optional().describe("relate: UUID of the upstream decision"),
         target_decision_id: z.string().optional().describe("relate: UUID of the downstream decision"),
         relationship_type: z.enum(["caused", "influenced", "precedent_for"]).optional().describe("relate: how source relates to target"),
@@ -1264,7 +1147,7 @@ z.object({
         decision_maker: z.string().optional().describe("Who or what made the decision"),
         valid_from: z.string().optional().describe("When the decision becomes valid (YYYY-MM-DD)"),
         valid_until: z.string().optional().describe("When the decision expires/superseded (YYYY-MM-DD)"),
-        source_doc_ids: z.array(z.string()).optional().describe("Document IDs that informed this decision"),
+        source_doc_ids: z.array(z.string()).optional().describe("Document refs that informed this decision — UUID, #docid, or collection/path; each must resolve to an active document of the tenant, else nothing is recorded"),
       }),
     }
 ```
@@ -1326,12 +1209,13 @@ z.object({
 
 ## provenance
 
-W3C PROV-O lineage of an entity. trace walks parent/used edges — where a fact came from (upstream) and what depends on it (downstream); export emits the full audit trail as RDF Turtle with hash-chain integrity metadata (regulator-ready).
+W3C PROV-O lineage of an entity. trace walks parent/used edges — where a fact came from (upstream) and what depends on it (downstream); export emits the full audit trail as RDF Turtle (default) or JSON-LD (format=jsonld) with hash-chain integrity metadata (regulator-ready).
 
 ```
 z.object({
         action: z.enum(["trace", "export"]).describe("Provenance verb"),
         entity_id: z.string().describe("The entity (document hash, triple ID, keyed_fact key)"),
+        format: z.enum(["turtle", "jsonld"]).optional().default("turtle").describe("export only: serialization — turtle (default) or jsonld (W3C PROV-O JSON-LD, parseable by standard PROV/JSON-LD tooling)"),
         direction: z.enum(["upstream", "downstream", "both"]).optional().default("both").describe("trace only: upstream = where it came from, downstream = what derived from it"),
         max_depth: z.number().min(1).max(10).optional().default(5).describe("trace only: maximum traversal depth (1-10)"),
       }),

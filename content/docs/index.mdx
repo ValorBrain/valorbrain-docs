@@ -14,8 +14,8 @@ Dois produtos compartilham o mesmo modelo mental:
 - **On-prem (Enterprise)** — o mesmo engine rodando na sua rede, implantado e operado junto com o nosso time. Não é um instalador self-service: [veja o que o Enterprise inclui](https://valorbrain.valor.digital/enterprise) A arquitetura do que é implantado está no guia de [on-premise](/docs/guides/on-prem).
 
 <Cards>
-  <Card title="Guarde sua primeira memória" href="/docs/quickstart" description="Quatro comandos. Do shell à memória pesquisável em menos de 15 segundos." />
-  <Card title="Conecte um editor" href="/docs/mcp" description="MCP por HTTP ou stdio. Prefixo de token vbm_. Chaves de REST têm outro prefixo." />
+  <Card title="Guarde sua primeira memória" href="/docs/quickstart" description="Uma frase para o agente, quatro passos: token vbm_, cliente MCP, memory_prepare, claim." />
+  <Card title="Conecte um editor" href="/docs/mcp" description="MCP por HTTP ou stdio, só com token vbm_. A chave REST (vb_agent_) não entra no MCP." />
   <Card title="REST API" href="/docs/rest" description="O host canônico é valorbrain-api. O mcpbrain engole paths REST não-OAuth." />
   <Card title="Corrija um fato errado" href="/docs/concepts/correctability" description="Keyed facts ganham de documentos velhos. Asserte uma correção; a próxima sessão vê só o valor verdadeiro." />
 </Cards>
@@ -24,7 +24,7 @@ Dois produtos compartilham o mesmo modelo mental:
 
 | Superfície | Para que serve |
 |---|---|
-| **CLI** `@valorbrain/cli` | Signup de agente, `add`, `search`. Zero dependências npm. Node 18+. |
+| **CLI** `@valorbrain/cli` | Signup de agente, proxy MCP stdio, `add`, `search`. Zero dependências npm. Node 18+. |
 | **MCP** | O conjunto de trabalho que os agentes realmente chamam: retrieve, prepare, store, used, curate. |
 | **REST** | As mesmas capacidades por HTTP, para qualquer linguagem. |
 | **App** | Humanos: onboarding, tokens, connectors, billing. |
@@ -35,7 +35,7 @@ O texto é armazenado **verbatim**. Uma frase escrita em português é recuperad
 
 | Você é… | Comece aqui |
 |---|---|
-| Um agente de IA com shell | [Cadastre-se como agente](/docs/quickstart#cadastre-se-como-agente) |
+| Um agente de IA com shell | [Começo rápido](/docs/quickstart) |
 | Um humano configurando um workspace | [https://valorbrain.valor.digital](https://valorbrain.valor.digital) e depois [MCP](/docs/mcp) |
 | Conectando Claude Code / Cursor / Grok | [Integrações](/docs/integrations) |
 | Chamando HTTP do seu próprio código | [REST](/docs/rest) |
@@ -53,7 +53,10 @@ Não envie `/search` ou `/documents` para o `mcpbrain`. O engine trata todo path
 
 ## Para agentes lendo esta página
 
-1. Se você não tem chave: rode `npx @valorbrain/cli init --agent --agent-caller <your-name> --json`.
-2. Prefira `help --json` a adivinhar subcomandos. A CLI publicada **não** tem `setup harness`.
-3. Depois de recuperar, chame `memory_used` com os docids em que você realmente se apoiou.
-4. Índice completo para máquinas: [`/llms.txt`](/llms.txt) · dump completo: [`/llms-full.txt`](/llms-full.txt).
+O humano normalmente manda: "Conecte o ValorBrain como sua memória: leia [https://valorbrain.com.br/connect.md](https://valorbrain.com.br/connect.md) e siga as instruções."
+
+1. Se você não tem conta: rode `npx -y @valorbrain/cli@latest init --agent --agent-caller <agent-name> --json`. Use o `mcp_token` (`vbm_…`) no MCP e a `api_key` (`vb_agent_…`) só na REST.
+2. Conecte seu cliente MCP com o comando do [Começo rápido](/docs/quickstart#2-conecte-o-cliente-mcp) e chame `memory_prepare`.
+3. Prefira `help --json` a adivinhar subcomandos. A CLI publicada **não** tem `setup harness`.
+4. Depois de recuperar, chame `memory_used` com os docids em que você realmente se apoiou.
+5. Índice completo para máquinas: [`/llms.txt`](/llms.txt) · dump completo: [`/llms-full.txt`](/llms-full.txt).

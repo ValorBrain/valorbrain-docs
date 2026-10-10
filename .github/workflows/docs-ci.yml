@@ -1,0 +1,46 @@
+name: docs-ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-and-links:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install
+        run: |
+          bun install --frozen-lockfile
+          python3 -m pip install --quiet pyyaml
+      # prebuild regenerates the reference pages (live engine spec, published
+      # CLI help --json); engine sources are absent here, so the committed MCP
+      # catalog page is kept.
+      - name: Build
+        run: bun run build
+      - name: One published tool count
+        run: python3 scripts/check-tool-count.py
+      - name: Start
+        run: |
+          bun run start > /tmp/next.log 2>&1 &
+          for i in $(seq 1 60); do
+            curl -fsS -o /dev/null http://127.0.0.1:3012/docs && exit 0
+            sleep 1
+          done
+          cat /tmp/next.log
+          exit 1
+      - name: Link checker (0 broken links, every page has a .md twin)
+        run: python3 scripts/check-links.py http://127.0.0.1:3012
+      - name: Markdown twin survives the tunnel's X-Forwarded-Proto
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' -H 'X-Forwarded-Proto: https' http://127.0.0.1:3012/docs/quickstart.md)
+          [ "$code" = 200 ] || { echo "quickstart.md behind https proxy: $code"; cat /tmp/next.log; exit 1; }
+      - name: Origin edge (redirect + headers)
+        run: bash scripts/check-edge.sh http://127.0.0.1:3012

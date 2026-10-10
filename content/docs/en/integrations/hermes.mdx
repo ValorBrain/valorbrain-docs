@@ -1,23 +1,56 @@
 ---
 title: Hermes
-description: Native MemoryProvider plugin. This is not "10 MCP tools in a prompt."
+description: Native MemoryProvider plugin, hosted or on-premise. Not a fixed list of MCP tools in a prompt.
 ---
 
+Full steps: [connect.md](https://valorbrain.com.br/connect.md) ·
+[Quickstart](/en/docs/quickstart).
+
 Hermes talks to ValorBrain as a **MemoryProvider**, not as a generic MCP
-client with a hard-coded list of ten tools.
+client with a hard-coded list of tools.
 
-On a machine that already has the engine, the plugin is shipped from the
-engine tree (`src/hermes/` → `~/.hermes/plugins/valorbrain`). That path exists in the
-**on-premise (Enterprise)** installation. It is not what a hosted customer copies.
-
-**Hosted Hermes:** use the same MCP HTTP/stdio path as any other client
-(`mcpbrain` + `vbm_`, or `@valorbrain/connect`). Hermes' native plugin is
-the deeper integration when you run the engine.
-
-The marketing `/docs` page that says "Plugin nativo com 10 tools" is
-stale. The live catalog is [MCP tools](/en/docs/api/mcp-tools); a new token
-gets the **agent** toolset, not a list of ten.
+## Token
 
 ```bash
-npx @valorbrain/cli init --agent --agent-caller hermes
+npx -y @valorbrain/cli@latest init --agent --agent-caller hermes --json
 ```
+
+Use the `mcp_token` (`vbm_…`). With an account, create the token under
+[Settings → MCP tokens](https://valorbrain.valor.digital/settings/mcp-tokens).
+
+## Hosted Hermes
+
+The installer writes the plugin config for you:
+
+```bash
+npx -y @valorbrain/connect@latest --token <vbm_…> --harness hermes
+hermes memory setup        # pick valorbrain
+```
+
+Memory providers are activated through `memory.provider`, not
+`plugins.enabled`. Without a local engine, the provider covers the tools and
+the lifecycle hooks (bootstrap, per-turn context, end-of-session extraction),
+which run on the hosted engine.
+
+MCP only, without the plugin: use the same path as any client —
+`https://mcpbrain.valor.digital/mcp` with `Authorization: Bearer <vbm_…>`, or
+`npx -y @valorbrain/cli mcp` over stdio.
+
+## On-premise (Enterprise)
+
+On a machine that already has the engine, the plugin is shipped from the
+engine tree (`src/hermes/` → `~/.hermes/plugins/valorbrain`). The public
+harness repo carries a vendored copy: `./install.sh hermes` copies the plugin
+to `~/.hermes/plugins/valorbrain` without needing the engine tree.
+
+## Tools
+
+The old marketing `/docs` page that promises a fixed number of tools for the
+native plugin is stale. The live catalog is the
+[generated catalog](/en/docs/api/generated-mcp); a new token gets the
+**agent** toolset. Guide: [MCP tools](/en/docs/api/mcp-tools).
+
+## Verify
+
+Call `memory_prepare`. To keep the account beyond 30 days, the human runs
+`npx -y @valorbrain/cli init --email <email>`.

@@ -1,103 +1,118 @@
 ---
 title: CLI
-description: "@valorbrain/cli: memória agent-native direto do shell. Zero dependências, Node 18+."
+description: "@valorbrain/cli: signup de agente, proxy MCP stdio e memória direto do shell. Zero dependências, Node 18+."
 icon: Terminal
 ---
 
-Pacote: [`@valorbrain/cli`](https://www.npmjs.com/package/@valorbrain/cli) `0.1.0`.
-Alias do proxy stdio de MCP: [`@valorbrain/connect`](https://www.npmjs.com/package/@valorbrain/connect).
+Pacote: [`@valorbrain/cli`](https://www.npmjs.com/package/@valorbrain/cli).
+Roda sem instalar com `npx -y @valorbrain/cli@latest <command>`.
 
 ```bash
-npx @valorbrain/cli help --json
+npx -y @valorbrain/cli@latest help --json
 ```
 
 Aquele JSON é o contrato. Se um blog post ou README citar um subcomando que
-não está nesse objeto, o comando não existe.
+não está nesse objeto, o comando não existe. Cada comando e flag, gerado
+desse JSON: [Referência da CLI](/docs/cli-reference). Esta página explica o
+fluxo; não repete a tabela.
 
-## Flags globais
+O fluxo de conexão inteiro (token, cliente MCP, verificação, claim) está no
+[connect.md](https://valorbrain.com.br/connect.md) e no
+[Começo rápido](/docs/quickstart).
 
-| Flag | Alias | Significado |
-|---|---|---|
-| `--json` | `--agent` | Um único objeto JSON no stdout, sem cor, sem spinner |
-| `--key` | | Sobrescreve a chave de API (senão `~/.valorbrain/config.json`) |
-| `--url` | | Sobrescreve a URL base REST |
+## Signup de agente
 
-Padrões:
+```bash
+npx -y @valorbrain/cli@latest init --agent --agent-caller <agent-name> --json
+```
 
-- REST: `https://valorbrain-api.valor.digital`
-- MCP: `https://mcpbrain.valor.digital/mcp`
-- Config: `~/.valorbrain/config.json`
+Cria uma conta de agente (shadow tenant) sem email. Com `--json`, imprime um
+único objeto JSON com, entre outros campos:
 
-## Comandos
-
-### `init --agent [--agent-caller <platform>]`
-
-Cria um shadow tenant e uma chave `vb_agent_`. Veja o [Começo rápido](/docs/quickstart).
-
-### `init --email <address> [--otp <code>]`
-
-Vincula a chave existente a um email via OTP. A chave não muda.
-
-### `identify <platform>`
-
-Backfill idempotente de `agent_caller`. Autodeclarado, nunca inferido do ambiente.
-
-### `add <text>` / `--file <path>`
-
-Armazena um documento.
-
-| Flag | Mapeia para |
+| Campo | O que é |
 |---|---|
-| `--collection <name>` | `collection` (o padrão depende do servidor; passe um se fizer diferença) |
-| `--title <t>` | `title` |
-| `--type <t>` | tipo de conteúdo (`decision`, `observation`, `problem`, `lesson`, `milestone`, `handoff`, `note`) |
+| `mcp_token` | `vbm_…` — **só MCP**, em `mcp_url`. Aparece só nesta resposta. |
+| `mcp_url` | `https://mcpbrain.valor.digital/mcp` |
+| `api_key` | `vb_agent_…` — **só REST**, em `https://valorbrain-api.valor.digital` |
+| `notice` | Instrução do servidor para o agente (o `message` do signup), com o aviso de claim para mostrar ao humano |
+| `next_steps` | Os passos seguintes do contrato: comando por cliente, stdio, verificação, claim |
 
-Chama `POST /documents`. O body é armazenado verbatim — sem tradução.
+Tudo fica salvo em `~/.valorbrain/config.json` (modo `0600`); os outros
+comandos leem dali.
 
-### `search <query>`
+`--agent-caller` é autodeclarado, nunca inferido do ambiente. Esqueceu?
+`npx -y @valorbrain/cli identify <agent-name>` faz o backfill idempotente.
 
-| Flag | Significado |
-|---|---|
-| `--collection <name>` | Restringe a uma coleção |
-| `--mode auto\|keyword\|semantic\|hybrid` | Modo de recuperação |
+## Claim pelo humano
 
-Chama `POST /search` com `compact: true`.
+```bash
+npx -y @valorbrain/cli init --email <email>
+```
 
-### `list`
+Vincula a conta a um email com um código de uso único (OTP por email). Depois
+do claim o humano vê as memórias no app e a conta passa dos 30 dias. A
+`api_key` e o `mcp_token` **não mudam** e continuam funcionando antes e
+depois. Veja [Assumir uma conta de agente](/docs/guides/claim).
 
-`GET /collections`.
+## Proxy MCP stdio
 
-### `status`
+```bash
+npx -y @valorbrain/cli mcp
+```
 
-Config local mais `GET /health` no host REST.
-
-### `mcp [--token vbm_…] [--url <mcp-url>]`
-
-Proxy MCP stdio ↔ HTTP. `@valorbrain/connect` é este comando empacotado à
-parte, para que clientes stdio possam rodar:
+Proxy stdio ↔ Streamable HTTP para `https://mcpbrain.valor.digital/mcp`. Use
+como comando do servidor em qualquer cliente MCP que só fala stdio:
 
 ```json
 {
   "mcpServers": {
     "valorbrain": {
       "command": "npx",
-      "args": ["-y", "@valorbrain/connect", "--token", "vbm_…"]
+      "args": ["-y", "@valorbrain/cli", "mcp"]
     }
   }
 }
 ```
 
-O prefixo do token MCP é `vbm_`, não `vb_agent_`. Misture os dois e o host
-MCP vai te rejeitar.
+Usa o token salvo pelo `init`. `--token <vbm_…>` ou `VALORBRAIN_MCP_TOKEN`
+sobrescrevem; `--url` ou `VALORBRAIN_MCP_URL` trocam o endpoint.
 
-### `help [--json]`
+O host MCP aceita **só** `vbm_`. Uma chave `vb_`/`vb_agent_` como bearer volta
+`401 wrong_credential_type`. Veja [MCP](/docs/mcp).
 
-Texto para humanos, ou a superfície de máquina.
+O `@valorbrain/connect` é outro pacote: o instalador opcional que escreve
+servidor MCP, regras e hooks nos harnesses
+(`npx -y @valorbrain/connect@latest --token <vbm_…>`). Ele não é o proxy stdio.
+
+## Memória pelo shell (REST)
+
+`add`, `search`, `list` e `status` falam REST com a `api_key`:
+
+```bash
+npx -y @valorbrain/cli add "the deploy key lives in the ops vault"
+npx -y @valorbrain/cli search "deploy key"
+```
+
+O body é armazenado verbatim — sem tradução. Flags de cada comando:
+[Referência da CLI](/docs/cli-reference).
+
+## Variáveis de ambiente
+
+| Variável | Valor | Uso |
+|---|---|---|
+| `VALORBRAIN_MCP_TOKEN` | `vbm_…` | Token MCP (proxy stdio, clientes HTTP como o Codex) |
+| `VALORBRAIN_API_KEY` | `vb_agent_…` / `vb_…` | Chave REST (`add`, `search`, …) |
+| `VALORBRAIN_API_URL` | URL | Base REST (padrão `https://valorbrain-api.valor.digital`) |
+| `VALORBRAIN_MCP_URL` | URL | Endpoint MCP (padrão `https://mcpbrain.valor.digital/mcp`) |
+| `VALORBRAIN_TOKEN` | — | **Legado, deprecado.** Ainda aceito com aviso: `vbm_…` vale como token MCP; qualquer outro valor, como chave REST. Migre para as duas variáveis acima. |
+
+Ordem: flag (`--api-key`, `--token`, `--url`) → variável de ambiente →
+`~/.valorbrain/config.json`.
 
 ## On-premise (Enterprise)
 
 ```bash
-npx @valorbrain/cli --url https://your-engine.example.com init --agent
+npx -y @valorbrain/cli --url https://your-engine.example.com init --agent
 ```
 
 Não existe instalador público de uma linha para o engine. On-prem é um plano

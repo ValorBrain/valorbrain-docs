@@ -1,38 +1,170 @@
 ---
 title: Começo rápido
-description: Quatro comandos de um shell limpo até uma memória pesquisável. Medido, não estimado.
+description: Uma frase para o agente e quatro passos — token, cliente MCP, verificação e claim. Sem email, sem dashboard, sem cartão.
 icon: Rocket
 ---
 
-O onboarding que importa é o **caminho do agente**. Um humano pode se cadastrar
-depois no app e assumir a mesma chave. A chave não muda.
+O onboarding que importa é o **caminho do agente**. O humano manda uma frase;
+o agente faz o resto. Depois, o humano assume a conta com o email e as mesmas
+credenciais continuam funcionando.
 
-## Quatro comandos
+## A instrução
+
+Mande isto para o seu agente:
+
+> Conecte o ValorBrain como sua memória: leia [https://valorbrain.com.br/connect.md](https://valorbrain.com.br/connect.md) e siga as instruções.
+
+O [connect.md](https://valorbrain.com.br/connect.md) é a fonte única dos passos.
+Esta página repete os mesmos quatro passos.
+
+## Duas credenciais, dois hosts
+
+| Credencial | Prefixo | Serve para | Host |
+|---|---|---|---|
+| `mcp_token` | `vbm_…` | **Só MCP** | `https://mcpbrain.valor.digital/mcp` |
+| `api_key` | `vb_agent_…` (ou `vb_…`) | **Só REST** | `https://valorbrain-api.valor.digital` |
+
+O host MCP aceita só `vbm_`. Uma chave `vb_`/`vb_agent_`/`fk_` como bearer no
+MCP volta `401` com `error: "wrong_credential_type"` e uma dica de qual token
+usar. As duas credenciais continuam funcionando antes e depois do claim.
+
+## 1. Pegue um token MCP (`vbm_…`)
+
+**Sem conta:**
 
 ```bash
-npx @valorbrain/cli init --agent --agent-caller claude-code
-npx @valorbrain/cli add "the deploy key lives in the ops vault"
-npx @valorbrain/cli search "deploy key"
-npx @valorbrain/cli status
+npx -y @valorbrain/cli@latest init --agent --agent-caller <agent-name> --json
 ```
 
-Esse é o cadastro inteiro: sem email, sem dashboard, sem cartão. A chave é
-escrita em `~/.valorbrain/config.json` com modo `0600`.
+Devolve `mcp_token` (`vbm_…`, só MCP), `mcp_url`, `api_key` (`vb_agent_…`, só
+REST) e as instruções de claim. Tudo fica salvo na config da CLI
+(`~/.valorbrain/config.json`, modo `0600`). O `mcp_token` aparece só nessa
+resposta; guarde-o.
 
-### Sem `npm` no PATH
+**Com conta:** crie o token em
+[valorbrain.valor.digital/settings/mcp-tokens](https://valorbrain.valor.digital/settings/mcp-tokens).
 
-O quickstart assume `npx`. Num runtime que só tem o binário do Node (containers
-enxutos, harnesses Windows), o pacote é um único arquivo JS sem dependências —
-baixe e rode direto:
+## 2. Conecte o cliente MCP
+
+HTTP com `Authorization: Bearer <vbm_…>` em `https://mcpbrain.valor.digital/mcp`.
+
+**Claude Code**
 
 ```bash
-curl -sSLO https://registry.npmjs.org/@valorbrain/cli/-/cli-0.1.0.tgz
-tar -xzf cli-0.1.0.tgz            # extrai package/ com bin/valorbrain.js
-node package/bin/valorbrain.js init --agent --agent-caller claude-code
+claude mcp add --transport http --scope user valorbrain https://mcpbrain.valor.digital/mcp --header "Authorization: Bearer <vbm_…>"
 ```
 
-Validado num runtime sem `npm` por um agente de terceiros (batch #1 do DSH,
-§11.4): ~4 minutos, incluindo entender o entry point.
+**Codex**
+
+```bash
+export VALORBRAIN_MCP_TOKEN=<vbm_…>
+codex mcp add valorbrain --url https://mcpbrain.valor.digital/mcp --bearer-token-env-var VALORBRAIN_MCP_TOKEN
+```
+
+**Gemini CLI** — `~/.gemini/settings.json`
+
+```json
+{"mcpServers":{"valorbrain":{"httpUrl":"https://mcpbrain.valor.digital/mcp","headers":{"Authorization":"Bearer <vbm_…>"}}}}
+```
+
+**Cursor** — `~/.cursor/mcp.json`
+
+```json
+{"mcpServers":{"valorbrain":{"url":"https://mcpbrain.valor.digital/mcp","headers":{"Authorization":"Bearer <vbm_…>"}}}}
+```
+
+**VS Code** — `.vscode/mcp.json`
+
+```json
+{"servers":{"valorbrain":{"type":"http","url":"https://mcpbrain.valor.digital/mcp","headers":{"Authorization":"Bearer <vbm_…>"}}}}
+```
+
+**claude.ai / Claude Desktop** — Settings → Connectors → Add custom connector →
+URL `https://mcpbrain.valor.digital/mcp`. O login é por OAuth; não há token para
+colar.
+
+**Qualquer cliente stdio** — use como comando do servidor (usa o token salvo
+pelo `init`):
+
+```bash
+npx -y @valorbrain/cli mcp
+```
+
+**Instalação completa com regras e hooks (opcional):**
+
+```bash
+npx -y @valorbrain/connect@latest --token <vbm_…>
+```
+
+Detalhes por cliente: [MCP](/docs/mcp) e [Integrações](/docs/integrations).
+
+## 3. Verifique
+
+Chame a ferramenta MCP `memory_prepare`. Ela devolve quem você é neste
+workspace e a memória relevante para a tarefa.
+
+## 4. Avise o humano
+
+Para ver as memórias no app e manter a conta além de 30 dias, o humano roda,
+com o email dele (código de uso único por email):
+
+```bash
+npx -y @valorbrain/cli init --email <email>
+```
+
+As duas credenciais continuam funcionando depois do claim. Sem claim, as duas
+expiram em 30 dias. Passo a passo: [Assumir uma conta de agente](/docs/guides/claim).
+
+A saída do `init --json` traz um `notice` (o `message` da resposta do signup)
+escrito **como instrução para o agente**, com esse mesmo aviso. Mostre-o ao
+humano no seu próximo turno voltado para o usuário. Não pule.
+
+## Identidade autodeclarada
+
+`--agent-caller` nunca é inferido do ambiente. A CLI pode *sugerir* um caller
+a partir do env (`CLAUDECODE`, `CURSOR`, …) e imprimir uma dica; ela não
+registra nada a menos que você passe a flag. Se esqueceu:
+
+```bash
+npx -y @valorbrain/cli identify claude-code
+```
+
+Caller ids que a CLI entende como dicas: `claude-code`, `cursor`,
+`codex`, `cline`, `continue`, `aider`, `goose`, `windsurf`, `kiro`,
+`opencode`, `hermes`, `zcode`, `grok`. Qualquer outro é armazenado como você
+digitou.
+
+## Memória direto do shell (REST)
+
+A `api_key` que o `init` salvou fala **REST** com
+`valorbrain-api.valor.digital`. Não serve para o MCP.
+
+```bash
+npx -y @valorbrain/cli add "the deploy key lives in the ops vault"
+npx -y @valorbrain/cli search "deploy key"
+npx -y @valorbrain/cli status
+```
+
+O tenant é resolvido a partir do token — você **não** envia `X-Tenant-ID`.
+
+| Comando | Endpoint |
+|---|---|
+| `add` | `POST /documents` |
+| `search` | `POST /search` |
+| `list` | `GET /collections` |
+| `status` | `GET /health` + config local |
+| `identify` | `POST /api/v1/agents/identify` |
+| `init --email` | `POST /api/v1/agents/claim` e depois `/claim/verify` |
+
+Chamando o REST sem a CLI, `POST /documents` exige **os quatro campos**:
+`content`, `title`, `collection` **e** `path` — faltou campo, o erro diz qual
+(`{"error": "path is required"}`). O contrato completo e vivo (incluindo o
+próprio signup, que não precisa de chave) está em
+`GET /openapi.json` do engine. Veja [REST](/docs/rest).
+
+`--json` em qualquer comando imprime um único objeto JSON.
+`help --json` despeja a superfície inteira. Referência completa:
+[Referência da CLI](/docs/cli-reference).
 
 ### Tempo medido
 
@@ -48,66 +180,23 @@ não contra um checkout local:
 Alvo: **menos de 15 segundos**. Referência (mem0, no mesmo dia): ~13s, dos
 quais 4.66s são `pip install`. O `npx` pula essa instalação.
 
-`--json` (alias `--agent`) em qualquer comando imprime um único objeto JSON.
-`help --json` despeja a superfície inteira.
+### Sem `npm` no PATH
 
-## Cadastre-se como agente
-
-`init --agent` chama `POST https://valorbrain-api.valor.digital/api/v1/agents/signup`.
-
-Devolve uma chave `vb_agent_…` amarrada a um shadow tenant. O padrão é
-expirar em 30 dias até um humano assumi-la.
-
-**A identidade é autodeclarada.** `--agent-caller` nunca é inferido do
-ambiente. A CLI pode *sugerir* um caller a partir do env (`CLAUDECODE`,
-`CURSOR`, …) e imprimir uma dica; ela não registra nada a menos que você
-passe a flag. Se esqueceu:
+Num runtime que só tem o binário do Node 18+ (containers enxutos, harnesses
+Windows), o pacote não tem dependências — baixe o tarball do registry e rode
+direto:
 
 ```bash
-npx @valorbrain/cli identify claude-code
+TARBALL=$(curl -sS https://registry.npmjs.org/@valorbrain/cli/latest | node -pe 'JSON.parse(require("fs").readFileSync(0)).dist.tarball')
+curl -sSL "$TARBALL" | tar -xz    # extrai package/ com bin/valorbrain.js
+node package/bin/valorbrain.js init --agent --agent-caller <agent-name> --json
 ```
 
-Caller ids que a CLI entende como dicas: `claude-code`, `cursor`,
-`codex`, `cline`, `continue`, `aider`, `goose`, `windsurf`, `kiro`,
-`opencode`, `hermes`, `zcode`, `grok`. Qualquer outro é armazenado como você
-digitou.
-
-A resposta do signup inclui uma `message` escrita **como uma instrução para
-você**. Mostre-a ao humano no seu próximo turno voltado para o usuário. Não
-pule.
-
-## Assuma como humano
-
-```bash
-npx @valorbrain/cli init --email you@company.com
-```
-
-O OTP chega por email. Depois de verificar, a **mesma** chave `vb_agent_`
-continua funcionando. As memórias são preservadas. Esse é o critério de
-aceite, e foi verificado ponta a ponta em 2026-08-30.
-
-## O que a chave pode fazer
-
-A chave da CLI fala **REST** com `valorbrain-api.valor.digital`. O tenant é
-resolvido a partir do token — você **não** envia `X-Tenant-ID`.
-
-| Comando | Endpoint |
-|---|---|
-| `add` | `POST /documents` |
-| `search` | `POST /search` |
-| `list` | `GET /collections` |
-| `status` | `GET /health` + config local |
-| `identify` | `POST /api/v1/agents/identify` |
-| `init --email` | `POST /api/v1/agents/claim` e depois `/claim/verify` |
-
-Chamando o REST sem a CLI, `POST /documents` exige **os quatro campos**:
-`content`, `title`, `collection` **e** `path` — faltou campo, o erro diz qual
-(`{"error": "path is required"}`). O contrato completo e vivo (incluindo o
-próprio signup, que não precisa de chave) está em
-`GET /openapi.json` do engine.
-
-MCP é uma **credencial diferente**: `vbm_…`, criada no app em
-Settings → MCP tokens, ou obtida via OAuth. Veja [MCP](/docs/mcp).
+Daí em diante, troque `npx -y @valorbrain/cli` por
+`node package/bin/valorbrain.js` — inclusive no comando stdio
+(`node package/bin/valorbrain.js mcp`). Um agente de terceiros validou esse
+caminho num runtime sem `npm` (batch #1 do DSH, §11.4): ~4 minutos, incluindo
+entender o entry point.
 
 ## Caminho humano (app)
 
@@ -115,12 +204,12 @@ Se você não é um agente:
 
 1. Abra [valorbrain.valor.digital](https://valorbrain.valor.digital/auth/register).
 2. Ative o email.
-3. Crie um token MCP (`vbm_…`) ou uma chave de ingest (`fk_….sk_…`).
-4. Siga [MCP](/docs/mcp) ou [REST](/docs/rest).
+3. Crie um token MCP (`vbm_…`) em [Settings → MCP tokens](https://valorbrain.valor.digital/settings/mcp-tokens), ou uma chave de ingest (`fk_….sk_…`).
+4. Siga o [passo 2](#2-conecte-o-cliente-mcp) acima, ou [REST](/docs/rest).
 
 ## Comandos fantasma
 
-Estes aparecem em READMEs antigos e **não existem** no `@valorbrain/cli@0.1.0`.
+Estes aparecem em READMEs antigos e **não existem** na CLI publicada.
 `help --json` é a fonte da verdade.
 
 - `valorbrain setup harness …`
