@@ -6,7 +6,7 @@ Tool count: https://docs.valorbrain.com.br/docs/api/generated-mcp (catalog).
 
 ## memory_retrieve
 
-Unified retrieval — one well-formed call is enough; the server expands and fuses. Routing: why→causal, last session→timeline, related→neighbors, else→hybrid.
+Unified retrieval; one call (server expands/fuses). Routing: why→causal, last session→timeline, related→neighbors, else→hybrid.
 
 ```
 z.object({
@@ -21,6 +21,10 @@ z.object({
               budget: z.number().optional(),
               recall_format: z.enum(["json", "markdown"]).optional(),
               min_score: z.number().optional().describe("Min composite score (0-1)"),
+              collection: z.string().optional().describe("Collection filter (comma-separated)"),
+              diverse: z.boolean().optional().describe("Default true: newest near-duplicate wins"),
+              include_superseded: z.boolean().optional().describe("true: also return superseded versions"),
+              include_content: z.boolean().optional().describe("Include full `content` per result"),
             }),
     }
 ```
@@ -234,7 +238,7 @@ z.object({
 
 ## memory_used
 
-Declare which memories you actually used BEFORE the final answer: docids ('#ab12cd') or paths — the COMPLETE working set; [] = empty. Declared use, not proof of causality.
+Declare the memories you used BEFORE the final answer: docids ('#ab12cd') or paths — the COMPLETE set; [] = empty. Declared use, not proof of causality.
 
 ```
 z.object({
@@ -912,15 +916,15 @@ z.object({
 
 ## secrets
 
-Cofre de segredos do tenant: a memória guarda só a referência `secret://<nome>`; o valor mora aqui e só sai por get (auditado). put cria/atualiza — inline (`value`) só para credencial que o usuário acabou de falar; máquina usa `from_env`/`from_file` (VAL-309: valor não transita a chamada). get resolve o valor e aceita nome aproximado em linguagem natural; list só metadados; rotate re-embrulha a chave; delete remove. Use: falou credencial → put (nome curto e estável); perguntou → get. Nunca escreva o valor em memória. Escopos: 'secrets:read' (get/list) / 'secrets:write' (put/rotate/delete); 'read'/'write' legados não cobrem. Nunca entra em retrieval.
+Cofre do tenant: a memória guarda só `secret://<nome>`; o valor sai só por get (auditado). put cria/atualiza — inline (`value`) só para credencial recém-falada; máquina usa from_env/from_file (VAL-309). get aceita nome aproximado; list só metadados; rotate re-embrulha; delete remove. Falou credencial → put (nome curto e estável); perguntou → get. Nunca escreva o valor em memória; nunca entra em retrieval. Escopos secrets:read/write; os legados read/write não cobrem.
 
 ```
 z.object({
         action: z.enum(["put", "get", "list", "rotate", "delete"]).describe("Cofre: verbo"),
         name: z.string().optional().describe("put/get/delete: nome do segredo (vira secret://<nome>)"),
-        value: z.string().optional().describe("put inline: valor — nunca devolvido por list. PREFIRA from_env/from_file (VAL-309): inline vaza no transcript"),
-        from_env: z.string().optional().describe("put por referência (VAL-309): var VALORBRAIN_SECRET_IN_<NOME> do processo do MCP — valor não transita a chamada"),
-        from_file: z.string().optional().describe("put por referência (VAL-309): basename no staging (/etc/valorbrain/secret-staging) — valor não transita a chamada"),
+        value: z.string().optional().describe("put inline; PREFIRA from_env/from_file (VAL-309): inline vaza no transcript"),
+        from_env: z.string().optional().describe("put por referência: var VALORBRAIN_SECRET_IN_<NOME> do MCP (VAL-309)"),
+        from_file: z.string().optional().describe("put por referência: basename em /etc/valorbrain/secret-staging (VAL-309)"),
         description: z.string().optional().describe("put: para que serve"),
         expires_at: z.string().optional().describe("put: validade ISO (opcional)"),
         vault: z.string().optional(),

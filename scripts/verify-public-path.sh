@@ -11,12 +11,30 @@ echo "$llms" | grep -q 'help --json' || { echo "llms.txt missing help --json"; e
 echo "$llms" | grep -q 'memory_store' || { echo "llms.txt missing memory_store"; exit 1; }
 echo "llms.txt ok ($(wc -c <<<"$llms") bytes)"
 
+# The docs copy of the engine's public spec: client routes, servers rewritten.
+# SPEC_PARITY=1 (daily run) also requires the same path set as the live engine
+# spec: an engine deploy that changes client routes fails here until the docs
+# are rebuilt.
 echo "== $DOCS/openapi.json =="
-paths="$(curl -fsS --max-time 20 "$DOCS/openapi.json" | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d.get('paths') or {})); print(d['servers'][0]['url'])")"
-echo "$paths"
-echo "$paths" | grep -q "$REST" || { echo "openapi server is not $REST"; exit 1; }
-count="$(echo "$paths" | head -1)"
-[[ "$count" -ge 100 ]] || { echo "expected >=100 openapi paths, got $count"; exit 1; }
+curl -fsS --max-time 20 "$DOCS/openapi.json" -o /tmp/docs-openapi.json
+curl -fsS --max-time 20 "$REST/openapi.json" -o /tmp/engine-openapi.json
+REST="$REST" SPEC_PARITY="${SPEC_PARITY:-0}" python3 - <<'PY'
+import json, os, sys
+docs = json.load(open("/tmp/docs-openapi.json"))
+engine = json.load(open("/tmp/engine-openapi.json"))
+paths = set(docs.get("paths") or {})
+print(f"{len(paths)} paths, server {docs['servers'][0]['url']}")
+if docs["servers"][0]["url"] != os.environ["REST"]:
+    sys.exit(f"openapi server is not {os.environ['REST']}")
+missing = {"/search", "/documents", "/api/v1/agents/signup", "/api/v1/memory/store"} - paths
+if missing:
+    sys.exit(f"client routes missing from the docs spec: {sorted(missing)}")
+if os.environ["SPEC_PARITY"] == "1":
+    live = set(engine.get("paths") or {})
+    if paths != live:
+        sys.exit(f"docs spec != engine spec: only docs {sorted(paths - live)[:10]}, only engine {sorted(live - paths)[:10]}")
+    print("same path set as the engine's public spec")
+PY
 
 echo "== $DOCS/llms-full.txt size =="
 bytes="$(curl -fsS --max-time 30 "$DOCS/llms-full.txt" | wc -c)"

@@ -80,10 +80,10 @@ for engine search on `valorbrain-api`.
 | `GET` | `/health` | Liveness |
 | `GET` | `/stats` | Index statistics |
 
-The engine OpenAPI file in the repo describes **116 paths**, including ops
-and graph. The JSON at `valorbrain.valor.digital/openapi.json` is a **4-path
-discovery document** for agents hitting the marketing site. They are not the
-same spec. This docs site publishes the public integration surface; see
+The engine's public OpenAPI (`valorbrain-api.valor.digital/openapi.json`)
+lists the client routes; admin and operations routes are left out. The JSON
+at `valorbrain.valor.digital/openapi.json` is served by the app; it is not the
+engine spec. This docs site publishes the public integration surface; see
 [API reference](/en/docs/api).
 
 ## Agent signup (REST)

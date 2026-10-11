@@ -35,17 +35,16 @@ Auth: `Authorization: Bearer <token>`. O tenant vem do token.
 | `POST` | `/api/v1/memory/prepare` | Gêmea do `memory_prepare` do MCP. |
 | `POST` | `/api/v1/memory/store` | Gêmea do `memory_store` do MCP. |
 
-Rotas de grafo, decisões, proveniência, conflitos e ops existem no engine
-(116 paths em `docs/reference/openapi.yaml`). Elas são reais; não são a
-primeira integração. Use `decisions` / `provenance` / `conflicts` no MCP ou
-leia o OpenAPI do engine no repositório se precisar delas.
+Rotas de grafo, decisões, proveniência, conflitos e ops existem no engine, mas
+não estão no OpenAPI público e não são a primeira integração. Use
+`decisions` / `provenance` / `conflicts` no MCP.
 
 ## SaaS (valorbrain.valor.digital)
 
 | Método | Path | Auth |
 |---|---|---|
 | `POST` | `/api/v1/ingest` | `fk_….sk_…` |
-| `GET` | `/openapi.json` | Público, 4 paths de descoberta |
+| `GET` | `/openapi.json` | Público; servido pelo app, não é a spec do engine |
 | `GET` | `/llms.txt` | Brief público de marketing |
 | `GET` | `/.well-known/mcp/server-card.json` | Público |
 

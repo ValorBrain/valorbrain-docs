@@ -17,23 +17,51 @@ and the project adheres to
   Referrer-Policy, Markdown twins) and `scripts/check-tool-count.py`, run by
   the new `docs-ci` workflow; the daily workflow runs the first two live.
 - Codex, Gemini CLI and VS Code integration pages.
+- `/sitemap.xml` (every pt and en page plus the home, hreflang `pt-BR`/`en`/
+  `x-default` alternates, `lastmod` from the last commit of each source file)
+  and `/robots.txt` pointing to it. Docs pages declare the same hreflang
+  alternates in their HTML head.
+- `scripts/check-cli-version.py`: the CLI version the docs publish must be the
+  npm `latest`; `docs-ci` checks the build, the daily workflow checks the live
+  host.
+- `check-links.py` also fails when `/robots.txt` lacks the sitemap, when a
+  sitemap entry is not a 200 HTML page (redirects included), when a crawled
+  page is missing from the sitemap, and, on the live host, when Cloudflare
+  email obfuscation rewrote a page's text (`data-cfemail`).
 
 ### Changed
 
 - "What leaves your machine" quotes the hosted hook command at its pin,
   `npx -y @valorbrain/connect@0.7.0 hook …` (pt + en), as the engine renders it;
   it showed the unpinned command.
-- `CLI reference` is generated from `npx @valorbrain/cli@latest help --json`
-  by `scripts/generate-reference.py` (pt + en); no hand-written flags.
+- `CLI reference` is generated from `help --json` of the npm `latest`
+  `@valorbrain/cli` by `scripts/generate-reference.py` (pt + en); no
+  hand-written flags. The version is read from the npm registry and the CLI
+  runs pinned to it, so a stale npx cache cannot document an old CLI.
 - The MCP tool count is published once, on the generated catalog page; other
   pages link to it. The catalog parser no longer drops entries whose note has
   braces (`task_state`), so the count matches `src/tool-catalog.ts` (84).
 - Quickstart, MCP, CLI and integration pages follow the onboarding contract
   (`https://valorbrain.com.br/connect.md`, `vbm_` on MCP, per-client config).
 - "Copy Markdown" points to the public `<page>.md` URL.
+- Connectors (pt + en): the eight connectors the app ships (Notion, Google
+  Drive, Slack, GitHub, Linear, HubSpot, Jira, Granatum), which credential each
+  takes, and "paid plans" instead of the retired Starter plan name.
+- `REST (generated)` and `/openapi.json` come from the engine's public spec
+  (client routes only) and nothing else: the generator writes the REST page
+  again (it had stopped in the i18n split, leaving a 232-operation snapshot
+  with admin routes), and the engine repo's YAML (admin and ops routes) is no
+  longer a fallback; an unreachable spec keeps the committed snapshot. REST,
+  REST endpoints and Hosts pages (pt + en) drop the stale "4-path discovery
+  document" and "116 paths" claims.
+- `verify-public-path.sh`: the docs spec must carry the core client routes;
+  the daily run (`SPEC_PARITY=1`) requires the engine's public path set,
+  replacing the old "≥ 100 paths" floor.
 
 ### Fixed
 
+- Quickstart and claim pages: `@valorbrain/cli@0.1.0` and `you@company.com`
+  were rewritten by Cloudflare email obfuscation into "[email protected]".
 - `/docs/<page>.md` and `Accept: text/markdown` returned 500 behind the
   tunnel: the middleware rewrite was proxied to `https://localhost:3012`
   (`X-Forwarded-Proto: https`). Now config rewrites, in-process; `/en/docs/…md`

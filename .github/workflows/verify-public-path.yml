@@ -23,6 +23,8 @@ jobs:
         env:
           DOCS_URL: https://docs.valorbrain.com.br
           REST_URL: https://valorbrain-api.valor.digital
+          # Daily: the docs spec must have the engine's public path set.
+          SPEC_PARITY: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '1' || '0' }}
       # Live site: run on the daily schedule (a push to main lands before the
       # manual deploy, so the live host lags the commit by minutes).
       - name: Live link checker
@@ -31,3 +33,6 @@ jobs:
       - name: Live origin edge
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: bash scripts/check-edge.sh https://docs.valorbrain.com.br
+      - name: Live CLI version is the npm latest
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        run: python3 scripts/check-cli-version.py https://docs.valorbrain.com.br
