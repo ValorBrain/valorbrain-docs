@@ -31,8 +31,10 @@ OpenClaw não é instalado pelo `@valorbrain/connect` e fica fora desta página.
 ## O cliente de hook comum
 
 Claude Code, Codex, Gemini CLI, Kiro, Cursor, Grok e OpenCode rodam o mesmo
-cliente: `npx -y @valorbrain/connect hook <evento> --harness=<id>`. Ele lê o
-JSON que o harness entrega no stdin e envia **somente** os campos abaixo.
+cliente: `npx -y @valorbrain/connect@0.7.0 hook <evento> --harness=<id>`. A versão
+é fixa (nunca `latest`): o hook roda a cada prompt, então só uma versão revisada
+entra na sua máquina. Ele lê o JSON que o harness entrega no stdin e envia
+**somente** os campos abaixo.
 
 ### Endpoint
 
@@ -235,7 +237,7 @@ Fonte: `/opt/valorbrain/src/harness/adapters.ts` (adapter `grok`),
 |---|---|
 | Eventos | plugin: `chat.message` (cada mensagem do usuário). Não há início de sessão nem stop |
 | O que sai | o texto da mensagem, cortado em 8.000 caracteres no plugin e de novo no cliente, mais o `session_id` |
-| Endpoint | `POST https://valorbrain-api.valor.digital/api/v1/hooks/cue` (o plugin executa `npx -y @valorbrain/connect hook context-surfacing --format=text --harness=opencode`) |
+| Endpoint | `POST https://valorbrain-api.valor.digital/api/v1/hooks/cue` (o plugin executa `npx -y @valorbrain/connect@0.7.0 hook context-surfacing --format=text --harness=opencode`) |
 | Credencial | entrada `opencode` em `~/.valorbrain/connect.json` |
 | Ritmo | 1 chamada por mensagem; o plugin mata o processo após 9 s |
 | Desligar | `VALORBRAIN_OPENCODE_DISABLE=true`; ou `npx -y @valorbrain/connect --harness opencode --remove`; ou apague `~/.config/opencode/plugins/valorbrain.ts` |
