@@ -31,7 +31,7 @@ OpenClaw is not installed by `@valorbrain/connect` and is out of scope here.
 ## The shared hook client
 
 Claude Code, Codex, Gemini CLI, Kiro, Cursor, Grok and OpenCode run the same
-client: `npx -y @valorbrain/connect@0.8.0 hook <event> --harness=<id>`. The version
+client: `npx -y @valorbrain/connect@0.8.1 hook <event> --harness=<id>`. The version
 is pinned (never `latest`): the hook runs on every prompt, so only a reviewed
 version reaches your machine. It reads the JSON the harness passes on stdin and
 sends **only** the fields below.
@@ -105,9 +105,10 @@ on the hook path:
 
 - `GET https://valorbrain-api.valor.digital/setup/artifacts?agent=<id>&hooks=2`,
   without a credential. The manifest is used only if it carries a valid
-  ed25519 signature from the key built into connect (`X-ValorBrain-Manifest-*`
-  headers; the public key is at `/setup/manifest-keys`); without one nothing is
-  written. If the contract changed, it rewrites the harness's rules and hooks
+  ed25519 signature from one of the keys built into connect (the active one or
+  the reserve; `X-ValorBrain-Manifest-*` headers; the public key in use is at
+  `/setup/manifest-keys`); without one nothing is written. If the contract
+  changed, it rewrites the harness's rules and hooks
   locally (Codex is left out of automatic hook migration), **except** files you
   edited by hand: those stay as they are and the warning goes to stderr and
   `~/.valorbrain/connect.log`. Running the installer again shows the diff and
@@ -115,7 +116,7 @@ on the hook path:
 - `POST https://valorbrain-api.valor.digital/api/v1/runtimes/register` with the
   token, within 2.5 s. It sends `runtime_key`
   (`<harness>:<hostname>:<home path>`), `agent_platform`, `display_name`, `hostname`,
-  `plugin_version: "0.8.0"` and `capabilities` (harness, installed contract
+  `plugin_version: "0.8.1"` and `capabilities` (harness, installed contract
   version, `connector: "connect"`, `self_heal: true`, hook protocol).
 
 The same declaration is sent once at the end of every install.
@@ -244,7 +245,7 @@ Source: `/opt/valorbrain/src/harness/adapters.ts` (`grok` adapter),
 |---|---|
 | Events | plugin: `chat.message` (every user message). No session start, no stop |
 | What leaves | the message text, cut to 8,000 characters in the plugin and again in the client, plus `session_id` |
-| Endpoint | `POST https://valorbrain-api.valor.digital/api/v1/hooks/cue` (the plugin runs `npx -y @valorbrain/connect@0.8.0 hook context-surfacing --format=text --harness=opencode`) |
+| Endpoint | `POST https://valorbrain-api.valor.digital/api/v1/hooks/cue` (the plugin runs `npx -y @valorbrain/connect@0.8.1 hook context-surfacing --format=text --harness=opencode`) |
 | Credential | `opencode` entry in `~/.valorbrain/connect.json` |
 | Cadence | 1 call per message; the plugin kills the process after 9 s |
 | Turn off | `VALORBRAIN_OPENCODE_DISABLE=true`; or `npx -y @valorbrain/connect --harness opencode --remove`; or delete `~/.config/opencode/plugins/valorbrain.ts` |
