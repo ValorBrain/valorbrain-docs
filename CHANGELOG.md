@@ -20,6 +20,9 @@ and the project adheres to
 
 ### Changed
 
+- "What leaves your machine" quotes the hosted hook command at its pin,
+  `npx -y @valorbrain/connect@0.7.0 hook …` (pt + en), as the engine renders it;
+  it showed the unpinned command.
 - `CLI reference` is generated from `npx @valorbrain/cli@latest help --json`
   by `scripts/generate-reference.py` (pt + en); no hand-written flags.
 - The MCP tool count is published once, on the generated catalog page; other
