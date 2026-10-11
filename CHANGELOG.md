@@ -42,6 +42,11 @@ and the project adheres to
 
 ### Changed
 
+- "What leaves your machine" (pt + en) describes connect 0.8.0: per-harness
+  prompt opt-out (`--prompt off`, `VALORBRAIN_SEND_PROMPT=off`), Hermes
+  transcript opt-in only (`--transcript on`), signed manifests checked before
+  self-heal writes, and hand-edited files left alone (logged in
+  `~/.valorbrain/connect.log`).
 - API reference (pt + en): the OpenAPI table describes the engine's public spec
   (client routes only), the app's spec (client routes plus ingest and device
   flow) and where the credential matrix is served; Cards for the new pages.
