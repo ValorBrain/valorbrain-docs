@@ -52,10 +52,12 @@ The engine binds `127.0.0.1` by default. Public exposure goes through a tunnel/p
 
 ```bash
 curl -sS http://localhost:7438/healthz
-curl -sS http://localhost:7438/openapi.json | jq '.servers, .info["x-valorbrain-live-operations"]'
+curl -sS http://localhost:7438/openapi.json \
+  -H "Authorization: Bearer $VALORBRAIN_API_TOKEN" \
+  | jq '.servers, .info["x-valorbrain-live-operations"]'
 ```
 
-The spec at `/openapi.json` is generated at runtime from the process's route table — `x-valorbrain-live-operations` counts what this build actually registers. `/openapi.yaml` serves the same document as YAML.
+The spec at `/openapi.json` is generated at runtime from the process's route table — `x-valorbrain-live-operations` counts what this build actually registers. `/openapi.yaml` serves the same document as YAML. The full spec requires the engine's platform credential (`VALORBRAIN_API_TOKEN` or `ENGINE_ADMIN_SECRET`); without it the answer is 200 with the public spec, client routes only and no `x-valorbrain-*` fields (the `jq` above prints `null`), even on `localhost`.
 
 ## Quality gates
 
