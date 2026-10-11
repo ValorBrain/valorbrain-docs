@@ -1,4 +1,11 @@
-import { DEFAULT_LOCALE, getPageImageUrl, getPageSourcePath, source, type Locale } from '@/lib/source';
+import {
+  DEFAULT_LOCALE,
+  getPageAlternates,
+  getPageImageUrl,
+  getPageSourcePath,
+  source,
+  type Locale,
+} from '@/lib/source';
 import {
   DocsBody,
   DocsDescription,
@@ -61,6 +68,7 @@ export function docsMetadata(slug: Slug, locale: Locale): Metadata {
     },
     alternates: {
       canonical: page.url,
+      languages: getPageAlternates(page),
     },
   };
 }

@@ -35,17 +35,16 @@ Auth: `Authorization: Bearer <token>`. Tenant comes from the token.
 | `POST` | `/api/v1/memory/prepare` | MCP `memory_prepare` twin. |
 | `POST` | `/api/v1/memory/store` | MCP `memory_store` twin. |
 
-Graph, decisions, provenance, conflicts, and ops routes exist on the engine
-(116 paths in `docs/reference/openapi.yaml`). They are real; they are not
-the first integration. Use MCP `decisions` / `provenance` / `conflicts` or
-read the engine OpenAPI in the repo if you need them.
+Graph, decisions, provenance, conflicts, and ops routes exist on the engine,
+but they are not in the public OpenAPI and they are not the first
+integration. Use MCP `decisions` / `provenance` / `conflicts`.
 
 ## SaaS (valorbrain.valor.digital)
 
 | Method | Path | Auth |
 |---|---|---|
 | `POST` | `/api/v1/ingest` | `fk_….sk_…` |
-| `GET` | `/openapi.json` | Public, 4 discovery paths |
+| `GET` | `/openapi.json` | Public; served by the app, not the engine spec |
 | `GET` | `/llms.txt` | Public marketing brief |
 | `GET` | `/.well-known/mcp/server-card.json` | Public |
 

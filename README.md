@@ -8,8 +8,9 @@ the company brain for people and agents.
 - Agent index: [`/llms.txt`](https://docs.valorbrain.com.br/llms.txt)
 - Full dump: [`/llms-full.txt`](https://docs.valorbrain.com.br/llms-full.txt)
 
-Content is written against the published CLI (`@valorbrain/cli@0.1.0`),
-the engine tool catalog, and live hosts. If a page disagrees with
+Content is written against the npm `latest` of `@valorbrain/cli` (resolved on
+the registry at build time; `public/cli-help.json` and the CLI reference carry
+its version), the engine tool catalog, and live hosts. If a page disagrees with
 `help --json` or `tools/list`, the running surface wins.
 
 ```bash

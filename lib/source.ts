@@ -92,6 +92,26 @@ export function getPageSourcePath(page: (typeof source)['$inferPage']): string {
   return `content/docs/${found ?? page.path}`;
 }
 
+/** hreflang code per locale (HTML `<link rel="alternate">` and the sitemap). */
+export const HREFLANG: Record<Locale, string> = { pt: 'pt-BR', en: 'en' };
+
+/**
+ * Language alternates of a page, keyed by hreflang, plus `x-default` (the
+ * default-locale URL). A locale is listed only when the page really exists in
+ * it: `getPage` falls back to the default locale, so the hit's own locale is
+ * checked.
+ */
+export function getPageAlternates(page: (typeof source)['$inferPage']): Record<string, string> {
+  const languages: Record<string, string> = {};
+  for (const locale of LOCALES) {
+    const twin = source.getPage(page.slugs, locale);
+    if (twin && (twin.locale ?? DEFAULT_LOCALE) === locale) languages[HREFLANG[locale]] = twin.url;
+  }
+  const fallback = languages[HREFLANG[DEFAULT_LOCALE]];
+  if (fallback) languages['x-default'] = fallback;
+  return languages;
+}
+
 export async function getLLMText(page: (typeof source)['$inferPage']) {
   const processed = await page.data.getText('processed');
 

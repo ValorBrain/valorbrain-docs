@@ -81,11 +81,11 @@ no engine em `valorbrain-api`.
 | `GET` | `/health` | Liveness |
 | `GET` | `/stats` | Estatísticas do índice |
 
-O arquivo OpenAPI do engine no repositório descreve **116 paths**, incluindo
-ops e graph. O JSON em `valorbrain.valor.digital/openapi.json` é um
-**documento de descoberta de 4 paths** para agentes que acessam o site de
-marketing. Não é a mesma spec. Este site de docs publica a superfície pública
-de integração; veja a [Referência de API](/docs/api).
+O OpenAPI público do engine (`valorbrain-api.valor.digital/openapi.json`) lista
+as rotas de cliente; as rotas de admin e operação ficam fora dele. O JSON em
+`valorbrain.valor.digital/openapi.json` é servido pelo app, não é a spec do
+engine. Este site de docs publica a superfície pública de integração; veja a
+[Referência de API](/docs/api).
 
 ## Cadastro de agente (REST)
 

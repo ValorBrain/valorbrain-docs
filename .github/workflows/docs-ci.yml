@@ -20,13 +20,15 @@ jobs:
         run: |
           bun install --frozen-lockfile
           python3 -m pip install --quiet pyyaml
-      # prebuild regenerates the reference pages (live engine spec, published
-      # CLI help --json); engine sources are absent here, so the committed MCP
-      # catalog page is kept.
+      # prebuild regenerates the reference pages (live engine spec, help --json
+      # of the npm `latest` CLI); engine sources are absent here, so the
+      # committed MCP catalog page is kept.
       - name: Build
         run: bun run build
       - name: One published tool count
         run: python3 scripts/check-tool-count.py
+      - name: CLI version in the docs is the npm latest
+        run: python3 scripts/check-cli-version.py
       - name: Start
         run: |
           bun run start > /tmp/next.log 2>&1 &
@@ -36,7 +38,7 @@ jobs:
           done
           cat /tmp/next.log
           exit 1
-      - name: Link checker (0 broken links, every page has a .md twin)
+      - name: Link checker (0 broken links, every page has a .md twin and a 200 sitemap entry)
         run: python3 scripts/check-links.py http://127.0.0.1:3012
       - name: Markdown twin survives the tunnel's X-Forwarded-Proto
         run: |
