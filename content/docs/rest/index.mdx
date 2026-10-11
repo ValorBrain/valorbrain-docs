@@ -10,10 +10,11 @@ URL base: `https://valorbrain-api.valor.digital`
 curl -sS https://valorbrain-api.valor.digital/health
 ```
 
-Auth: `Authorization: Bearer <vb_agent_ or other engine token>`.
+Auth: `Authorization: Bearer <vbm_…>` (o token do cliente) ou a chave legada
+`vb_agent_…` do signup.
 
-O tenant é resolvido a partir do token. Você **não** precisa de `X-Tenant-ID`
-para uma chave normal.
+O tenant vem sempre da credencial: não envie `X-Tenant-ID`. Quais credenciais
+valem onde: [Tokens](/docs/concepts/tokens).
 
 ## Busca
 

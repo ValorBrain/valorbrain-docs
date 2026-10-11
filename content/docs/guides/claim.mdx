@@ -1,19 +1,27 @@
 ---
 title: Claim de conta de agente
-description: Vincular um e-mail sem rotacionar a chave.
+description: Vincular um e-mail à conta de agente sem trocar as credenciais.
 ---
 
-O agente já tem uma chave funcional. Um humano assume a posse depois.
+O agente já tem as credenciais do signup: o `mcp_token` (`vbm_…`) e a
+`api_key` (`vb_agent_…`). Um humano assume a posse depois, com o e-mail dele.
 
 ```bash
 npx @valorbrain/cli init --email <seu-email>
 ```
 
-O ValorBrain envia um código de uso único por e-mail. O journal não imprime o
-OTP em cleartext no caminho de sucesso (corrigido em 2026-08-30). Cole o código
-quando o CLI pedir, ou passe `--otp`.
+O O ValorBrain envia um código de uso único por e-mail, válido por 10 minutos e
+com 5 tentativas. O journal não imprime o OTP em cleartext no caminho de
+sucesso (corrigido em 2026-08-30). Cole o código quando o CLI pedir, ou passe
+`--otp`. Por baixo são `POST /api/v1/agents/claim` e depois
+`POST /api/v1/agents/claim/verify`, autenticados com a `api_key`.
 
 Aceitação, verificada em 2026-08-30 de uma rede limpa: a resposta é
-**"Same API key. All memories preserved."** O valor `vb_agent_` não muda.
-Tokens MCP (`vbm_`) continuam criados no app se você quiser um editor
-conectado.
+**"Same API key. All memories preserved."** O valor `vb_agent_` não muda e o
+`vbm_` do signup continua valendo; o claim remove a expiração de 30 dias das
+duas credenciais.
+
+O claim vincula o e-mail ao workspace; ele ainda não cria um login no app.
+Para conectar outro cliente, use o mesmo `vbm_` (veja
+[Conectar](/docs/integrations/connect)). Validade e revogação de cada
+credencial: [Ciclo de vida dos tokens](/docs/api/token-lifecycle).

@@ -13,18 +13,19 @@ Os nomes de campo vêm da spec que o próprio engine serve em [`/openapi.json`](
 Authorization: Bearer <token>
 ```
 
-Duas classes de token são aceitas nas rotas de tenant:
+Credenciais de cliente aceitas no REST do engine:
 
-| Token | Formato | O que é |
+| Credencial | Formato | O que é |
 |---|---|---|
-| Token master do engine | qualquer string definida como `VALORBRAIN_API_TOKEN` | Acesso total ao engine. Só server-side. |
-| API key de shadow tenant | `vb_...` | Criada por `npx @valorbrain/cli init --agent`; escopa num único tenant, expira sozinha. |
+| Token MCP | `vbm_…` | A credencial do cliente, a mesma do MCP. Vem no signup (`mcp_token`) ou é criada em [Configurações → Tokens MCP](https://valorbrain.valor.digital/settings/mcp-tokens). |
+| Chave de conta de agente (legado) | `vb_agent_…` | A `api_key` do signup (`npx -y @valorbrain/cli@latest init --agent`). Vale no REST e no claim; no MCP volta `401 wrong_credential_type`. |
 
-Rotas admin (`/api/v1/admin/*`) usam `ENGINE_ADMIN_SECRET` como bearer no lugar — tokens de tenant levam um 403 limpo lá.
-Rotas de dinheiro (billing, credits, subscriptions) aceitam o token master ou o admin secret, e rejeitam tokens de tenant/persona por design.
-
-Deploys multi-tenant também roteiam via header `x-tenant-id` (parâmetro `TenantIdHeader` na spec).
-Com um token de engine, o header escolhe o tenant; com uma chave `vb_`, o tenant já está vinculado à chave.
+O tenant vem sempre da credencial: não envie `X-Tenant-ID`. Nenhuma credencial
+de cliente abre as rotas de administração, de crédito e assinatura ou
+`/metrics`. Os exemplos usam `$VALORBRAIN_MCP_TOKEN` (um `vbm_`); com a chave
+legada, use `$VALORBRAIN_API_KEY`. A matriz completa está em
+[Tokens](/docs/concepts/tokens) e cada código de erro em
+[Catálogo de erros](/docs/api/errors).
 
 Checagem rápida de liveness — sem autenticação:
 
@@ -36,7 +37,7 @@ curl -sS https://valorbrain-api.valor.digital/healthz
 
 ```bash
 curl -sS -X POST https://valorbrain-api.valor.digital/documents \
-  -H "Authorization: Bearer $VALORBRAIN_TOKEN" \
+  -H "Authorization: Bearer $VALORBRAIN_MCP_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "collection": "team-notes",
@@ -89,7 +90,7 @@ Três portas, um índice:
 
 ```bash
 curl -sS -X POST https://valorbrain-api.valor.digital/search \
-  -H "Authorization: Bearer $VALORBRAIN_TOKEN" \
+  -H "Authorization: Bearer $VALORBRAIN_MCP_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "q": "how does dedup across collections behave",
@@ -122,7 +123,7 @@ spec não detalha:
 
 ```bash
 curl -sS -X POST https://valorbrain-api.valor.digital/retrieve \
-  -H "Authorization: Bearer $VALORBRAIN_TOKEN" \
+  -H "Authorization: Bearer $VALORBRAIN_MCP_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"q": "why did we switch the embedding model", "mode": "auto", "limit": 12}'
 ```
@@ -133,7 +134,7 @@ curl -sS -X POST https://valorbrain-api.valor.digital/retrieve \
 
 ```bash
 curl -sS -X POST https://valorbrain-api.valor.digital/ask \
-  -H "Authorization: Bearer $VALORBRAIN_TOKEN" \
+  -H "Authorization: Bearer $VALORBRAIN_MCP_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"q": "What is the document cap for one write?", "collection": "team-notes", "limit": 8}'
 ```
@@ -146,7 +147,7 @@ Depois de responder com memória recuperada, declare o que você realmente usou:
 
 ```bash
 curl -sS -X POST https://valorbrain-api.valor.digital/api/v1/memory/used \
-  -H "Authorization: Bearer $VALORBRAIN_TOKEN" \
+  -H "Authorization: Bearer $VALORBRAIN_MCP_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"docids": ["#ab12cd", "#ef4567"], "verdict": "confirmed", "note": "answer relied on the dedup doc"}'
 ```
@@ -161,13 +162,13 @@ Os três são POSTs no id do documento (corpos vazios):
 
 ```bash
 curl -sS -X POST https://valorbrain-api.valor.digital/documents/$DOC_ID/pin \
-  -H "Authorization: Bearer $VALORBRAIN_TOKEN"
+  -H "Authorization: Bearer $VALORBRAIN_MCP_TOKEN"
 
 curl -sS -X POST .../documents/$DOC_ID/snooze \
-  -H "Authorization: Bearer $VALORBRAIN_TOKEN"
+  -H "Authorization: Bearer $VALORBRAIN_MCP_TOKEN"
 
 curl -sS -X POST .../documents/$DOC_ID/forget \
-  -H "Authorization: Bearer $VALORBRAIN_TOKEN"
+  -H "Authorization: Bearer $VALORBRAIN_MCP_TOKEN"
 ```
 
 - **pin** — boost permanente de prioridade; o documento aparece acima do decaimento do ranking.
@@ -177,7 +178,7 @@ curl -sS -X POST .../documents/$DOC_ID/forget \
 Visão do lifecycle (contagens de archived/forgotten/pinned/snoozed e política):
 
 ```bash
-curl -sS https://valorbrain-api.valor.digital/lifecycle/status -H "Authorization: Bearer $VALORBRAIN_TOKEN"
+curl -sS https://valorbrain-api.valor.digital/lifecycle/status -H "Authorization: Bearer $VALORBRAIN_MCP_TOKEN"
 ```
 
 `POST /lifecycle/sweep` roda as políticas (dry-run por padrão — confira a resposta antes de purgar), `POST /lifecycle/restore` traz de volta documentos auto-arquivados (forgets manuais continuam apagados).
@@ -187,9 +188,9 @@ curl -sS https://valorbrain-api.valor.digital/lifecycle/status -H "Authorization
 ### Conflitos
 
 ```bash
-curl -sS ".../api/v1/conflicts?status=open" -H "Authorization: Bearer $VALORBRAIN_TOKEN"
-curl -sS -X POST .../api/v1/conflicts/detect -H "Authorization: Bearer $VALORBRAIN_TOKEN"
-curl -sS -X POST .../api/v1/conflicts/resolve -H "Authorization: Bearer $VALORBRAIN_TOKEN" \
+curl -sS ".../api/v1/conflicts?status=open" -H "Authorization: Bearer $VALORBRAIN_MCP_TOKEN"
+curl -sS -X POST .../api/v1/conflicts/detect -H "Authorization: Bearer $VALORBRAIN_MCP_TOKEN"
+curl -sS -X POST .../api/v1/conflicts/resolve -H "Authorization: Bearer $VALORBRAIN_MCP_TOKEN" \
   -H "Content-Type: application/json" -d '{"conflict_id": "...", "strategy": "most_recent"}'
 ```
 
@@ -198,7 +199,7 @@ Conflitos de valor (mesma chave, valores diferentes), conflitos temporais (fatos
 ### Decisões
 
 ```bash
-curl -sS -X POST .../api/v1/decisions -H "Authorization: Bearer $VALORBRAIN_TOKEN" \
+curl -sS -X POST .../api/v1/decisions -H "Authorization: Bearer $VALORBRAIN_MCP_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "category": "architecture",
@@ -214,9 +215,9 @@ Companheiros: `POST /api/v1/decisions/relations` (caused / influenced / preceden
 ## Medir: uso e valor
 
 ```bash
-curl -sS ".../reports/usage" -H "Authorization: Bearer $VALORBRAIN_TOKEN"
-curl -sS ".../api/v1/usage/answers" -H "Authorization: Bearer $VALORBRAIN_TOKEN"
-curl -sS ".../api/v1/tenant/value-summary" -H "Authorization: Bearer $VALORBRAIN_TOKEN"
+curl -sS ".../reports/usage" -H "Authorization: Bearer $VALORBRAIN_MCP_TOKEN"
+curl -sS ".../api/v1/usage/answers" -H "Authorization: Bearer $VALORBRAIN_MCP_TOKEN"
+curl -sS ".../api/v1/tenant/value-summary" -H "Authorization: Bearer $VALORBRAIN_MCP_TOKEN"
 ```
 
 O ledger de uso registra cada operação por canal (mcp / rest / hook / cli) com latência e contagens de resultado; `value-summary` serve o pré-agregado diário (`stale_days` reporta buracos enquanto o dia de hoje agrega ao vivo). São os endpoints que os dashboards do SaaS leem — mesmos dados, sem camada de interpretação no meio.
@@ -230,9 +231,9 @@ Tudo acima é REST. As ferramentas MCP ([catálogo gerado](/docs/api/generated-m
 | Sintoma | Causa | Correção |
 |---|---|---|
 | `401` em toda chamada | Token ausente/rotacionado | Confira o prefixo `Authorization: Bearer ` (sem `Basic`, sem aspas) |
-| `403` em rotas admin com um token válido | Token de tenant numa rota admin | Use `ENGINE_ADMIN_SECRET` — ou não toque em rotas admin a partir de código de tenant |
+| `403` com `insufficient_scope` | O token é válido mas não tem o escopo da rota | Emita um token com o escopo de `required_scope`; veja o [catálogo de erros](/docs/api/errors) |
 | Busca vazia logo após um write | Embedding ainda pendente | Faça polling de `embed_state`; a perna densa precisa de `synced` |
 | Write funciona, a busca nunca acha | Hash do conteúdo já indexado em outro lugar | Dedup cross-collection é por design; mude o conteúdo ou aceite a cópia existente |
-| Zero linhas numa consulta que você sabe que bate | RLS: token/header resolveu outro tenant | Verifique o `x-tenant-id` e que a chave `vb_` pertence àquele tenant |
+| Zero linhas numa consulta que você sabe que bate | O token pertence a outro workspace (o tenant vem da credencial) | Use um token criado no workspace onde o documento foi escrito |
 | `200` mas o `score` parece baixo numa correspondência exata | Correspondências de string exata ranqueiam pelo pipeline completo, não por igualdade de string | Para identificadores e literais use `memory_grep` (MCP) ou modo keyword, não ranking semântico |
 | `400` num body >1 MB | Teto rígido no `content` | Divida o documento; `path` é sua chave de paginação |

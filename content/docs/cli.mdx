@@ -31,9 +31,9 @@ Cria uma conta de agente (shadow tenant) sem email. Com `--json`, imprime um
 
 | Campo | O que é |
 |---|---|
-| `mcp_token` | `vbm_…` — **só MCP**, em `mcp_url`. Aparece só nesta resposta. |
+| `mcp_token` | `vbm_…` — a credencial do cliente: MCP em `mcp_url` e REST do engine. Aparece só nesta resposta. |
 | `mcp_url` | `https://mcpbrain.valor.digital/mcp` |
-| `api_key` | `vb_agent_…` — **só REST**, em `https://valorbrain-api.valor.digital` |
+| `api_key` | `vb_agent_…` — chave de conta de agente (legado): **só REST** e claim, em `https://valorbrain-api.valor.digital` |
 | `notice` | Instrução do servidor para o agente (o `message` do signup), com o aviso de claim para mostrar ao humano |
 | `next_steps` | Os passos seguintes do contrato: comando por cliente, stdio, verificação, claim |
 
@@ -101,10 +101,11 @@ O body é armazenado verbatim — sem tradução. Flags de cada comando:
 | Variável | Valor | Uso |
 |---|---|---|
 | `VALORBRAIN_MCP_TOKEN` | `vbm_…` | Token MCP (proxy stdio, clientes HTTP como o Codex) |
-| `VALORBRAIN_API_KEY` | `vb_agent_…` / `vb_…` | Chave REST (`add`, `search`, …) |
+| `VALORBRAIN_API_KEY` | `vb_agent_…` | Chave REST (`add`, `search`, …) |
 | `VALORBRAIN_API_URL` | URL | Base REST (padrão `https://valorbrain-api.valor.digital`) |
 | `VALORBRAIN_MCP_URL` | URL | Endpoint MCP (padrão `https://mcpbrain.valor.digital/mcp`) |
 | `VALORBRAIN_TOKEN` | — | **Legado, deprecado.** Ainda aceito com aviso: `vbm_…` vale como token MCP; qualquer outro valor, como chave REST. Migre para as duas variáveis acima. |
+| `VALORBRAIN_API_TOKEN` | — | **Legado, deprecado.** Ainda lido como chave REST, com aviso no stderr. Migre para `VALORBRAIN_API_KEY`. |
 
 Ordem: flag (`--api-key`, `--token`, `--url`) → variável de ambiente →
 `~/.valorbrain/config.json`.

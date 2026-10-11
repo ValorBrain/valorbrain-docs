@@ -30,6 +30,9 @@ jobs:
       - name: Live link checker
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: python3 scripts/check-links.py https://docs.valorbrain.com.br
+      - name: Live credential matrix equals the committed snapshot
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        run: python3 scripts/check-credential-matrix.py --live
       - name: Live origin edge
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: bash scripts/check-edge.sh https://docs.valorbrain.com.br

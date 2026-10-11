@@ -21,7 +21,7 @@ ValorBrain mede o que entrega por tenant a partir de um **ledger** — cada oper
 O job noturno pré-agrega o ledger em `value_daily` (por tenant, por dia). A leitura pública é REST:
 
 ```bash
-curl -sS ".../api/v1/tenant/value-summary" -H "Authorization: Bearer $VALORBRAIN_TOKEN"
+curl -sS ".../api/v1/tenant/value-summary" -H "Authorization: Bearer $VALORBRAIN_MCP_TOKEN"
 ```
 
 Dias completos vêm do agregado; **hoje** e dias faltantes são computados ao vivo — e o campo `stale_days` reporta os buracos. Famílias de valor (search / context / write / collab) agrupam o que cada operação entregou.
@@ -29,7 +29,7 @@ Dias completos vêm do agregado; **hoje** e dias faltantes são computados ao vi
 ## Respostas entregues
 
 ```bash
-curl -sS ".../api/v1/usage/answers" -H "Authorization: Bearer $VALORBRAIN_TOKEN"
+curl -sS ".../api/v1/usage/answers" -H "Authorization: Bearer $VALORBRAIN_MCP_TOKEN"
 ```
 
 O corte por **respostas** (não por chamadas): quantas respostas citaram memória, com fonte — a métrica que importa para "o produto está entregando conhecimento ou só latência?".

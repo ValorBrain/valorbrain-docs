@@ -1,27 +1,43 @@
 ---
 title: Referência de API
-description: Ferramentas MCP, endpoints REST e os dois documentos OpenAPI diferentes que existem hoje.
+description: Ferramentas MCP, endpoints REST, credenciais e qual documento OpenAPI usar.
 icon: Library
 ---
 
 <Cards>
   <Card title="Ferramentas MCP" href="/docs/api/mcp-tools" description="Nomes canônicos, toolsets, aliases, deprecadas." />
   <Card title="Endpoints REST" href="/docs/api/rest" description="Rotas do engine voltadas ao cliente, no valorbrain-api." />
+  <Card title="Ciclo de vida dos tokens" href="/docs/api/token-lifecycle" description="Validade, revogação e rotação de cada credencial. Gerado da matriz." />
+  <Card title="Limites de requisição" href="/docs/api/rate-limits" description="Limites por credencial e por rota. Gerado da matriz." />
+  <Card title="Catálogo de erros" href="/docs/api/errors" description="Cada código de erro com causa e ação. Gerado do engine." />
   <Card title="Catálogo MCP (gerado)" href="/docs/api/generated-mcp" description="src/tool-catalog.ts, reconstruído junto com as docs." />
-  <Card title="REST (gerado)" href="/docs/api/generated-rest" description="Todos os paths OpenAPI do engine, reconstruídos junto com as docs." />
+  <Card title="REST (gerado)" href="/docs/api/generated-rest" description="Todos os paths do OpenAPI público do engine (rotas de cliente), reconstruídos junto com as docs." />
 </Cards>
 
-## OpenAPI — dois arquivos, não confunda
+## OpenAPI: qual arquivo usar
 
 | URL | O que de fato é |
 |---|---|
-| `https://valorbrain.valor.digital/openapi.json` | Documento de **descoberta** do SaaS. **4 paths** (ingest, device code, health-class). ~6.7 KB. |
-| `https://docs.valorbrain.com.br/openapi.json` | OpenAPI do engine, regenerado no build das docs (servers reescritos para valorbrain-api). |
-| `docs/reference/openapi.yaml` no repositório do engine | Spec completa do engine. **116 paths**, incluindo ops/graph. Não publicada no `valorbrain-api` (esse host dá 404 em `/openapi.json`). |
+| `https://valorbrain-api.valor.digital/openapi.json` | OpenAPI **público** do engine, sem autenticação: só as rotas de cliente (documentos e ingest, conversas, busca e retrieve, `memory` prepare/store/recall/used, signup/identify/claim de agente, tokens MCP, OAuth, health), gerado da tabela de rotas do processo. É a fonte da referência REST deste site. |
+| `https://docs.valorbrain.com.br/openapi.json` | Cópia do anterior, regenerada no build das docs (servers reescritos para valorbrain-api e o engine local). |
+| `docs/reference/openapi.yaml` no repositório do engine | Contrato completo do engine, com rotas de admin e operação. Só para quem opera a plataforma; não é publicado. |
+| `https://valorbrain.valor.digital/openapi.json` | OpenAPI do app: as mesmas rotas de cliente do engine mais as rotas de cliente do app (`POST /api/v1/ingest`, `POST /api/v1/cli/device/code`, `POST /api/v1/cli/device/token`), com o app como servidor. |
 
-O arquivo de 4 paths é real e útil para descoberta por agentes no host de
-marketing. Ele não é uma descrição do `/search`. Use este site e a página REST
-para integração.
+O device flow do `@valorbrain/connect` e o ingest com chave `fk_` são rotas
+do app em `https://valorbrain.valor.digital`, não do engine: estão no OpenAPI
+do app, não na spec pública do engine.
+
+A matriz de credenciais (prefixos, onde cada um é aceito, variáveis do cliente,
+limites e erros) é servida em
+[`https://valorbrain-api.valor.digital/.well-known/valorbrain-credentials.json`](https://valorbrain-api.valor.digital/.well-known/valorbrain-credentials.json).
+As páginas [Tokens](/docs/concepts/tokens),
+[Ciclo de vida](/docs/api/token-lifecycle),
+[Limites](/docs/api/rate-limits) e [Erros](/docs/api/errors) são geradas dela,
+e este site publica a mesma cópia em
+[`/valorbrain-credentials.json`](/valorbrain-credentials.json).
+
+Para integrar, use a spec pública do engine (ou a cópia deste site) e a
+página [Endpoints REST](/docs/api/rest).
 
 ## Docs legíveis por máquina
 

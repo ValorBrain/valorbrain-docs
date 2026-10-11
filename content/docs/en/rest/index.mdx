@@ -10,10 +10,11 @@ Base URL: `https://valorbrain-api.valor.digital`
 curl -sS https://valorbrain-api.valor.digital/health
 ```
 
-Auth: `Authorization: Bearer <vb_agent_ or other engine token>`.
+Auth: `Authorization: Bearer <vbm_…>` (the client token) or the signup's
+legacy `vb_agent_…` key.
 
-The tenant is resolved from the token. You do **not** need `X-Tenant-ID` for a
-normal key.
+The tenant always comes from the credential: do not send `X-Tenant-ID`. Which
+credential works where: [Tokens](/en/docs/concepts/tokens).
 
 ## Search
 

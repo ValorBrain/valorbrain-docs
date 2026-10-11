@@ -9,6 +9,17 @@ and the project adheres to
 
 ### Added
 
+- Credential pages generated from the engine's credential matrix (pt + en):
+  "Tokens" (rewritten), "Ciclo de vida dos tokens" / "Token lifecycle",
+  "Limites de requisição" / "Rate limits" and "Catálogo de erros" / "Error
+  catalog", written by `bun <engine>/scripts/credential-docs.ts write --docs`,
+  plus the matrix snapshot at `/valorbrain-credentials.json`.
+- `scripts/check-credential-matrix.py`: fails when a generated page was edited
+  by hand or comes from another matrix; `docs-ci` runs it after the build and
+  the daily workflow runs it with `--live` against the engine's
+  `/.well-known/valorbrain-credentials.json`.
+- "Conectar" / "Connect" (integrations): the canonical path to a working
+  `vbm_`, mirroring `https://valorbrain.com.br/connect.md`.
 - "O que sai da sua máquina" / "What leaves your machine" (concepts): per
   harness, what each hook sends, endpoint, credential, cadence and opt-out,
   extracted from the hook and adapter code.
@@ -31,6 +42,14 @@ and the project adheres to
 
 ### Changed
 
+- API reference (pt + en): the OpenAPI table describes the engine's public spec
+  (client routes only), the app's spec (client routes plus ingest and device
+  flow) and where the credential matrix is served; Cards for the new pages.
+- Quickstart, CLI, REST, REST cookbook, claim, usage and integrations pages
+  (pt + en) follow the credential matrix: `vbm_` is the client credential on
+  MCP and REST, `vb_agent_` is the legacy account key (REST and claim), no
+  `X-Tenant-ID`, no engine master or admin secrets, and the claim does not
+  create an app login.
 - "What leaves your machine" quotes the hosted hook command at its pin,
   `npx -y @valorbrain/connect@0.7.0 hook …` (pt + en), as the engine renders it;
   it showed the unpinned command.

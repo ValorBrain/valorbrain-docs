@@ -1,27 +1,43 @@
 ---
 title: API reference
-description: MCP tools, REST endpoints, and the two different OpenAPI documents that exist today.
+description: MCP tools, REST endpoints, credentials, and which OpenAPI document to use.
 icon: Library
 ---
 
 <Cards>
   <Card title="MCP tools" href="/en/docs/api/mcp-tools" description="Canonical names, toolsets, aliases, deprecated." />
   <Card title="REST endpoints" href="/en/docs/api/rest" description="Customer-facing engine routes on valorbrain-api." />
+  <Card title="Token lifecycle" href="/en/docs/api/token-lifecycle" description="Expiry, revocation and rotation of every credential. Generated from the matrix." />
+  <Card title="Rate limits" href="/en/docs/api/rate-limits" description="Limits per credential and per route. Generated from the matrix." />
+  <Card title="Error catalog" href="/en/docs/api/errors" description="Every error code with cause and action. Generated from the engine." />
   <Card title="MCP catalog (generated)" href="/en/docs/api/generated-mcp" description="src/tool-catalog.ts, rebuilt with the docs." />
-  <Card title="REST (generated)" href="/en/docs/api/generated-rest" description="Every engine OpenAPI path, rebuilt with the docs." />
+  <Card title="REST (generated)" href="/en/docs/api/generated-rest" description="Every path of the engine's public OpenAPI (client routes), rebuilt with the docs." />
 </Cards>
 
-## OpenAPI — two files, do not confuse them
+## OpenAPI: which file to use
 
 | URL | What it actually is |
 |---|---|
-| `https://valorbrain.valor.digital/openapi.json` | SaaS **discovery** document. **4 paths** (ingest, device code, health-class). ~6.7 KB. |
-| `https://docs.valorbrain.com.br/openapi.json` | Engine OpenAPI, regenerated at docs build (servers rewritten to valorbrain-api). |
-| Engine repo `docs/reference/openapi.yaml` | Full engine spec. **116 paths**, including ops/graph. Not published on `valorbrain-api` (that host 404s `/openapi.json`). |
+| `https://valorbrain-api.valor.digital/openapi.json` | The engine's **public** OpenAPI, no auth needed: client routes only (documents and ingest, conversations, search and retrieve, `memory` prepare/store/recall/used, agent signup/identify/claim, MCP tokens, OAuth, health), generated from the process' route table. The source of this site's REST reference. |
+| `https://docs.valorbrain.com.br/openapi.json` | A copy of the above, regenerated at docs build (servers rewritten to valorbrain-api and the local engine). |
+| Engine repo `docs/reference/openapi.yaml` | The engine's full contract, admin and operations routes included. For the platform operator only; not published. |
+| `https://valorbrain.valor.digital/openapi.json` | The app's OpenAPI: the same engine client routes plus the app's client routes (`POST /api/v1/ingest`, `POST /api/v1/cli/device/code`, `POST /api/v1/cli/device/token`), with the app as server. |
 
-The 4-path file is real and useful for agent discovery on the marketing
-host. It is not a description of `/search`. Use this site and the REST
-page for integration.
+The `@valorbrain/connect` device flow and `fk_` key ingest are app routes on
+`https://valorbrain.valor.digital`, not engine routes: they are in the app's
+OpenAPI, not in the engine's public spec.
+
+The credential matrix (prefixes, where each one is accepted, client variables,
+limits and errors) is served at
+[`https://valorbrain-api.valor.digital/.well-known/valorbrain-credentials.json`](https://valorbrain-api.valor.digital/.well-known/valorbrain-credentials.json).
+The [Tokens](/en/docs/concepts/tokens),
+[Token lifecycle](/en/docs/api/token-lifecycle),
+[Rate limits](/en/docs/api/rate-limits) and [Errors](/en/docs/api/errors)
+pages are generated from it, and this site publishes the same copy at
+[`/valorbrain-credentials.json`](/valorbrain-credentials.json).
+
+To integrate, use the engine's public spec (or this site's copy) and the
+[REST endpoints](/en/docs/api/rest) page.
 
 ## Machine-readable docs
 

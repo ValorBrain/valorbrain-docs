@@ -28,7 +28,7 @@ Auth: `Authorization: Bearer <token>`. Tenant comes from the token.
 | `GET` | `/timeline/:id` | Temporal neighbourhood. |
 | `GET` | `/graph/similar/:id` | Semantic neighbours. |
 | `GET` | `/graph/causal/:id` | Causal links. |
-| `POST` | `/api/v1/agents/signup` | Agent account. Returns `vb_agent_` key. |
+| `POST` | `/api/v1/agents/signup` | Agent account. Returns `mcp_token` (`vbm_`) and `api_key` (`vb_agent_`). |
 | `POST` | `/api/v1/agents/identify` | `agent_caller` backfill. |
 | `POST` | `/api/v1/agents/claim` | Start email claim. |
 | `POST` | `/api/v1/agents/claim/verify` | Finish claim. Same key. |

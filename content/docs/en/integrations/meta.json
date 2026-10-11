@@ -2,6 +2,7 @@
   "title": "Integrations",
   "pages": [
     "index",
+    "connect",
     "claude-code",
     "codex",
     "gemini",
