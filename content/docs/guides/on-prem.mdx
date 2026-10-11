@@ -19,7 +19,7 @@ A API hospedada em `valorbrain-api.valor.digital` é o caminho sem setup. O que 
 | Reranker | BGE-Reranker-v2-m3 cross-encoder | `:8096` (opcional; fallback em processo) |
 | LLM | gateway compatível com OpenAI | `:8201/v1`, modelo via `VALORBRAIN_LLM_MODEL` |
 
-GPU é opcional — sem ela, embedding/rerank/LLM apontam para endpoints cloud. Sem as extensões proprietárias do Postgres, o engine sobe em modo degradado (pgvector + BM25 via tsvector): serve para avaliação, sem o RRF híbrido completo nem o grafo.
+GPU é opcional — sem ela, embedding/rerank/LLM apontam para endpoints cloud. Sem as extensões proprietárias do Postgres, o engine sobe em modo degradado (pgvector + BM25 via tsvector): serve para avaliação, sem o RRF híbrido completo.
 
 ## Bancos — regra número um
 
@@ -63,10 +63,10 @@ Dois gates de benchmark acompanham o engine (custam LLM e tempo — não são te
 
 | Gate | O que protege |
 |---|---|
-| `gate:locomo` | Piso de recall LoCoMo (R@10 ≥ 0,90; variação completa para SOTA) |
-| `gate:beam` | Acurácia no BEAM-100K via arreio AMB, par fixo leitor/juiz |
+| `gate:locomo` | Piso de recall LoCoMo (recall@10 por sessão ≥ 0,90; variação completa para SOTA) |
+| `gate:beam` | BEAM-100K (média e binário) via harness AMB, par fixo leitor/juiz |
 
-Os números públicos estão na página de [avaliação](/docs/concepts/evaluation) e no [site](https://valorbrain.valor.digital/benchmarks). A suíte unitária roda contra `valorbrain_test`; qualquer falha é regressão, sem banda de tolerância.
+Os números públicos estão na página de [avaliação](/docs/concepts/evaluation) e no [site](https://valorbrain.com.br/benchmarks). A suíte unitária roda contra `valorbrain_test`; qualquer falha é regressão, sem banda de tolerância.
 
 ## Upgrade
 

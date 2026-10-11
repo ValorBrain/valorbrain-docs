@@ -7,21 +7,22 @@ Este é o modelo mental sobre o qual a API e as ferramentas MCP ([catálogo gera
 
 ## O pipeline de recuperação
 
-Uma query, cinco pernas, fundidas:
+Recuperação híbrida: BM25 (português e inglês) e vetores densos (LFM2.5-Embedding-350M, 1024 dimensões) fundidos por RRF, depois reordenação por cross-encoder (BGE-Reranker-v2-m3) e MMR para diversidade. Um LLM só expande a pergunta; nunca ranqueia. O PageRank personalizado existe atrás de uma flag e está desligado na produção.
 
 ```
-              ┌─ BM25 (lexical, pgturbohybrid) ─────────┐
-query ────────┼─ dense vectors (pgvector, LFM2.5 1024d) ├─ RRF fuse ─▶ PPR graph ─▶ cross-encoder ─▶ top-K
-              └─ causal / timeline / neighbors (routing)┘
+                         ┌─ BM25 (pt + en, pgturbohybrid) ─────────────────┐
+query ─▶ LLM expansion ──┤                                                 ├─ RRF ─▶ cross-encoder (BGE-Reranker-v2-m3) ─▶ MMR ─▶ top-K
+                         └─ dense vectors (LFM2.5-Embedding-350M, 1024d) ──┘
 ```
 
-1. **Léxico (BM25)** — o `pgturbohybrid` mantém BM25 e denso em um *único* índice; o `tenant_hash` viaja no `INCLUDE` do índice, então o filtro de tenant acontece dentro do index scan, não como pós-filtro. Num índice multi-tenant, essa é a diferença entre um ANN que funciona e um ANN que silenciosamente passa fome nos tenants pequenos.
-2. **Denso** — embeddings de 1024 dimensões em `content_vectors` (deduplicados por hash de conteúdo), HNSW com `ef_search=1000`.
-3. **Fusão RRF** — a reciprocal-rank fusion mescla as pernas sem precisar de scores comparáveis.
-4. **Rerank de grafo (PPR)** — o personalized PageRank sobre o grafo de entidades/tempo promove documentos *conectados* ao que você perguntou, não apenas parecidos léxica ou semanticamente.
-5. **Rerank de cross-encoder** — o BGE-Reranker-v2-m3 pontua pares query-documento diretamente; o top-K que sobrevive é o que você vê.
+1. **Expansão da pergunta (LLM)** — um LLM reescreve/expande a pergunta para gerar variantes de busca. É o único ponto com modelo generativo; ele nunca ordena resultados.
+2. **Léxico (BM25, português e inglês)** — o `pgturbohybrid` mantém BM25 e denso em um *único* índice; o `tenant_hash` viaja no `INCLUDE` do índice, então o filtro de tenant acontece dentro do index scan, não como pós-filtro. Num índice multi-tenant, essa é a diferença entre um ANN que funciona e um ANN que silenciosamente passa fome nos tenants pequenos.
+3. **Denso** — embeddings LFM2.5-Embedding-350M de 1024 dimensões em `content_vectors` (deduplicados por hash de conteúdo), HNSW com `ef_search=1000`.
+4. **Fusão RRF** — a reciprocal-rank fusion mescla as duas pernas sem precisar de scores comparáveis.
+5. **Rerank de cross-encoder** — o BGE-Reranker-v2-m3 pontua pares pergunta-documento diretamente.
+6. **MMR** — o filtro de diversidade (`diverse: true`, padrão) impede que o top-K seja dez paráfrases de um documento só.
 
-O `mode` em `/search` e `memory_retrieve` direciona o roteamento: `causal` para perguntas de porquê, `timeline` para quando, `hybrid` para forçar todas as pernas. O `auto` decide por você e acerta na maior parte do tempo. O filtro de diversidade MMR (`diverse: true`, padrão) impede que o top-K seja dez paráfrases de um documento só.
+O `mode` em `/search` e `memory_retrieve` (`auto`, `keyword`, `semantic`, `causal`, `hybrid`) polariza o roteamento da pergunta dentro desse mesmo pipeline; o `auto` decide por você.
 
 **Ranking é o último suspeito, não o primeiro.** Quando a recuperação falha, a ordem honesta de investigação é: pool de candidatos (o documento foi indexado?) → hidratação (o corpo foi carregado?) → renderização de snippet/janela (a resposta estava dentro do trecho entregue?) → ranking. O histórico de debugging do próprio engine é uma cadeia de nove "correções" de ranking que não mudaram nada enquanto o documento estava sendo cortado na renderização.
 
