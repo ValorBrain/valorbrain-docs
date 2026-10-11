@@ -21,8 +21,8 @@ Esta página repete os mesmos quatro passos.
 
 | Credencial | Prefixo | Serve para | Host |
 |---|---|---|---|
-| `mcp_token` | `vbm_…` | **Só MCP** | `https://mcpbrain.valor.digital/mcp` |
-| `api_key` | `vb_agent_…` (ou `vb_…`) | **Só REST** | `https://valorbrain-api.valor.digital` |
+| `mcp_token` | `vbm_…` | **A credencial do cliente:** MCP e REST | `https://mcpbrain.valor.digital/mcp` e `https://valorbrain-api.valor.digital` |
+| `api_key` | `vb_agent_…` | Chave de conta de agente (legado): **só REST** e claim | `https://valorbrain-api.valor.digital` |
 
 O host MCP aceita só `vbm_`. Uma chave `vb_`/`vb_agent_`/`fk_` como bearer no
 MCP volta `401` com `error: "wrong_credential_type"` e uma dica de qual token
@@ -36,8 +36,8 @@ usar. As duas credenciais continuam funcionando antes e depois do claim.
 npx -y @valorbrain/cli@latest init --agent --agent-caller <agent-name> --json
 ```
 
-Devolve `mcp_token` (`vbm_…`, só MCP), `mcp_url`, `api_key` (`vb_agent_…`, só
-REST) e as instruções de claim. Tudo fica salvo na config da CLI
+Devolve `mcp_token` (`vbm_…`, MCP e REST), `mcp_url`, `api_key` (`vb_agent_…`,
+só REST) e as instruções de claim. Tudo fica salvo na config da CLI
 (`~/.valorbrain/config.json`, modo `0600`). O `mcp_token` aparece só nessa
 resposta; guarde-o.
 
@@ -105,15 +105,16 @@ workspace e a memória relevante para a tarefa.
 
 ## 4. Avise o humano
 
-Para ver as memórias no app e manter a conta além de 30 dias, o humano roda,
-com o email dele (código de uso único por email):
+Para manter a conta além de 30 dias, o humano vincula o email dele (código de
+uso único por email, válido por 10 minutos, 5 tentativas):
 
 ```bash
 npx -y @valorbrain/cli init --email <email>
 ```
 
 As duas credenciais continuam funcionando depois do claim. Sem claim, as duas
-expiram em 30 dias. Passo a passo: [Assumir uma conta de agente](/docs/guides/claim).
+expiram em 30 dias. O claim ainda não cria um login no app. Passo a passo:
+[Assumir uma conta de agente](/docs/guides/claim).
 
 A saída do `init --json` traz um `notice` (o `message` da resposta do signup)
 escrito **como instrução para o agente**, com esse mesmo aviso. Mostre-o ao
@@ -136,8 +137,9 @@ digitou.
 
 ## Memória direto do shell (REST)
 
-A `api_key` que o `init` salvou fala **REST** com
-`valorbrain-api.valor.digital`. Não serve para o MCP.
+A CLI fala **REST** com `valorbrain-api.valor.digital` usando a credencial que
+o `init` salvou. A `api_key` (`vb_agent_`) não serve para o MCP; o `vbm_` serve
+nos dois.
 
 ```bash
 npx -y @valorbrain/cli add "the deploy key lives in the ops vault"
@@ -204,7 +206,7 @@ Se você não é um agente:
 
 1. Abra [valorbrain.valor.digital](https://valorbrain.valor.digital/auth/register).
 2. Ative o email.
-3. Crie um token MCP (`vbm_…`) em [Settings → MCP tokens](https://valorbrain.valor.digital/settings/mcp-tokens), ou uma chave de ingest (`fk_….sk_…`).
+3. Crie um token MCP (`vbm_…`) em [Settings → MCP tokens](https://valorbrain.valor.digital/settings/mcp-tokens). A chave de ingest (`fk_….sk_…`) é outra coisa: só para o ingest do app, servidor a servidor.
 4. Siga o [passo 2](#2-conecte-o-cliente-mcp) acima, ou [REST](/docs/rest).
 
 ## Comandos fantasma

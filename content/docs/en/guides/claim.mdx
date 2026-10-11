@@ -1,19 +1,27 @@
 ---
 title: Claim an agent account
-description: Bind an email without rotating the key.
+description: Bind an email to the agent account without changing its credentials.
 ---
 
-The agent already has a working key. A human claims ownership later.
+The agent already has the signup credentials: the `mcp_token` (`vbm_…`) and
+the `api_key` (`vb_agent_…`). A human claims ownership later, with their email.
 
 ```bash
 npx @valorbrain/cli init --email <your-email>
 ```
 
-ValorBrain emails a one-time code. The journal does not print the OTP in
-cleartext on the success path (fixed 2026-08-30). Paste the code when the
-CLI asks, or pass `--otp`.
+ValorBrain emails a one-time code, valid for 10 minutes with 5 attempts. The
+journal does not print the OTP in cleartext on the success path (fixed
+2026-08-30). Paste the code when the CLI asks, or pass `--otp`. Underneath
+it is `POST /api/v1/agents/claim` then `POST /api/v1/agents/claim/verify`,
+authenticated with the `api_key`.
 
 Acceptance, verified 2026-08-30 from a clean network: the response is
 **"Same API key. All memories preserved."** The `vb_agent_` value does not
-change. MCP tokens (`vbm_`) are still created in the app if you want an
-editor connected.
+change and the signup's `vbm_` keeps working; the claim removes the 30-day
+expiry from both credentials.
+
+The claim binds the email to the workspace; it does not create an app login
+yet. To connect another client, use the same `vbm_` (see
+[Connect](/en/docs/integrations/connect)). Expiry and revocation of each
+credential: [Token lifecycle](/en/docs/api/token-lifecycle).

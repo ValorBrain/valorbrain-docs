@@ -10,6 +10,7 @@ have one source, [connect.md](https://valorbrain.com.br/connect.md), repeated
 in the [Quickstart](/en/docs/quickstart).
 
 <Cards>
+  <Card title="Connect" href="/en/docs/integrations/connect" description="The canonical path to a working vbm_, in at most three commands." />
   <Card title="Claude Code" href="/en/docs/integrations/claude-code" description="claude mcp add --transport http with a vbm_ bearer, or stdio." />
   <Card title="Codex" href="/en/docs/integrations/codex" description="codex mcp add with --bearer-token-env-var VALORBRAIN_MCP_TOKEN." />
   <Card title="Gemini CLI" href="/en/docs/integrations/gemini" description="httpUrl in ~/.gemini/settings.json." />
@@ -28,9 +29,9 @@ in the [Quickstart](/en/docs/quickstart).
 `https://mcpbrain.valor.digital/mcp` with a `vbm_` token (the signup's
 `mcp_token`, or one created under
 [Settings → MCP tokens](https://valorbrain.valor.digital/settings/mcp-tokens)),
-or to REST at `https://valorbrain-api.valor.digital` with the `vb_agent_` key
-(the signup's `api_key`). Each credential works only on its own host: a `vb_`
-key on MCP gets `401 wrong_credential_type`.
+or to REST at `https://valorbrain-api.valor.digital`, with the same `vbm_` or
+the legacy `vb_agent_` key (the signup's `api_key`). The MCP takes only
+`vbm_`: a `vb_` key on MCP gets `401 wrong_credential_type`.
 
 Any stdio-only client uses `npx -y @valorbrain/cli mcp` as the server
 command. The optional full install with rules and hooks is

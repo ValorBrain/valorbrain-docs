@@ -21,7 +21,7 @@ It is the source for "how many queries did we run this month" and for sizing val
 The nightly job pre-aggregates the ledger into `value_daily` (per tenant, per day). The public read is REST:
 
 ```bash
-curl -sS ".../api/v1/tenant/value-summary" -H "Authorization: Bearer $VALORBRAIN_TOKEN"
+curl -sS ".../api/v1/tenant/value-summary" -H "Authorization: Bearer $VALORBRAIN_MCP_TOKEN"
 ```
 
 Complete days come from the aggregate; **today** and missing days are computed live — and the `stale_days` field reports the holes. Value families (search / context / write / collab) group what each operation delivered.
@@ -29,7 +29,7 @@ Complete days come from the aggregate; **today** and missing days are computed l
 ## Answers delivered
 
 ```bash
-curl -sS ".../api/v1/usage/answers" -H "Authorization: Bearer $VALORBRAIN_TOKEN"
+curl -sS ".../api/v1/usage/answers" -H "Authorization: Bearer $VALORBRAIN_MCP_TOKEN"
 ```
 
 The cut by **answers** (not by calls): how many answers cited memory, with sources — the metric that matters for "is the product delivering knowledge or just latency?".

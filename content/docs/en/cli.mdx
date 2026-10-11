@@ -31,9 +31,9 @@ prints a single JSON object with, among other fields:
 
 | Field | What it is |
 |---|---|
-| `mcp_token` | `vbm_…` — **MCP only**, at `mcp_url`. Shown only in this response. |
+| `mcp_token` | `vbm_…` — the client credential: MCP at `mcp_url` and the engine REST API. Shown only in this response. |
 | `mcp_url` | `https://mcpbrain.valor.digital/mcp` |
-| `api_key` | `vb_agent_…` — **REST only**, at `https://valorbrain-api.valor.digital` |
+| `api_key` | `vb_agent_…` — agent account key (legacy): **REST only** and the claim, at `https://valorbrain-api.valor.digital` |
 | `notice` | The server's instruction to the agent (the signup `message`), with the claim notice to surface to the human |
 | `next_steps` | The remaining contract steps: per-client command, stdio, verify, claim |
 
@@ -103,10 +103,11 @@ The body is stored verbatim — no translation. Flags for each command:
 | Variable | Value | Use |
 |---|---|---|
 | `VALORBRAIN_MCP_TOKEN` | `vbm_…` | MCP token (stdio proxy, HTTP clients such as Codex) |
-| `VALORBRAIN_API_KEY` | `vb_agent_…` / `vb_…` | REST key (`add`, `search`, …) |
+| `VALORBRAIN_API_KEY` | `vb_agent_…` | REST key (`add`, `search`, …) |
 | `VALORBRAIN_API_URL` | URL | REST base (default `https://valorbrain-api.valor.digital`) |
 | `VALORBRAIN_MCP_URL` | URL | MCP endpoint (default `https://mcpbrain.valor.digital/mcp`) |
 | `VALORBRAIN_TOKEN` | — | **Legacy, deprecated.** Still accepted with a warning: `vbm_…` counts as the MCP token; any other value as the REST key. Move to the two variables above. |
+| `VALORBRAIN_API_TOKEN` | — | **Legacy, deprecated.** Still read as the REST key, with a warning on stderr. Move to `VALORBRAIN_API_KEY`. |
 
 Order: flag (`--api-key`, `--token`, `--url`) → environment variable →
 `~/.valorbrain/config.json`.

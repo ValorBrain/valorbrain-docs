@@ -28,7 +28,7 @@ Auth: `Authorization: Bearer <token>`. O tenant vem do token.
 | `GET` | `/timeline/:id` | Vizinhança temporal. |
 | `GET` | `/graph/similar/:id` | Vizinhos semânticos. |
 | `GET` | `/graph/causal/:id` | Links causais. |
-| `POST` | `/api/v1/agents/signup` | Conta de agente. Devolve chave `vb_agent_`. |
+| `POST` | `/api/v1/agents/signup` | Conta de agente. Devolve `mcp_token` (`vbm_`) e `api_key` (`vb_agent_`). |
 | `POST` | `/api/v1/agents/identify` | Backfill de `agent_caller`. |
 | `POST` | `/api/v1/agents/claim` | Inicia claim de email. |
 | `POST` | `/api/v1/agents/claim/verify` | Conclui o claim. Mesma chave. |

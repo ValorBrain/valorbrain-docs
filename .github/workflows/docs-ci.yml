@@ -25,6 +25,11 @@ jobs:
       # committed MCP catalog page is kept.
       - name: Build
         run: bun run build
+      # The credential pages are generated from the engine's credential matrix;
+      # a hand edit or a stale regeneration fails here. The live comparison
+      # (--live) runs daily in verify-public-path.
+      - name: Credential pages match the credential matrix
+        run: python3 scripts/check-credential-matrix.py
       - name: One published tool count
         run: python3 scripts/check-tool-count.py
       - name: CLI version in the docs is the npm latest

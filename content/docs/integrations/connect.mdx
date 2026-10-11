@@ -1,0 +1,126 @@
+---
+title: Conectar
+description: "O caminho canônico até um token vbm_ funcionando: obter o token, ligar o cliente, verificar."
+---
+
+Este é o caminho que o [connect.md](https://valorbrain.com.br/connect.md)
+manda um agente seguir, aqui com os links para o resto das docs. São no máximo
+três comandos: obter um `vbm_`, ligar o cliente MCP e chamar `memory_prepare`.
+
+Para pedir que o seu agente faça tudo sozinho, mande:
+
+> Conecte o ValorBrain como sua memória: leia [https://valorbrain.com.br/connect.md](https://valorbrain.com.br/connect.md) e siga as instruções.
+
+## 1. Obter um token `vbm_`
+
+O `vbm_` é a credencial do cliente: vale no MCP e no REST do engine, e o
+tenant vem dele (nunca envie `X-Tenant-ID`).
+
+**Sem conta:** o agente cria a conta dele com um comando.
+
+```bash
+npx -y @valorbrain/cli@latest init --agent --agent-caller <nome-do-agente> --json
+```
+
+A saída JSON traz:
+
+| Campo | O que é |
+|---|---|
+| `mcp_token` | O token `vbm_…`. Aparece só nesta resposta; a CLI o salva em `~/.valorbrain/config.json`. |
+| `mcp_url` | `https://mcpbrain.valor.digital/mcp` |
+| `api_key` | Chave de conta de agente `vb_agent_…` (legado): só REST e claim. No MCP ela volta `401 wrong_credential_type`. |
+
+Sem claim, as duas credenciais expiram em 30 dias; veja
+[Claim de conta de agente](/docs/guides/claim).
+
+**Com conta:** crie o token no app, em
+[Configurações → Tokens MCP](https://valorbrain.valor.digital/settings/mcp-tokens).
+Um token por agente ou persona deixa as escritas atribuíveis e a revogação de
+um não derruba os outros.
+
+**Sem token para colar (OAuth):** claude.ai, ChatGPT e Cursor aceitam a URL do
+MCP como conector personalizado, `https://mcpbrain.valor.digital/mcp`. O
+cliente descobre o servidor de autorização, você consente no app e o cliente
+recebe o próprio `vbm_`. Pule para o passo 3.
+
+## 2. Ligar o cliente MCP
+
+Servidor MCP por Streamable HTTP em `https://mcpbrain.valor.digital/mcp`, com
+`Authorization: Bearer <vbm_…>`.
+
+**Claude Code** ([página completa](/docs/integrations/claude-code))
+
+```bash
+claude mcp add --transport http --scope user valorbrain https://mcpbrain.valor.digital/mcp --header "Authorization: Bearer <vbm_…>"
+```
+
+**Codex** ([página completa](/docs/integrations/codex))
+
+```bash
+export VALORBRAIN_MCP_TOKEN=<vbm_…>
+codex mcp add valorbrain --url https://mcpbrain.valor.digital/mcp --bearer-token-env-var VALORBRAIN_MCP_TOKEN
+```
+
+**Gemini CLI** ([página completa](/docs/integrations/gemini)): `~/.gemini/settings.json`
+
+```json
+{"mcpServers":{"valorbrain":{"httpUrl":"https://mcpbrain.valor.digital/mcp","headers":{"Authorization":"Bearer <vbm_…>"}}}}
+```
+
+**Cursor** ([página completa](/docs/integrations/cursor)): `~/.cursor/mcp.json`
+
+```json
+{"mcpServers":{"valorbrain":{"url":"https://mcpbrain.valor.digital/mcp","headers":{"Authorization":"Bearer <vbm_…>"}}}}
+```
+
+**VS Code** ([página completa](/docs/integrations/vscode)): `.vscode/mcp.json`
+
+```json
+{"servers":{"valorbrain":{"type":"http","url":"https://mcpbrain.valor.digital/mcp","headers":{"Authorization":"Bearer <vbm_…>"}}}}
+```
+
+**claude.ai / Claude Desktop:** Settings → Connectors → Add custom connector →
+URL `https://mcpbrain.valor.digital/mcp`. O login é por OAuth; não há token
+para colar. Detalhes em [Conectores](/docs/integrations/connectors).
+
+**Qualquer cliente que só fala stdio:** use como comando do servidor (usa o
+token salvo pelo `init`):
+
+```bash
+npx -y @valorbrain/cli mcp
+```
+
+**Instalação completa, opcional:** configura MCP, regras de memória e hooks em
+todos os agentes detectados no computador.
+
+```bash
+npx -y @valorbrain/connect@latest --token <vbm_…>
+```
+
+## 3. Verificar
+
+Chame a ferramenta MCP `memory_prepare`. Se ela responder com a sua identidade
+e o workspace, a memória está ligada.
+
+## Se der `wrong_credential_type`
+
+O MCP aceita só `vbm_`. Uma chave `vb_agent_`, `vb_<slug>_` ou `fk_` como
+bearer no MCP volta `401` com `error: "wrong_credential_type"`. Troque pelo
+`mcp_token` do signup ou por um token criado em Configurações → Tokens MCP; a
+`api_key` fica para o REST. Os outros códigos estão no
+[catálogo de erros](/docs/api/errors).
+
+## Variáveis de ambiente
+
+| Variável | Guarda |
+|---|---|
+| `VALORBRAIN_MCP_TOKEN` | Token `vbm_` |
+| `VALORBRAIN_API_KEY` | Chave REST `vb_agent_` |
+| `VALORBRAIN_API_URL` | `https://valorbrain-api.valor.digital` |
+| `VALORBRAIN_MCP_URL` | `https://mcpbrain.valor.digital/mcp` |
+
+## Mais
+
+- [Tokens](/docs/concepts/tokens): cada credencial, onde é aceita e onde é recusada.
+- [Ciclo de vida dos tokens](/docs/api/token-lifecycle): validade, revogação e rotação.
+- [Catálogo de erros](/docs/api/errors): cada código com causa e ação.

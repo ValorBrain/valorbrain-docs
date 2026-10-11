@@ -11,6 +11,7 @@ publicamos instaladores. Os passos de conexão têm uma fonte única, o
 [Começo rápido](/docs/quickstart).
 
 <Cards>
+  <Card title="Conectar" href="/docs/integrations/connect" description="O caminho canônico até um vbm_ funcionando, em até três comandos." />
   <Card title="Claude Code" href="/docs/integrations/claude-code" description="claude mcp add --transport http com bearer vbm_, ou stdio." />
   <Card title="Codex" href="/docs/integrations/codex" description="codex mcp add com --bearer-token-env-var VALORBRAIN_MCP_TOKEN." />
   <Card title="Gemini CLI" href="/docs/integrations/gemini" description="httpUrl em ~/.gemini/settings.json." />
@@ -29,8 +30,8 @@ publicamos instaladores. Os passos de conexão têm uma fonte única, o
 com o MCP em `https://mcpbrain.valor.digital/mcp` com um token `vbm_` (o
 `mcp_token` do signup, ou um criado em
 [Settings → MCP tokens](https://valorbrain.valor.digital/settings/mcp-tokens)),
-ou com a REST em `https://valorbrain-api.valor.digital` com a chave
-`vb_agent_` (a `api_key` do signup). Cada credencial só funciona no seu host:
+ou com a REST em `https://valorbrain-api.valor.digital`, com o mesmo `vbm_` ou
+com a chave legada `vb_agent_` (a `api_key` do signup). O MCP aceita só `vbm_`:
 uma chave `vb_` no MCP volta `401 wrong_credential_type`.
 
 Qualquer cliente que só fala stdio usa `npx -y @valorbrain/cli mcp` como
