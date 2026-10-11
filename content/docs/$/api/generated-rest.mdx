@@ -1385,7 +1385,7 @@ post:
 
 ### `POST /search`
 
-Hybrid search (BM25 + vector + rerank) — Full hybrid search with optional HyDE expansion, self-correct retrieval, and personalized graph ranking. Searches DOCUMENTS (prose): keyed facts (upsert_keyed_fact / keyed_facts) are NOT part of the text index — query them via keyed_facts_as_of, or receive the current values with declared precedence via memory_prepare / working_context.
+Hybrid search (BM25 + vector + rerank) — Full hybrid search: BM25 and dense vectors fused by RRF, then a cross-encoder rerank and MMR diversity. An LLM only expands the query (optional HyDE); it never ranks. Optional self-correct retrieval. Personalized PageRank exists behind a flag and is off in production. Searches DOCUMENTS (prose): keyed facts (upsert_keyed_fact / keyed_facts) are NOT part of the text index — query them via keyed_facts_as_of, or receive the current values with declared precedence via memory_prepare / working_context.
 
 - Auth: bearer
 - Params: `None`
@@ -1396,8 +1396,10 @@ Hybrid search (BM25 + vector + rerank) — Full hybrid search with optional HyDE
 post:
   operationId: search
   summary: Hybrid search (BM25 + vector + rerank)
-  description: 'Full hybrid search with optional HyDE expansion, self-correct retrieval,
-    and personalized graph ranking. Searches DOCUMENTS (prose): keyed facts (upsert_keyed_fact
+  description: 'Full hybrid search: BM25 and dense vectors fused by RRF, then a cross-encoder
+    rerank and MMR diversity. An LLM only expands the query (optional HyDE); it never
+    ranks. Optional self-correct retrieval. Personalized PageRank exists behind a flag
+    and is off in production. Searches DOCUMENTS (prose): keyed facts (upsert_keyed_fact
     / keyed_facts) are NOT part of the text index — query them via keyed_facts_as_of,
     or receive the current values with declared precedence via memory_prepare / working_context.
 
