@@ -101,7 +101,7 @@ curl -sS -X POST https://valorbrain-api.valor.digital/search \
 ```
 
 - `q` (obrigatório) — a consulta.
-- `mode` — `auto` (padrão), `keyword`, `semantic`, `causal`, `hybrid`. O pipeline de produção é BM25 + vetores densos + RRF + reranking de grafo + rerank com cross-encoder; `mode` polariza quais pernas dominam.
+- `mode` — `auto` (padrão), `keyword`, `semantic`, `causal`, `hybrid`. O pipeline de produção é BM25 (pt/en) + vetores densos + RRF + rerank com cross-encoder + MMR ([detalhes](/docs/concepts/how-retrieval-works)); `mode` polariza quais pernas dominam.
 - `expand` — força liga/desliga da expansão de consulta estilo HyDE. Deixe sem setar e o servidor decide.
 - `diverse` (padrão `true`) — filtro de diversidade MMR, para que dez hits não sejam dez paráfrases de um documento só.
 - `offset` — paginação.

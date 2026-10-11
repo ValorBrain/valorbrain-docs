@@ -24,8 +24,7 @@ searchable on the lexical path.
 
 ## Retrieve
 
-The default path is hybrid: BM25 + dense vectors + RRF, then a cross-encoder
-rerank on the hosted product.
+Hybrid retrieval: BM25 (Portuguese and English) and dense vectors (LFM2.5-Embedding-350M, 1024 dimensions) fused by reciprocal-rank fusion, then a cross-encoder rerank (BGE-Reranker-v2-m3) and MMR for diversity. An LLM only expands the query; it never ranks. Personalized PageRank exists behind a flag and is off in production.
 
 | Tool / route | When |
 |---|---|

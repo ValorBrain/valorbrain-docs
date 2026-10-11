@@ -19,7 +19,7 @@ The hosted API at `valorbrain-api.valor.digital` is the zero-setup path. What fo
 | Reranker | BGE-Reranker-v2-m3 cross-encoder | `:8096` (optional; in-process fallback) |
 | LLM | OpenAI-compatible gateway | `:8201/v1`, model via `VALORBRAIN_LLM_MODEL` |
 
-GPU is optional — without one, embedding/rerank/LLM point at cloud endpoints. Without the proprietary Postgres extensions the engine boots in fallback mode (pgvector + BM25 via tsvector): fine for evaluation, no full hybrid RRF or graph.
+GPU is optional — without one, embedding/rerank/LLM point at cloud endpoints. Without the proprietary Postgres extensions the engine boots in fallback mode (pgvector + BM25 via tsvector): fine for evaluation, no full hybrid RRF.
 
 ## Databases — rule number one
 
@@ -63,10 +63,10 @@ Two benchmark gates ship with the engine (they cost LLM tokens and time — not 
 
 | Gate | What it protects |
 |---|---|
-| `gate:locomo` | LoCoMo recall floor (R@10 ≥ 0.90; full variation for SOTA) |
-| `gate:beam` | BEAM-100K accuracy via the AMB harness, fixed reader/judge pair |
+| `gate:locomo` | LoCoMo recall floor (session-level recall@10 ≥ 0.90; full variation for SOTA) |
+| `gate:beam` | BEAM-100K (average and binary) via the AMB harness, fixed reader/judge pair |
 
-The public numbers live on the [evaluation](/en/docs/concepts/evaluation) page and on the [site](https://valorbrain.valor.digital/en/benchmarks). The unit suite runs against `valorbrain_test`; any failure is a regression, no tolerance band.
+The public numbers live on the [evaluation](/en/docs/concepts/evaluation) page and on the [site](https://valorbrain.com.br/benchmarks). The unit suite runs against `valorbrain_test`; any failure is a regression, no tolerance band.
 
 ## Upgrade
 

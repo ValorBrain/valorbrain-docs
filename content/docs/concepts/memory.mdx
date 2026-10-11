@@ -24,8 +24,7 @@ continuam buscáveis no caminho léxico.
 
 ## Recuperar
 
-O caminho padrão é híbrido: BM25 + vetores densos + RRF, e depois um rerank
-de cross-encoder no produto hospedado.
+Recuperação híbrida: BM25 (português e inglês) e vetores densos (LFM2.5-Embedding-350M, 1024 dimensões) fundidos por RRF, depois reordenação por cross-encoder (BGE-Reranker-v2-m3) e MMR para diversidade. Um LLM só expande a pergunta; nunca ranqueia. O PageRank personalizado existe atrás de uma flag e está desligado na produção.
 
 | Ferramenta / rota | Quando |
 |---|---|

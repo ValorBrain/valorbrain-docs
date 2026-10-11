@@ -101,7 +101,7 @@ curl -sS -X POST https://valorbrain-api.valor.digital/search \
 ```
 
 - `q` (required) — the query.
-- `mode` — `auto` (default), `keyword`, `semantic`, `causal`, `hybrid`. The production pipeline is BM25 + dense vectors + RRF + graph reranking + cross-encoder rerank; `mode` biases which legs dominate.
+- `mode` — `auto` (default), `keyword`, `semantic`, `causal`, `hybrid`. The production pipeline is BM25 (pt/en) + dense vectors + RRF + cross-encoder rerank + MMR ([details](/en/docs/concepts/how-retrieval-works)); `mode` biases which legs dominate.
 - `expand` — force HyDE-style query expansion on/off. Leave unset and the server decides.
 - `diverse` (default `true`) — MMR diversity filter, so ten hits are not ten paraphrases of one document.
 - `offset` — paging.

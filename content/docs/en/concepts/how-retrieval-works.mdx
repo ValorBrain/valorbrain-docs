@@ -7,21 +7,22 @@ This is the mental model the API and the MCP tools ([generated catalog](/en/docs
 
 ## The retrieval pipeline
 
-One query, five legs, fused:
+Hybrid retrieval: BM25 (Portuguese and English) and dense vectors (LFM2.5-Embedding-350M, 1024 dimensions) fused by reciprocal-rank fusion, then a cross-encoder rerank (BGE-Reranker-v2-m3) and MMR for diversity. An LLM only expands the query; it never ranks. Personalized PageRank exists behind a flag and is off in production.
 
 ```
-              ┌─ BM25 (lexical, pgturbohybrid) ─────────┐
-query ────────┼─ dense vectors (pgvector, LFM2.5 1024d) ├─ RRF fuse ─▶ PPR graph ─▶ cross-encoder ─▶ top-K
-              └─ causal / timeline / neighbors (routing)┘
+                         ┌─ BM25 (pt + en, pgturbohybrid) ─────────────────┐
+query ─▶ LLM expansion ──┤                                                 ├─ RRF ─▶ cross-encoder (BGE-Reranker-v2-m3) ─▶ MMR ─▶ top-K
+                         └─ dense vectors (LFM2.5-Embedding-350M, 1024d) ──┘
 ```
 
-1. **Lexical (BM25)** — `pgturbohybrid` keeps BM25 and dense in a *single* index; `tenant_hash` rides in the index `INCLUDE`, so tenant filtering happens inside the index scan, not as a post-filter. In a multi-tenant index this is the difference between ANN that works and ANN that silently starves small tenants.
-2. **Dense** — 1024-d embeddings on `content_vectors` (deduplicated by content hash), HNSW with `ef_search=1000`.
-3. **RRF fusion** — reciprocal-rank fusion merges the legs without needing comparable scores.
-4. **Graph rerank (PPR)** — personalized PageRank over the entity/temporal graph promotes documents that are *connected* to what you asked, not just lexically or semantically similar.
-5. **Cross-encoder rerank** — BGE-Reranker-v2-m3 scores query-document pairs directly; top-K that survives is what you see.
+1. **Query expansion (LLM)** — an LLM rewrites/expands the query into search variants. It is the only generative model in the path; it never orders results.
+2. **Lexical (BM25, Portuguese and English)** — `pgturbohybrid` keeps BM25 and dense in a *single* index; `tenant_hash` rides in the index `INCLUDE`, so the tenant filter happens inside the index scan, not as a post-filter. On a multi-tenant index, that is the difference between an ANN that works and one that silently starves small tenants.
+3. **Dense** — 1024-dimension LFM2.5-Embedding-350M embeddings in `content_vectors` (deduplicated by content hash), HNSW with `ef_search=1000`.
+4. **RRF fusion** — reciprocal-rank fusion merges the two legs without needing comparable scores.
+5. **Cross-encoder rerank** — BGE-Reranker-v2-m3 scores query-document pairs directly.
+6. **MMR** — the diversity filter (`diverse: true`, default) keeps the top-K from being ten paraphrases of one document.
 
-`mode` on `/search` and `memory_retrieve` biases the routing: `causal` for why-questions, `timeline` for when, `hybrid` to force all legs. `auto` decides for you and is right most of the time. The MMR diversity filter (`diverse: true`, default) keeps the top-K from being ten paraphrases of one document.
+`mode` on `/search` and `memory_retrieve` (`auto`, `keyword`, `semantic`, `causal`, `hybrid`) biases how the query is routed inside this same pipeline; `auto` decides for you.
 
 **Ranking is the last suspect, not the first.** When retrieval misses, the honest order of investigation is: candidate pool (was the document indexed at all?) → hydration (was the body loaded?) → snippet/window rendering (was the answer inside the delivered excerpt?) → ranking. The engine's own debugging history is a chain of nine ranking "fixes" that changed nothing while the document was being cut at render time.
 

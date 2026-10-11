@@ -3,7 +3,7 @@ title: Avaliação e benchmarks
 description: O que os números medem, quais são reproduzíveis, e as regras que os mantêm honestos.
 ---
 
-Os números desta página vêm do registro de benchmarks do engine; o espelho público deles está na [página de benchmarks do produto](https://valorbrain.valor.digital/benchmarks). São números de evidência de recuperação, salvo rótulo em contrário — tratá-los como acurácia de resposta é um erro de categoria (veja abaixo).
+Os números desta página vêm do registro de benchmarks do engine; o espelho público deles está na [página de benchmarks do produto](https://valorbrain.com.br/benchmarks). São números de evidência de recuperação, salvo rótulo em contrário — tratá-los como acurácia de resposta é um erro de categoria (veja abaixo).
 
 ## Dois tipos de número
 
@@ -11,31 +11,29 @@ Os números desta página vêm do registro de benchmarks do engine; o espelho p�
 
 **Acurácia de resposta** — um juiz LLM aceitou a resposta? O que leaderboards comerciais normalmente publicam.
 
-Comparar o R@10 do ValorBrain com a acurácia julgada de outro sistema é a leitura errada mais comum desta página. Quando o engine publica acurácia (BEAM via AMB), ele avisa.
+Comparar o recall@10 por sessão do ValorBrain com a acurácia julgada de outro sistema é a leitura errada mais comum desta página. Quando o engine publica nota de juiz (BEAM via AMB), o rótulo é média e binário.
 
 ## Registro reproduzível
 
-| Benchmark | Métrica | Resultado | Notas |
+|Benchmark|Métrica|Resultado|Execução|
 |---|---|---|---|
-| **LoCoMo** | **R@10** de evidência | **96.58%** | 1986 QAs, duas execuções idênticas e limpas (2026-07-29). A base honesta. |
-| LoCoMo | R@1 / R@5 | 69.4% / 91.3% | Mesmas execuções. |
-| **LongMemEval-S** (500 completas) | R@5 / R@10 | 95.2% / 97.6% | Pendente de reverificação com o gate de índice corrigido. |
-| LoCoMo, só denso | R@10 | 63.5% | Só a perna de embedding — uma medição de componente, não do pipeline. |
-| BEAM-100K (harness AMB) | acurácia | ver o placar público | Par leitor/juiz fixo; comparável com o leaderboard da AMB. |
+|**LoCoMo**|recall@10 por sessão|**96,58%**|2026-07-29 — 1918/1986 perguntas, 10 conversas. Cada conversa tem de 19 a 32 sessões; acerto = uma sessão que contém a evidência está entre as 10 primeiras. Base aleatória (10 sessões sorteadas, hipergeométrica exata sobre as mesmas 1986 perguntas): 42,25%.|
+|**BEAM-100K** (harness AMB)|média 75,5% (binário 80,8%)|**75,5%**|2026-08-23 — 20 conversas, 400 perguntas. Leitor GLM-5.3 Flash (effort=max, não é padrão do produto — o leitor é o LLM do cliente), juiz GLM-5.2.|
+|**BEAM-10M** (harness AMB)|média 51,2% (binário 56,0%)|**51,2%**|2026-08-24 — 10 conversas, 200 perguntas, mesmo leitor e juiz.|
 
-O registro LoCoMo mais antigo, de **97.4% R@10, explicitamente não é reproduzível** — foi medido num corpus meio indexado (documentos contados antes de seus vetores chegarem ao índice híbrido) e a documentação do engine o marca como *do not cite*. O delta entre 96.58% e 97.4% é sistemático, não ruído; está documentado em vez de silenciosamente esquecido.
+Contexto, não comparação direta: no mesmo placar AMB, o Hindsight tem média de 64,1% no BEAM-10M com outro leitor (Gemini 3.1 Pro) e outro juiz (Gemini 2.5 Flash Lite).
 
-Pontos de referência que **não** são do ValorBrain: o R@5 93.9% (LoCoMo) e o 98.4% (LongMemEval) da Engram pertencem àquele sistema. Compará-los com a tabela acima é recall-contra-recall e é justo; adotá-los como se fossem do ValorBrain, não.
+Números completos e método: [valorbrain.com.br/benchmarks](https://valorbrain.com.br/benchmarks). Um registro LoCoMo mais antigo foi medido num corpus meio indexado (documentos contados antes de seus vetores chegarem ao índice híbrido) e não é reproduzível; o engine o marca como *do not cite*.
 
 ## O pipeline por trás dos números
 
-O R@10 de 96.58% é o stack completo — BM25 (`pgturbohybrid`) + denso (LFM2.5-Embedding-350M-finetuned-v3, 1024-d) + RRF + rerank de grafo PPR + cross-encoder BGE-Reranker-v2-m3. Cada perna é mensurável sozinha (só denso: 63.5%); a fusão é de onde vem o resto. A troca de embedding que importou historicamente: Jina → LFM2.5 levou o R@10 só-denso de 32.7% para 63.5% (+30.8pp) no mesmo corpus.
+O recall@10 por sessão de 96,58% mede o pipeline de produção inteiro. Recuperação híbrida: BM25 (português e inglês) e vetores densos (LFM2.5-Embedding-350M, 1024 dimensões) fundidos por RRF, depois reordenação por cross-encoder (BGE-Reranker-v2-m3) e MMR para diversidade. Um LLM só expande a pergunta; nunca ranqueia. O PageRank personalizado existe atrás de uma flag e está desligado na produção.
 
 ## Regras que o engine impõe a si mesmo
 
 Estas vieram de erros reais e caros; um benchmark que as quebra mede o harness, não o sistema.
 
-1. **Espere o índice, não o embedding.** Um documento só é buscável pela perna densa depois que chega ao índice híbrido. Gates que esperavam o estado de embedding mediram um corpus meio indexado e produziram o 97.4% irreproduzível.
+1. **Espere o índice, não o embedding.** Um documento só é buscável pela perna densa depois que chega ao índice híbrido. Gates que esperavam o estado de embedding mediram um corpus meio indexado e produziram um registro irreproduzível.
 2. **Nunca faça benchmark contra um sistema em movimento.** Sem restarts nem deploys no meio da execução; sem um segundo benchmark compartilhando as estatísticas BM25 ou o orçamento de dedup.
 3. **Gere o fingerprint do corpus.** O corpus é vivo; execuções só são comparáveis sob o mesmo fingerprint.
 4. **Conheça o piso de ruído antes de comparar.** No LoCoMo é ±2 documentos em 10 conversas; abaixo disso, "regressão" é clima.
@@ -47,4 +45,4 @@ Estas vieram de erros reais e caros; um benchmark que as quebra mede o harness, 
 - Execuções públicas canônicas: o **harness AMB** (agent-memory-benchmark, `vectorize-io`), o mesmo que o placar público usa.
 - Iterações de pesquisa dentro do engine (`beam-qa.ts`) usam um par prompt/juiz diferente e são rotuladas *internal* — servem para escolher o que corrigir, nunca para publicar.
 
-Numa instalação on-premise (Enterprise), para medir a sua própria instância: `bun run gate:locomo` (piso de recall do nightly, R@10 ≥ 0.90 por padrão) e `bun run gate:beam` (acurácia via AMB) vêm com o engine. Custam tokens de LLM e tempo; são gates, não testes de unidade.
+Numa instalação on-premise (Enterprise), para medir a sua própria instância: `bun run gate:locomo` (piso de recall do nightly, recall@10 por sessão ≥ 0,90 por padrão) e `bun run gate:beam` (média e binário via AMB) vêm com o engine. Custam tokens de LLM e tempo; são gates, não testes de unidade.
