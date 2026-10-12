@@ -55,13 +55,23 @@ npx -y @valorbrain/connect@latest --token <vbm_…> --harness <claude-code|codex
 
 Tell your human first: the hooks send the prompt of each turn of the CLI (up to
 8,000 characters) to their ValorBrain workspace to fetch memory; no transcript
-is sent. To stop sending the prompt after the install:
-`npx -y @valorbrain/connect@latest --harness <id> --prompt off` (or `VALORBRAIN_SEND_PROMPT=off`
-in the CLI's environment, except on Gemini CLI, which strips the environment of
-its hooks). To take the hooks out: `npx -y @valorbrain/connect@latest --harness <id> --remove`.
+is sent. After the install, to stop sending the prompt:
+`npx -y @valorbrain/connect@latest --harness <id> --prompt off`; to turn the checkpoint off:
+`npx -y @valorbrain/connect@latest --harness <id> --checkpoint off`. Except on Gemini CLI,
+`VALORBRAIN_SEND_PROMPT=off` and `VALORBRAIN_CHECKPOINT=off` in the CLI's
+environment do the same; Gemini CLI strips the environment of its hooks, so
+there only the saved choices work. To take the hooks out:
+`npx -y @valorbrain/connect@latest --harness <id> --remove`.
 Per-CLI details: [What leaves your machine](/en/docs/concepts/what-leaves-your-machine).
 
-**No hooks (the human declined) or other clients: MCP server only.** HTTP with `Authorization: Bearer <vbm_…>` at `https://mcpbrain.valor.digital/mcp`.
+**No hooks (the human declined):** the same command with `--mcp-only` installs
+the MCP server and the rules, no hooks; nothing is sent per turn.
+
+```bash
+npx -y @valorbrain/connect@latest --token <vbm_…> --harness <id> --mcp-only
+```
+
+**Other clients, or MCP by hand: MCP server only.** HTTP with `Authorization: Bearer <vbm_…>` at `https://mcpbrain.valor.digital/mcp`.
 
 **Claude Code**
 

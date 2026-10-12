@@ -54,13 +54,22 @@ npx -y @valorbrain/connect@latest --token <vbm_…> --harness <claude-code|codex
 
 Antes, avise o humano: os hooks enviam o prompt de cada turno da CLI (até 8.000
 caracteres) para o workspace dele no ValorBrain, para buscar a memória; nenhuma
-transcrição é enviada. Para parar de enviar o prompt depois da instalação:
-`npx -y @valorbrain/connect@latest --harness <id> --prompt off` (ou `VALORBRAIN_SEND_PROMPT=off`
-no ambiente da CLI, exceto no Gemini CLI, que limpa o ambiente dos hooks). Para
-tirar os hooks: `npx -y @valorbrain/connect@latest --harness <id> --remove`. Detalhes por CLI:
+transcrição é enviada. Depois da instalação, para parar de enviar o prompt:
+`npx -y @valorbrain/connect@latest --harness <id> --prompt off`; para desligar o checkpoint:
+`npx -y @valorbrain/connect@latest --harness <id> --checkpoint off`. Fora do Gemini CLI,
+`VALORBRAIN_SEND_PROMPT=off` e `VALORBRAIN_CHECKPOINT=off` no ambiente da CLI fazem
+o mesmo; o Gemini CLI limpa o ambiente dos hooks, então lá só valem as escolhas
+salvas. Para tirar os hooks: `npx -y @valorbrain/connect@latest --harness <id> --remove`. Detalhes por CLI:
 [O que sai da sua máquina](/docs/concepts/what-leaves-your-machine).
 
-**Sem hooks (o humano recusou) ou outros clientes: só o servidor MCP.** Servidor MCP por Streamable HTTP em `https://mcpbrain.valor.digital/mcp`, com
+**Sem hooks (o humano recusou):** o mesmo comando com `--mcp-only` instala o
+servidor MCP e as regras, sem hooks; nada é enviado por turno.
+
+```bash
+npx -y @valorbrain/connect@latest --token <vbm_…> --harness <id> --mcp-only
+```
+
+**Outros clientes, ou o MCP à mão: só o servidor MCP.** Servidor MCP por Streamable HTTP em `https://mcpbrain.valor.digital/mcp`, com
 `Authorization: Bearer <vbm_…>`.
 
 **Claude Code** ([página completa](/docs/integrations/claude-code))
