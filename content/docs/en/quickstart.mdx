@@ -46,7 +46,22 @@ that response; keep it.
 
 ## 2. Connect your MCP client
 
-HTTP with `Authorization: Bearer <vbm_…>` at `https://mcpbrain.valor.digital/mcp`.
+**Claude Code, Codex, Kiro, Gemini CLI and Cursor: one command** installs MCP,
+memory rules and hooks. Run it on the CLI's machine and restart the session:
+
+```bash
+npx -y @valorbrain/connect@latest --token <vbm_…> --harness <claude-code|codex|kiro|gemini-cli|cursor>
+```
+
+Tell your human first: the hooks send the prompt of each turn of the CLI (up to
+8,000 characters) to their ValorBrain workspace to fetch memory; no transcript
+is sent. To stop sending the prompt after the install:
+`npx -y @valorbrain/connect@latest --harness <id> --prompt off` (or `VALORBRAIN_SEND_PROMPT=off`
+in the CLI's environment, except on Gemini CLI, which strips the environment of
+its hooks). To take the hooks out: `npx -y @valorbrain/connect@latest --harness <id> --remove`.
+Per-CLI details: [What leaves your machine](/en/docs/concepts/what-leaves-your-machine).
+
+**No hooks (the human declined) or other clients: MCP server only.** HTTP with `Authorization: Bearer <vbm_…>` at `https://mcpbrain.valor.digital/mcp`.
 
 **Claude Code**
 

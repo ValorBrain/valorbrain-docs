@@ -42,6 +42,13 @@ and the project adheres to
 
 ### Changed
 
+- Quickstart and Connect (pt + en), step 2: Claude Code, Codex, Kiro, Gemini CLI
+  and Cursor get one `@valorbrain/connect` command (`--harness <id>`) for MCP +
+  rules + hooks, with the consent (the prompt of each turn goes to the
+  workspace), the opt-outs connect 0.8.1 has (`--prompt off`,
+  `VALORBRAIN_SEND_PROMPT=off` except on Gemini CLI, `--remove`) and a link to
+  "What leaves your machine". The MCP-only snippets stay as the no-hooks path
+  (engine #420).
 - "What leaves your machine" (pt + en) describes connect 0.8.0: per-harness
   prompt opt-out (`--prompt off`, `VALORBRAIN_SEND_PROMPT=off`), Hermes
   transcript opt-in only (`--transcript on`), signed manifests checked before

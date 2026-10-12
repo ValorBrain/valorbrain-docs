@@ -45,7 +45,22 @@ recebe o próprio `vbm_`. Pule para o passo 3.
 
 ## 2. Ligar o cliente MCP
 
-Servidor MCP por Streamable HTTP em `https://mcpbrain.valor.digital/mcp`, com
+**Claude Code, Codex, Kiro, Gemini CLI e Cursor: um comando** instala MCP,
+regras de memória e hooks. Rode na máquina da CLI e reinicie a sessão:
+
+```bash
+npx -y @valorbrain/connect@latest --token <vbm_…> --harness <claude-code|codex|kiro|gemini-cli|cursor>
+```
+
+Antes, avise o humano: os hooks enviam o prompt de cada turno da CLI (até 8.000
+caracteres) para o workspace dele no ValorBrain, para buscar a memória; nenhuma
+transcrição é enviada. Para parar de enviar o prompt depois da instalação:
+`npx -y @valorbrain/connect@latest --harness <id> --prompt off` (ou `VALORBRAIN_SEND_PROMPT=off`
+no ambiente da CLI, exceto no Gemini CLI, que limpa o ambiente dos hooks). Para
+tirar os hooks: `npx -y @valorbrain/connect@latest --harness <id> --remove`. Detalhes por CLI:
+[O que sai da sua máquina](/docs/concepts/what-leaves-your-machine).
+
+**Sem hooks (o humano recusou) ou outros clientes: só o servidor MCP.** Servidor MCP por Streamable HTTP em `https://mcpbrain.valor.digital/mcp`, com
 `Authorization: Bearer <vbm_…>`.
 
 **Claude Code** ([página completa](/docs/integrations/claude-code))
