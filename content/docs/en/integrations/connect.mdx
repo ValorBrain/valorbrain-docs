@@ -59,12 +59,14 @@ is sent. After the install, to stop sending the prompt:
 `npx -y @valorbrain/connect@latest --harness <id> --checkpoint off`. Except on Gemini CLI,
 `VALORBRAIN_SEND_PROMPT=off` and `VALORBRAIN_CHECKPOINT=off` in the CLI's
 environment do the same; Gemini CLI strips the environment of its hooks, so
-there only the saved choices work. To take the hooks out:
-`npx -y @valorbrain/connect@latest --harness <id> --remove`.
+there only the saved choices work. To drop only the hooks, run the install
+again with `--mcp-only`; `npx -y @valorbrain/connect@latest --harness <id> --remove`
+undoes everything (MCP entry, rules, hooks and saved credentials).
 Per-CLI details: [What leaves your machine](/en/docs/concepts/what-leaves-your-machine).
 
 **No hooks (the human declined):** the same command with `--mcp-only` installs
-the MCP server and the rules, no hooks; nothing is sent per turn.
+the MCP server and the rules, no hooks; nothing is sent per turn. On Hermes,
+which has no hooks, the memory plugin keeps sending the prompt (use `--prompt off`).
 
 ```bash
 npx -y @valorbrain/connect@latest --token <vbm_…> --harness <id> --mcp-only

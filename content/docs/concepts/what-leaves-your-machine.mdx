@@ -4,10 +4,17 @@ description: Por harness, o que os hooks do @valorbrain/connect enviam, para ond
 ---
 
 Esta página descreve o tráfego **automático** que o `@valorbrain/connect`
-(versão 0.8.0, protocolo de hook v2) instala em cada harness: o que os hooks
+(versão 0.9.0, protocolo de hook v2) instala em cada harness: o que os hooks
 mandam sem o agente pedir. As chamadas de ferramenta MCP que o próprio agente
 faz (`memory_store`, `memory_retrieve`…) levam o que o modelo decidir enviar e
 não estão cobertas aqui.
+
+Hooks instalados por versões anteriores passam para a 0.9.0 pelo self-heal
+(abaixo), menos os do **Codex**: o self-heal não reescreve hooks do Codex sem
+mudança de contrato, então uma instalação do Codex anterior à 0.9.0 continua
+com os hooks da 0.8.1 até você rodar o instalador de novo (e confiar nos hooks
+em `/hooks`). Enquanto isso, o `--checkpoint off` salvo não vale no Codex; só
+`VALORBRAIN_CHECKPOINT=off` desliga o checkpoint ali.
 
 Cada número abaixo vem do código-fonte. Quando o código não determina algo,
 a página diz **não determinado no código**.
@@ -31,7 +38,7 @@ OpenClaw não é instalado pelo `@valorbrain/connect` e fica fora desta página.
 ## O cliente de hook comum
 
 Claude Code, Codex, Gemini CLI, Kiro, Cursor, Grok e OpenCode rodam o mesmo
-cliente: `npx -y @valorbrain/connect@0.8.1 hook <evento> --harness=<id>`. A versão
+cliente: `npx -y @valorbrain/connect@0.9.0 hook <evento> --harness=<id>`. A versão
 é fixa (nunca `latest`): o hook roda a cada prompt, então só uma versão revisada
 entra na sua máquina. Ele lê o JSON que o harness entrega no stdin e envia
 **somente** os campos abaixo.
@@ -117,7 +124,7 @@ caminho do hook:
 - `POST https://valorbrain-api.valor.digital/api/v1/runtimes/register` com o
   token, em até 2,5 s. Envia `runtime_key`
   (`<harness>:<hostname>:<caminho do home>`), `agent_platform`, `display_name`, `hostname`,
-  `plugin_version: "0.8.1"` e `capabilities` (harness, versão do contrato
+  `plugin_version: "0.9.0"` e `capabilities` (harness, versão do contrato
   instalada, `connector: "connect"`, `self_heal: true`, protocolo de hook).
 
 A mesma declaração sai uma vez ao final de cada instalação.
@@ -147,7 +154,7 @@ Fonte: `/www/valorbrain-cli/packages/connect/hook.mjs`,
 | Endpoint | `POST https://valorbrain-api.valor.digital/api/v1/hooks/cue` |
 | Credencial | `Bearer` com o token `vbm_…` da entrada `claude-code` em `~/.valorbrain/connect.json` (ordem completa acima) |
 | Ritmo | 1 chamada por início de sessão e por prompt; stop segundo a política |
-| Desligar | `npx -y @valorbrain/connect --harness claude-code --remove`; ou apague as entradas com `@valorbrain/connect` em `~/.claude/settings.json`; só o checkpoint: `VALORBRAIN_CHECKPOINT=off` |
+| Desligar | só os hooks: `npx -y @valorbrain/connect --harness claude-code --mcp-only`; tudo (MCP, regras, hooks, credencial): `npx -y @valorbrain/connect --harness claude-code --remove`; ou apague as entradas com `@valorbrain/connect` em `~/.claude/settings.json`; só o checkpoint: `npx -y @valorbrain/connect --harness claude-code --checkpoint off` ou `VALORBRAIN_CHECKPOINT=off` |
 
 Sessões do Claude Code dirigidas por SDK (`CLAUDE_CODE_ENTRYPOINT` começando
 com `sdk`) nunca recebem checkpoint e não chamam a rede no stop.
@@ -164,10 +171,12 @@ Fonte: `/opt/valorbrain/src/harness/adapters.ts` (adapter `claude-code`),
 | Endpoint | `POST https://valorbrain-api.valor.digital/api/v1/hooks/cue` |
 | Credencial | entrada `codex` em `~/.valorbrain/connect.json` |
 | Ritmo | igual ao Claude Code |
-| Desligar | `npx -y @valorbrain/connect --harness codex --remove`; ou apague as entradas com `@valorbrain/connect` em `~/.codex/hooks.json`; só o checkpoint: `VALORBRAIN_CHECKPOINT=off` |
+| Desligar | só os hooks: `npx -y @valorbrain/connect --harness codex --mcp-only`; tudo (MCP, regras, hooks, credencial): `npx -y @valorbrain/connect --harness codex --remove`; ou apague as entradas com `@valorbrain/connect` em `~/.codex/hooks.json`; só o checkpoint: `npx -y @valorbrain/connect --harness codex --checkpoint off` (hooks da 0.9.0) ou `VALORBRAIN_CHECKPOINT=off` |
 
 O Codex pede que você revise e confie nos hooks alterados uma vez, em `/hooks`.
-Por isso o self-heal não migra os hooks do Codex sozinho.
+Por isso o self-heal não migra os hooks do Codex sozinho: uma instalação
+anterior à 0.9.0 fica com os hooks da 0.8.1, que não leem o `--checkpoint off`
+salvo, até você rodar o instalador de novo.
 
 Fonte: `/opt/valorbrain/src/harness/adapters.ts` (`codexHooksArtifact`),
 `/opt/valorbrain/src/harness/hosted.ts`
@@ -181,10 +190,11 @@ Fonte: `/opt/valorbrain/src/harness/adapters.ts` (`codexHooksArtifact`),
 | Endpoint | `POST https://valorbrain-api.valor.digital/api/v1/hooks/cue` |
 | Credencial | entrada `gemini-cli` em `~/.valorbrain/connect.json`. O Gemini roda hooks com ambiente sanitizado, por isso o cliente lê o arquivo e não variáveis de ambiente |
 | Ritmo | igual ao Claude Code |
-| Desligar | `npx -y @valorbrain/connect --harness gemini-cli --remove`; ou apague as entradas `valorbrain-*` em `hooks` de `~/.gemini/settings.json` |
+| Desligar | só os hooks: `npx -y @valorbrain/connect --harness gemini-cli --mcp-only`; tudo (MCP, regras, hooks, credencial): `npx -y @valorbrain/connect --harness gemini-cli --remove`; ou apague as entradas `valorbrain-*` em `hooks` de `~/.gemini/settings.json`; prompt: `npx -y @valorbrain/connect --harness gemini-cli --prompt off`; checkpoint: `npx -y @valorbrain/connect --harness gemini-cli --checkpoint off` |
 
-Como o ambiente é sanitizado, se `VALORBRAIN_CHECKPOINT=off` chega ao
-processo do hook no Gemini é **não determinado no código**.
+O Gemini sanitiza o ambiente dos hooks, então `VALORBRAIN_SEND_PROMPT` e
+`VALORBRAIN_CHECKPOINT` não chegam a eles: ali só valem as escolhas salvas em
+`~/.valorbrain/connect.json` com `--prompt off` e `--checkpoint off`.
 
 Fonte: `/opt/valorbrain/src/harness/adapters.ts` (`geminiHooksArtifact`),
 `/opt/valorbrain/src/harness/hosted.ts`
@@ -198,7 +208,7 @@ Fonte: `/opt/valorbrain/src/harness/adapters.ts` (`geminiHooksArtifact`),
 | Endpoint | `POST https://valorbrain-api.valor.digital/api/v1/hooks/cue` |
 | Credencial | entrada `kiro` em `~/.valorbrain/connect.json` |
 | Ritmo | igual ao Claude Code. O timeout do arquivo V3 não é definido pelo connect; o valor padrão do Kiro é não determinado no código |
-| Desligar | `npx -y @valorbrain/connect --harness kiro --remove` (remove os arquivos dos dois modos); ou apague `~/.kiro/hooks/valorbrain.json` e `~/.kiro/agents/valorbrain.json` |
+| Desligar | só os hooks: `npx -y @valorbrain/connect --harness kiro --mcp-only`; tudo: `npx -y @valorbrain/connect --harness kiro --remove` (MCP, regras, credencial e os arquivos dos dois modos); ou apague `~/.kiro/hooks/valorbrain.json` e `~/.kiro/agents/valorbrain.json`; só o checkpoint: `npx -y @valorbrain/connect --harness kiro --checkpoint off` ou `VALORBRAIN_CHECKPOINT=off` |
 
 Com `--scope workspace`, o arquivo vai para `.kiro/` dentro do projeto.
 
@@ -214,7 +224,7 @@ Fonte: `/opt/valorbrain/src/harness/adapters.ts` (adapter `kiro`),
 | Endpoint | `POST https://valorbrain-api.valor.digital/api/v1/hooks/cue` |
 | Credencial | entrada `cursor` em `~/.valorbrain/connect.json` |
 | Ritmo | 1 chamada por início de sessão; stop segundo a política. O próprio Cursor limita follow-ups por conversa (`loop_limit`, padrão 5) |
-| Desligar | `npx -y @valorbrain/connect --harness cursor --remove`; ou apague as entradas com `valorbrain` em `~/.cursor/hooks.json` |
+| Desligar | só os hooks: `npx -y @valorbrain/connect --harness cursor --mcp-only`; tudo (MCP, regras, hooks, credencial): `npx -y @valorbrain/connect --harness cursor --remove`; ou apague as entradas com `valorbrain` em `~/.cursor/hooks.json`; só o checkpoint: `npx -y @valorbrain/connect --harness cursor --checkpoint off` ou `VALORBRAIN_CHECKPOINT=off` |
 
 O Cursor também carrega `~/.claude/settings.json`. Quando ele dispara o hook de
 prompt do Claude Code, o cliente reconhece o Cursor pelo payload e não chama o
@@ -232,7 +242,7 @@ Fonte: `/opt/valorbrain/src/harness/adapters.ts` (`cursorHooksArtifact`),
 | Endpoint | `POST https://valorbrain-api.valor.digital/api/v1/hooks/cue` |
 | Credencial | entrada `grok` em `~/.valorbrain/connect.json` |
 | Ritmo | stop segundo a política |
-| Desligar | `npx -y @valorbrain/connect --harness grok --remove`; ou apague `~/.grok/hooks/valorbrain.json` |
+| Desligar | só os hooks: `npx -y @valorbrain/connect --harness grok --mcp-only`; tudo (MCP, regras, hooks, credencial): `npx -y @valorbrain/connect --harness grok --remove`; ou apague `~/.grok/hooks/valorbrain.json`; só o checkpoint: `npx -y @valorbrain/connect --harness grok --checkpoint off` ou `VALORBRAIN_CHECKPOINT=off` |
 
 O Grok também carrega `~/.cursor/hooks.json`. O início de sessão que chega por
 esse arquivo com o payload do Grok não chama o `hooks/cue`.
@@ -246,10 +256,10 @@ Fonte: `/opt/valorbrain/src/harness/adapters.ts` (adapter `grok`),
 |---|---|
 | Eventos | plugin: `chat.message` (cada mensagem do usuário). Não há início de sessão nem stop |
 | O que sai | o texto da mensagem, cortado em 8.000 caracteres no plugin e de novo no cliente, mais o `session_id` |
-| Endpoint | `POST https://valorbrain-api.valor.digital/api/v1/hooks/cue` (o plugin executa `npx -y @valorbrain/connect@0.8.1 hook context-surfacing --format=text --harness=opencode`) |
+| Endpoint | `POST https://valorbrain-api.valor.digital/api/v1/hooks/cue` (o plugin executa `npx -y @valorbrain/connect@0.9.0 hook context-surfacing --format=text --harness=opencode`) |
 | Credencial | entrada `opencode` em `~/.valorbrain/connect.json` |
 | Ritmo | 1 chamada por mensagem; o plugin mata o processo após 9 s |
-| Desligar | `VALORBRAIN_OPENCODE_DISABLE=true`; ou `npx -y @valorbrain/connect --harness opencode --remove`; ou apague `~/.config/opencode/plugins/valorbrain.ts` |
+| Desligar | `VALORBRAIN_OPENCODE_DISABLE=true`; só o plugin: `npx -y @valorbrain/connect --harness opencode --mcp-only`; tudo (MCP, regras, plugin, credencial): `npx -y @valorbrain/connect --harness opencode --remove`; ou apague `~/.config/opencode/plugins/valorbrain.ts` |
 
 Uma vez por carregamento, o plugin também busca
 `GET https://valorbrain-api.valor.digital/setup/artifacts?agent=opencode` (ou a
@@ -274,6 +284,10 @@ no engine.
 | Credencial | `Authorization: Bearer` com `VALORBRAIN_API_TOKEN`, que o instalador grava em `env` de `~/.hermes/config.yaml` (o mesmo `vbm_…` do MCP). Cabeçalhos extras: `X-Source-Agent`, `X-Source-System` (padrão `hermes`) e, se definidos, `X-Tenant-ID` e `X-User-ID` |
 | Ritmo | timeouts: 30 s nos hooks de ciclo de vida, 90 s no `context-surfacing`, 5 s nas chamadas REST |
 | Desligar | prompt: `npx -y @valorbrain/connect --harness hermes --prompt off` ou `VALORBRAIN_SEND_PROMPT=off` no `env` de `~/.hermes/config.yaml` (sem recall por turno). Transcript (opt-in): `--transcript on` ou `VALORBRAIN_SEND_TRANSCRIPT=on`. Tudo: `npx -y @valorbrain/connect --harness hermes --remove` (remove `mcp_servers.valorbrain`, `memory.provider`, as chaves de `env` e o plugin); ou troque `memory.provider` em `~/.hermes/config.yaml` |
+
+O Hermes não tem hooks no manifesto: `--mcp-only` não muda nada nele. O plugin
+de memória continua instalado e envia o prompt de cada turno; para parar, use
+`--prompt off` (ou `--remove`, que tira tudo).
 
 Outras chamadas do plugin: `GET /foundations?limit=10` e `GET /health` no
 início; `POST /api/v1/runtimes/register` no início (com `hostname`);
@@ -324,12 +338,22 @@ Fonte: `/www/valorbrain-cli/packages/connect/hook.mjs`,
 
 ## Como desligar
 
-- Tudo: `npx -y @valorbrain/connect --remove`. Remove os hooks, as entradas
-  MCP e as regras dos harnesses detectados, além de
+- Tudo: `npx -y @valorbrain/connect --remove`. Desfaz a instalação inteira dos harnesses
+  detectados: entradas MCP, regras, hooks e as credenciais em
   `~/.valorbrain/connect.json`.
-- Um harness: `npx -y @valorbrain/connect --harness <id> --remove`.
-- Só o checkpoint do stop: `VALORBRAIN_CHECKPOINT=off` (ou `0`, ou `false`) no
-  ambiente do harness.
+- Um harness: `npx -y @valorbrain/connect --harness <id> --remove` (o mesmo, só para ele).
+- Só os hooks, mantendo o MCP e as regras: rode a instalação de novo com
+  `--mcp-only` (`npx -y @valorbrain/connect --harness <id> --mcp-only`). Nada sai por turno; rodar de
+  novo sem `--mcp-only` põe os hooks de volta. Hooks que você editou à mão só
+  saem com `--force` ou com um sim na pergunta. No Hermes e no OMP, que não
+  têm hooks, a flag não muda nada (o plugin do Hermes continua enviando o
+  prompt).
+- Só o checkpoint do stop, por harness: `npx -y @valorbrain/connect --harness <id> --checkpoint off`
+  (grava `checkpoint: false` na entrada do harness; `--checkpoint on` religa).
+  Na máquina inteira: `VALORBRAIN_CHECKPOINT=off` (ou `0`, ou `false`) no
+  ambiente do harness, que vence o arquivo nos dois sentidos. No Gemini CLI só
+  o `--checkpoint off` funciona; no Codex instalado antes da 0.9.0, só a
+  variável, até reinstalar.
 - Só o prompt, por harness: `npx -y @valorbrain/connect --harness <id> --prompt off`
   (grava `send_prompt: false` na entrada do harness em
   `~/.valorbrain/connect.json`; `--prompt on` religa). Na máquina inteira:
@@ -346,7 +370,8 @@ Fonte: `/www/valorbrain-cli/packages/connect/hook.mjs`,
 ## Como verificar
 
 - `npx -y @valorbrain/connect --status` mostra, por harness, se os hooks estão
-  ligados, em qual protocolo e para qual engine.
+  ligados, em qual protocolo e para qual engine, e o modo (`mcp-only` ou
+  `hooks`).
 - `npx -y @valorbrain/connect --token <vbm_…> --dry-run` mostra o que seria
   escrito, sem escrever nada.
 - Os arquivos que você pode abrir:
