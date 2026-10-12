@@ -42,6 +42,23 @@ and the project adheres to
 
 ### Changed
 
+- Quickstart and Connect (pt + en), step 2: Claude Code, Codex, Kiro, Gemini CLI
+  and Cursor get one `@valorbrain/connect` command (`--harness <id>`) for MCP +
+  rules + hooks, with the consent (the prompt of each turn goes to the
+  workspace), the opt-outs connect 0.9.0 has (`--prompt off`, `--checkpoint
+  off`, the `VALORBRAIN_SEND_PROMPT` / `VALORBRAIN_CHECKPOINT` env except on
+  Gemini CLI) and a link to "What leaves your machine". No hooks: the same
+  command with `--mcp-only` (also how to drop only the hooks later); `--remove`
+  is described as undoing everything (MCP entry, rules, hooks, saved
+  credentials). The MCP snippets stay for other clients and wiring by hand
+  (engine #420, #428).
+- "What leaves your machine" (pt + en) describes connect 0.9.0: the hook pin
+  and `plugin_version` 0.9.0, `--checkpoint off` as a saved per-harness switch
+  (the only one on Gemini CLI; the env var wins elsewhere), `--mcp-only` per
+  harness (no effect on Hermes, whose plugin keeps sending the prompt),
+  `--remove` undoing everything, `--status` showing the mode, and Codex
+  installs from before 0.9.0 keeping 0.8.1 hooks until the installer is re-run
+  (only `VALORBRAIN_CHECKPOINT=off` works there meanwhile).
 - "What leaves your machine" (pt + en) describes connect 0.8.0: per-harness
   prompt opt-out (`--prompt off`, `VALORBRAIN_SEND_PROMPT=off`), Hermes
   transcript opt-in only (`--transcript on`), signed manifests checked before

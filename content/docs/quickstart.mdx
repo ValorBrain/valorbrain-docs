@@ -46,7 +46,34 @@ resposta; guarde-o.
 
 ## 2. Conecte o cliente MCP
 
-HTTP com `Authorization: Bearer <vbm_…>` em `https://mcpbrain.valor.digital/mcp`.
+**Claude Code, Codex, Kiro, Gemini CLI e Cursor: um comando** instala MCP,
+regras de memória e hooks. Rode na máquina da CLI e reinicie a sessão:
+
+```bash
+npx -y @valorbrain/connect@latest --token <vbm_…> --harness <claude-code|codex|kiro|gemini-cli|cursor>
+```
+
+Antes, avise o humano: os hooks enviam o prompt de cada turno da CLI (até 8.000
+caracteres) para o workspace dele no ValorBrain, para buscar a memória; nenhuma
+transcrição é enviada. Depois da instalação, para parar de enviar o prompt:
+`npx -y @valorbrain/connect@latest --harness <id> --prompt off`; para desligar o checkpoint:
+`npx -y @valorbrain/connect@latest --harness <id> --checkpoint off`. Fora do Gemini CLI,
+`VALORBRAIN_SEND_PROMPT=off` e `VALORBRAIN_CHECKPOINT=off` no ambiente da CLI fazem
+o mesmo; o Gemini CLI limpa o ambiente dos hooks, então lá só valem as escolhas
+salvas. Para tirar só os hooks, rode a instalação de novo com `--mcp-only`;
+`npx -y @valorbrain/connect@latest --harness <id> --remove` desfaz tudo (entrada do MCP,
+regras, hooks e credenciais salvas). Detalhes por CLI:
+[O que sai da sua máquina](/docs/concepts/what-leaves-your-machine).
+
+**Sem hooks (o humano recusou):** o mesmo comando com `--mcp-only` instala o
+servidor MCP e as regras, sem hooks; nada é enviado por turno. No Hermes, que
+não tem hooks, o plugin de memória continua enviando o prompt (use `--prompt off`).
+
+```bash
+npx -y @valorbrain/connect@latest --token <vbm_…> --harness <id> --mcp-only
+```
+
+**Outros clientes, ou o MCP à mão: só o servidor MCP.** HTTP com `Authorization: Bearer <vbm_…>` em `https://mcpbrain.valor.digital/mcp`.
 
 **Claude Code**
 
