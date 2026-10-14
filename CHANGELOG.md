@@ -46,7 +46,8 @@ and the project adheres to
   joins the opt-in transcript. With `--transcript on` (plugin v2, connect ≥
   0.12.0), the plugin reads the main session on `session.idle`, writes it to
   `~/.valorbrain/state/opencode/<session>.jsonl` (0600; no reasoning, attachments
-  or synthetic parts; tool output capped at 2,000 characters) and connect's
+  or synthetic parts; tool input and output each capped at 2,000 characters with
+  a truncation marker; files idle for 7 days removed) and connect's
   stop uploads it under the same rules as Claude Code and Grok. Subagent
   sessions and aborted or failed turns never go; off, the session is not read.
 - Quickstart and Connect (pt + en), step 2: Claude Code, Codex, Kiro, Gemini CLI
