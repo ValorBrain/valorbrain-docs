@@ -50,6 +50,22 @@ and the project adheres to
   a truncation marker; files idle for 7 days removed) and connect's
   stop uploads it under the same rules as Claude Code and Grok. Subagent
   sessions and aborted or failed turns never go; off, the session is not read.
+- "O que sai da sua máquina" / "What leaves your machine" (pt + en): Codex,
+  Gemini CLI, Kiro and Cursor join the opt-in transcript (connect ≥ 0.12.0;
+  Claude Code and Grok stay at ≥ 0.10.1). The page no longer says their hooks
+  never upload. It now lists where the Stop hook finds each file (Codex
+  rollout, Gemini session file, Kiro `messages.jsonl` / legacy
+  `cli/<id>.jsonl` by `session_id` with the cwd hash or a scan, Cursor
+  `transcript_path` or `agent-transcripts/<conversation_id>.jsonl`), the size
+  rule (JSONL tail cap at 8 MiB; a single-file JSON over 8 MiB is not sent),
+  the runs that never upload (`codex exec`/`mcp-server`/SDK/sub-agents from
+  `session_meta`, `gemini -p`/query argument/CI/sub-agents, `kiro-cli
+  --no-interactive` and legacy ACP sessions, `cursor-agent -p` and
+  non-completed turns, a Stop arriving through another harness's hook file),
+  the local `ps` check and that it is skipped where there is no `ps`, and
+  Claude Code's `sessionAttended` (`CLAUDE_CODE_SESSION_ATTENDED=0` skips the
+  upload, `=1` sends `sessionAttended: "1"`). Mirrors
+  `packages/connect/README.md` at `@valorbrain/connect` v0.12.0.
 - Quickstart and Connect (pt + en), step 2: Claude Code, Codex, Kiro, Gemini CLI
   and Cursor get one `@valorbrain/connect` command (`--harness <id>`) for MCP +
   rules + hooks, with the consent (the prompt of each turn goes to the
