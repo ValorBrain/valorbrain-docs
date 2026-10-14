@@ -23,15 +23,15 @@ something, the page says **not determined in the code**.
 
 | Harness | Hooked events | What leaves per event | Config file |
 |---|---|---|---|
-| Claude Code | `SessionStart`, `UserPromptSubmit`, `Stop` | start: ids; prompt: up to 8,000 characters; stop: counters only | `~/.claude/settings.json` |
+| Claude Code | `SessionStart`, `UserPromptSubmit`, `Stop` | start: ids; prompt: up to 8,000 characters; stop: counters only. With opt-in (`--transcript on`, connect ≥ 0.10.1), stop also sends the **session transcript (up to 8 MiB)**, at most every 10 min | `~/.claude/settings.json` |
 | Codex | `SessionStart`, `UserPromptSubmit`, `Stop` | same as Claude Code | `~/.codex/hooks.json` |
 | Gemini CLI | `SessionStart`, `BeforeAgent`, `AfterAgent` | same as Claude Code | `~/.gemini/settings.json` |
 | Kiro | `SessionStart`, `UserPromptSubmit`, `Stop` (V3) or `agentSpawn`, `userPromptSubmit`, `stop` (legacy) | same as Claude Code | `~/.kiro/hooks/valorbrain.json` (V3) or `~/.kiro/agents/valorbrain.json` (legacy) |
 | Cursor | `sessionStart`, `stop` | start: ids; stop: counters only. No prompt hook | `~/.cursor/hooks.json` |
-| Grok CLI | `Stop` | counters only | `~/.grok/hooks/valorbrain.json` |
+| Grok CLI | `Stop` | counters only. With opt-in (`--transcript on`, connect ≥ 0.10.1), also the **session transcript (up to 8 MiB)**, at most every 10 min | `~/.grok/hooks/valorbrain.json` |
 | OpenCode | plugin `chat.message` | prompt: up to 8,000 characters | `~/.config/opencode/plugins/valorbrain.ts` |
 | Hermes Agent | MemoryProvider plugin: start, every turn, compression, session end | each turn's prompt; the **session transcript (up to 8 MiB)** only with opt-in (`--transcript on`) | `~/.hermes/config.yaml` + `~/.hermes/plugins/valorbrain/__init__.py` |
-| Oh My Pi (OMP) | none (in hosted mode connect installs no hook) | nothing automatic | `~/.omp/agent/.mcp.json` (MCP only) |
+| Oh My Pi (OMP) | own bridge (`session_start`, every turn, turn end, session end) | start: ids; prompt: up to 8,000 characters; turn end: counters only; the **session transcript (up to 8 MiB)** only with opt-in (`--transcript on`) | `~/.omp/agent/hooks/pre/valorbrain.ts` |
 
 OpenClaw is not installed by `@valorbrain/connect` and is out of scope here.
 
@@ -65,7 +65,34 @@ to 8,000 characters, or `"session start"`) and `fast_mode: true`.
 Stop sends no conversation text. When the server answers with a checkpoint,
 the client hands that text to the harness's own model, which decides what to
 record through MCP. Whatever the model records leaves through that MCP call,
-not through the hook.
+not through the hook. The one exception is the transcript upload below, which
+exists only with opt-in.
+
+### Transcript (opt-in, connect ≥ 0.10.1, Claude Code and Grok only)
+
+Off by default. Turn it on per harness with
+`npx -y @valorbrain/connect --harness <id> --transcript on` (writes
+`send_transcript: true` in that harness's entry of `~/.valorbrain/connect.json`;
+`--transcript off` writes `false`) or for the whole machine with
+`VALORBRAIN_SEND_TRANSCRIPT=on`, which wins over the file both ways (`off`,
+`0`, `false`, `no` / `on`, `1`, `true`, `yes`). Only an explicit on sends. This
+Stop upload exists from the 0.10.1 hook on: the hook runs the version the
+engine pins, and an older hook does not make it even with the switch on.
+
+| | |
+|---|---|
+| Harnesses | Claude Code and Grok CLI, whose transcripts the engine reads. The hooks the installer wires for Codex, Gemini CLI, Kiro and Cursor never make this upload (the exception for extraction hooks wired by hand, on any harness, is right below) |
+| What leaves | the transcript file the harness passes at Stop (Claude Code's `transcript_path`, Grok's `transcriptPath`), its whole content as the harness writes it, up to **8 MiB**. Above that, only the end of the file is sent, and each line dropped from the head becomes an empty line. Along with it: `sessionId`, `hookEventName: "Stop"` and `workingDir` (the session's directory) |
+| Endpoint | `POST https://valorbrain-api.valor.digital/api/v1/hooks/run`, two calls per upload: `episode-extractor`, then `decision-extractor` |
+| When | at Stop, after **3** Stops of the session; later ones only when the file grew and **10 min** passed since the last upload. At most **8** uploads per 10 min per harness. Never for an SDK-driven Claude Code session, a continuation Stop, or a Grok turn that did not end with `end_turn`. A 401, 403 or 413 pauses the harness's uploads for 6 h; a 429, for 30 min |
+| How | a separate (detached) process uploads; the hook does not wait for it. Each request is cut at 180 s. Failures go to `~/.valorbrain/connect.log`, one line, never content |
+
+Hand-wired legacy extraction hooks (`decision-extractor`, `episode-extractor`,
+`handoff-generator`, `feedback-loop`, `precompact-extract`) keep uploading the
+transcript while the switch is unset: wiring them by hand is the opt-in. With
+`--transcript off` (or `VALORBRAIN_SEND_TRANSCRIPT=off`), a 0.10.1 or later hook
+neither reads nor sends the transcript, and the hooks that only read the
+transcript are not called at all.
 
 ### Credential
 
@@ -149,11 +176,11 @@ Source: `/www/valorbrain-cli/packages/connect/hook.mjs`,
 | | |
 |---|---|
 | Events | `SessionStart`, `UserPromptSubmit`, `Stop` (10 s timeout each) |
-| What leaves | start: ids; prompt: up to 8,000 characters; stop: counters only, and only when a checkpoint is due |
+| What leaves | start: ids; prompt: up to 8,000 characters; stop: counters only, and only when a checkpoint is due. With the transcript on (opt-in), stop also sends the session transcript (see "Transcript" above) |
 | Endpoint | `POST https://valorbrain-api.valor.digital/api/v1/hooks/cue` |
 | Credential | `Bearer` with the `vbm_…` token from the `claude-code` entry in `~/.valorbrain/connect.json` (full order above) |
 | Cadence | 1 call per session start and per prompt; stop per the policy |
-| Turn off | hooks only: `npx -y @valorbrain/connect --token <vbm_…> --harness claude-code --mcp-only`; everything (MCP, rules, hooks, credential): `npx -y @valorbrain/connect --harness claude-code --remove`; or delete the entries containing `@valorbrain/connect` in `~/.claude/settings.json`; checkpoint only: `npx -y @valorbrain/connect --harness claude-code --checkpoint off` or `VALORBRAIN_CHECKPOINT=off` |
+| Turn off | hooks only: `npx -y @valorbrain/connect --token <vbm_…> --harness claude-code --mcp-only`; everything (MCP, rules, hooks, credential): `npx -y @valorbrain/connect --harness claude-code --remove`; or delete the entries containing `@valorbrain/connect` in `~/.claude/settings.json`; checkpoint only: `npx -y @valorbrain/connect --harness claude-code --checkpoint off` or `VALORBRAIN_CHECKPOINT=off`; transcript (off by default): `--transcript on` / `--transcript off` or `VALORBRAIN_SEND_TRANSCRIPT` |
 
 SDK-driven Claude Code sessions (`CLAUDE_CODE_ENTRYPOINT` starting with `sdk`)
 never get a checkpoint and make no network call on stop.
@@ -237,11 +264,11 @@ Source: `/opt/valorbrain/src/harness/adapters.ts` (`cursorHooksArtifact`),
 | | |
 |---|---|
 | Events | `Stop` (10 s timeout). Grok discards the output of passive events, so start and prompt are not wired |
-| What leaves | counters only, and only when a checkpoint is due and the turn ended with `end_turn` |
+| What leaves | counters only, and only when a checkpoint is due and the turn ended with `end_turn`. With the transcript on (opt-in), also the session transcript (see "Transcript" above) |
 | Endpoint | `POST https://valorbrain-api.valor.digital/api/v1/hooks/cue` |
 | Credential | `grok` entry in `~/.valorbrain/connect.json` |
 | Cadence | stop per the policy |
-| Turn off | hooks only: `npx -y @valorbrain/connect --token <vbm_…> --harness grok --mcp-only`; everything (MCP, rules, hooks, credential): `npx -y @valorbrain/connect --harness grok --remove`; or delete `~/.grok/hooks/valorbrain.json`; checkpoint only: `npx -y @valorbrain/connect --harness grok --checkpoint off` or `VALORBRAIN_CHECKPOINT=off` |
+| Turn off | hooks only: `npx -y @valorbrain/connect --token <vbm_…> --harness grok --mcp-only`; everything (MCP, rules, hooks, credential): `npx -y @valorbrain/connect --harness grok --remove`; or delete `~/.grok/hooks/valorbrain.json`; checkpoint only: `npx -y @valorbrain/connect --harness grok --checkpoint off` or `VALORBRAIN_CHECKPOINT=off`; transcript (off by default): `--transcript on` / `--transcript off` or `VALORBRAIN_SEND_TRANSCRIPT` |
 
 Grok also loads `~/.cursor/hooks.json`. A session start arriving through that
 file with Grok's payload does not call `hooks/cue`.
@@ -304,25 +331,55 @@ Source: `/opt/valorbrain/src/hermes/__init__.py`,
 
 ### Oh My Pi (OMP)
 
-In hosted mode, connect writes only the MCP entry (`~/.omp/agent/.mcp.json`)
-and the rules (`~/.omp/AGENTS.md`). The OMP hook bridge needs the engine's
-local binary and is not installed. There is no automatic traffic beyond the
-MCP tools the agent calls.
+OMP has no command hooks: it loads TS factories from `~/.omp/agent/hooks/pre/`.
+In hosted mode (manifest `hooks=2`, from the engine release that ships the
+hosted bridge), connect writes the bridge to `~/.omp/agent/hooks/pre/valorbrain.ts`.
+It talks HTTP to the engine directly (`fetch`), with no `npx` per event. Before
+that engine release, connect writes only the MCP entry and the rules, and there
+is no automatic traffic.
 
-Source: `/opt/valorbrain/src/harness/adapters.ts` (`omp` adapter)
+| | |
+|---|---|
+| Events | `session_start`, `before_agent_start` (each user turn, main session only), `session_stop` (end of each turn), `session_shutdown` (end of session) |
+| What leaves | start: ids; prompt: the first 8,000 characters; turn end: counters only, and only when a checkpoint is due. The **session transcript** leaves only with opt-in: each user message and each assistant reply (text parts only; tool output cut at 500 characters; internal reasoning left out), with each turn's time, up to **8 MiB** (above that, the oldest lines are sent empty). Subagents never send |
+| Endpoint | context and checkpoint: `POST https://valorbrain-api.valor.digital/api/v1/hooks/cue`; transcript (opt-in): `POST https://valorbrain-api.valor.digital/api/v1/hooks/run` with `episode-extractor`, then `decision-extractor`, and `input` with `sessionId`, `hookEventName` and `workingDir` (the session's directory) |
+| Credential | `VALORBRAIN_TOKEN`, then the `omp` entry in `~/.valorbrain/connect.json`, then `api_key` in `~/.valorbrain/config.json`. The bridge only reads these files, never writes them |
+| Cadence | 1 call per session start and per prompt, each cut at 4 s; checkpoint per the policy. Transcript (opt-in): the first upload and the session-end upload only after at least 3 user turns since the previous upload, so a short run never uploads; mid-session, later uploads at least 10 min apart and only with new conversation. 2 calls per upload. `omp -p` (print and json modes) never uploads. The upload runs in a separate `bun` process so OMP's exit never waits on it; the token reaches that process through its environment, never the disk; a 401, 403, 413 or 429 stops the upload |
+| Turn off | prompt: `npx -y @valorbrain/connect --harness omp --prompt off` or `VALORBRAIN_SEND_PROMPT=off`; checkpoint: `--checkpoint off` or `VALORBRAIN_CHECKPOINT=off`; transcript (opt-in, off by default): `--transcript on` or `VALORBRAIN_SEND_TRANSCRIPT=on` turn it on, `--transcript off` or `VALORBRAIN_SEND_TRANSCRIPT=off` turn it off; the bridge only: `npx -y @valorbrain/connect --token <vbm_…> --harness omp --mcp-only`; everything: `npx -y @valorbrain/connect --harness omp --remove`; or delete `~/.omp/agent/hooks/pre/valorbrain.ts` |
+
+Failures go to `~/.omp/agent/valorbrain-hooks.log` (0600), one line per failure
+or upload, never content or the token. The bridge does not run the connect
+client, so self-heal does not update it: a new version arrives when you run the
+installer again.
+
+Source: `/opt/valorbrain/src/harness/omp-bridge-hosted.ts`,
+`/opt/valorbrain/src/harness/adapters.ts` (`omp` adapter)
 
 ## What does not leave
 
-This applies to the shared hook client (every harness above except Hermes):
+This applies to the shared hook client (every harness above except Hermes and
+OMP, which have their own clients). For the OMP bridge with the transcript off
+(the default) the same holds: nothing beyond the three `hooks/cue` bodies.
 
-- **Transcript**: the client does not read the transcript file. Apart from the
-  three bodies above, the legacy fallback and self-heal, it sends nothing.
-  Transcript reading exists only for legacy extraction hooks, which the
-  protocol v2 installer does not wire.
+- **Transcript**: the hooks the installer wires (`session-start`, `prompt`,
+  `stop`) do not read the transcript file unless the switch is on. Apart from
+  the three bodies above, the legacy fallback and self-heal, they send nothing.
+  With `--transcript on`, Claude Code and Grok send the transcript as described
+  in "Transcript" above; the installed hooks of Codex, Gemini CLI, Kiro and
+  Cursor never send it. Exception: while the switch is unset (the default), a
+  legacy extraction hook you wired by hand (`decision-extractor`,
+  `episode-extractor`, `handoff-generator`, `feedback-loop`,
+  `precompact-extract`), on any harness, still reads and sends the transcript;
+  only `--transcript off` (or `VALORBRAIN_SEND_TRANSCRIPT=off`) stops it.
 - **Working directory and the rest of the payload**: `cwd`, `transcript_path`
   and the other fields the harness passes stay on the machine. `cwd` only goes
-  into a local hash that identifies the session.
-- **Assistant replies and tool output**: not part of any body sent.
+  into a local hash that identifies the session. With the transcript on, the
+  `transcript_path` file and `cwd` (as `workingDir`) go in the transcript
+  upload; an extraction hook wired by hand also sends `cwd`, the prompt and the
+  last assistant reply when the harness passes them.
+- **Assistant replies and tool output**: not part of the `hooks/cue` bodies.
+  They go inside the transcript whenever it is sent (switch on, or an
+  extraction hook wired by hand while the switch is unset).
 - **Token on the command line**: under protocol v2 the token lives in
   `~/.valorbrain/connect.json` (0600), never in the hook's argv.
 
@@ -345,8 +402,8 @@ Source: `/www/valorbrain-cli/packages/connect/hook.mjs`,
   hand go only with `--force` or a yes at the prompt. The re-run needs the
   token (`--token <vbm_…>`, as in the install): run unattended, as from an
   agent's shell, connect stops without one. On Hermes, which has no hooks, the
-  flag changes nothing (its plugin keeps sending the prompt); on a hosted
-  install OMP gets no hooks from connect (the OMP hook bridge is self-hosted).
+  flag changes nothing (its plugin keeps sending the prompt); on OMP it removes
+  the hook bridge.
 - Stop checkpoint only, per harness: `npx -y @valorbrain/connect --harness <id> --checkpoint off`
   (writes `checkpoint: false` in that harness's entry; `--checkpoint on` turns
   it back on). For the whole machine: `VALORBRAIN_CHECKPOINT=off` (or `0`, or
@@ -359,8 +416,10 @@ Source: `/www/valorbrain-cli/packages/connect/hook.mjs`,
   machine: `VALORBRAIN_SEND_PROMPT=off` in the harness's environment (Gemini
   CLI sanitizes the environment; there, use `--prompt off`). Without the
   prompt, session start and the checkpoint go on; per-prompt recall stops.
-- Hermes transcript: off by default; turn it on with
-  `npx -y @valorbrain/connect --harness hermes --transcript on`.
+- Transcript (Claude Code, Grok, Hermes and OMP): off by default; turn it on
+  with `npx -y @valorbrain/connect --harness <id> --transcript on`, or with
+  `VALORBRAIN_SEND_TRANSCRIPT=on` in the harness's environment, which wins over
+  the file both ways. `--transcript off` turns it off.
 - By hand: delete the entries whose command contains `@valorbrain/connect` in
   the harness's file (table below). Deleting only `~/.valorbrain/connect.json`
   is not enough if `~/.valorbrain/config.json` has an `api_key`, because the
@@ -385,6 +444,7 @@ Source: `/www/valorbrain-cli/packages/connect/hook.mjs`,
 | Grok CLI | `~/.grok/hooks/valorbrain.json` |
 | OpenCode | `~/.config/opencode/plugins/valorbrain.ts` |
 | Hermes Agent | `~/.hermes/config.yaml` and `~/.hermes/plugins/valorbrain/__init__.py` |
+| Oh My Pi (OMP) | `~/.omp/agent/hooks/pre/valorbrain.ts` |
 | All (credential) | `~/.valorbrain/connect.json` |
 
 See also [Tokens](/en/docs/concepts/tokens) and [Hosts](/en/docs/concepts/hosts).
