@@ -53,8 +53,11 @@ npx -y @valorbrain/connect@latest --token <vbm_…> --harness <claude-code|codex
 ```
 
 Antes, avise o humano: os hooks enviam o prompt de cada turno da CLI (até 8.000
-caracteres) para o workspace dele no ValorBrain, para buscar a memória; nenhuma
-transcrição é enviada. Depois da instalação, para parar de enviar o prompt:
+caracteres) para o workspace dele no ValorBrain, para buscar a memória. A
+transcrição da sessão não é enviada, a menos que ele ligue o envio: no Claude
+Code e no Grok, `--transcript on` (connect ≥ 0.10.1, desligado por padrão) manda
+o transcript da sessão (até 8 MiB) no máximo a cada 10 min; nas outras CLIs
+desta lista ela nunca é enviada. Depois da instalação, para parar de enviar o prompt:
 `npx -y @valorbrain/connect@latest --harness <id> --prompt off`; para desligar o checkpoint:
 `npx -y @valorbrain/connect@latest --harness <id> --checkpoint off`. Fora do Gemini CLI,
 `VALORBRAIN_SEND_PROMPT=off` e `VALORBRAIN_CHECKPOINT=off` no ambiente da CLI fazem
