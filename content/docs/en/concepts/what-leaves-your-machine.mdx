@@ -81,8 +81,8 @@ engine pins, and an older hook does not make it even with the switch on.
 
 | | |
 |---|---|
-| Harnesses | Claude Code and Grok CLI, whose transcripts the engine reads. Codex, Gemini CLI, Kiro and Cursor never send |
-| What leaves | the transcript file the harness passes at Stop (Claude Code's `transcript_path`, Grok's `transcriptPath`), its whole content as the harness writes it, up to **8 MiB**. Above that, the end of the file goes, and each line dropped from the head becomes an empty line. Along with it: `sessionId`, `hookEventName: "Stop"` and `workingDir` (the session's directory) |
+| Harnesses | Claude Code and Grok CLI, whose transcripts the engine reads. The hooks the installer wires for Codex, Gemini CLI, Kiro and Cursor never make this upload (the exception for extraction hooks wired by hand, on any harness, is right below) |
+| What leaves | the transcript file the harness passes at Stop (Claude Code's `transcript_path`, Grok's `transcriptPath`), its whole content as the harness writes it, up to **8 MiB**. Above that, only the end of the file is sent, and each line dropped from the head becomes an empty line. Along with it: `sessionId`, `hookEventName: "Stop"` and `workingDir` (the session's directory) |
 | Endpoint | `POST https://valorbrain-api.valor.digital/api/v1/hooks/run`, two calls per upload: `episode-extractor`, then `decision-extractor` |
 | When | at Stop, after **3** Stops of the session; later ones only when the file grew and **10 min** passed since the last upload. At most **8** uploads per 10 min per harness. Never for an SDK-driven Claude Code session, a continuation Stop, or a Grok turn that did not end with `end_turn`. A 401, 403 or 413 pauses the harness's uploads for 6 h; a 429, for 30 min |
 | How | a separate (detached) process uploads; the hook does not wait for it. Each request is cut at 180 s. Failures go to `~/.valorbrain/connect.log`, one line, never content |
@@ -361,17 +361,25 @@ This applies to the shared hook client (every harness above except Hermes and
 OMP, which have their own clients). For the OMP bridge with the transcript off
 (the default) the same holds: nothing beyond the three `hooks/cue` bodies.
 
-- **Transcript, with the switch off (the default)**: the client does not read
-  the transcript file. Apart from the three bodies above, the legacy fallback
-  and self-heal, it sends nothing. With `--transcript on`, Claude Code and Grok
-  send the transcript as described in "Transcript" above; Codex, Gemini CLI,
-  Kiro and Cursor never send.
+- **Transcript**: the hooks the installer wires (`session-start`, `prompt`,
+  `stop`) do not read the transcript file unless the switch is on. Apart from
+  the three bodies above, the legacy fallback and self-heal, they send nothing.
+  With `--transcript on`, Claude Code and Grok send the transcript as described
+  in "Transcript" above; the installed hooks of Codex, Gemini CLI, Kiro and
+  Cursor never send it. Exception: while the switch is unset (the default), a
+  legacy extraction hook you wired by hand (`decision-extractor`,
+  `episode-extractor`, `handoff-generator`, `feedback-loop`,
+  `precompact-extract`), on any harness, still reads and sends the transcript;
+  only `--transcript off` (or `VALORBRAIN_SEND_TRANSCRIPT=off`) stops it.
 - **Working directory and the rest of the payload**: `cwd`, `transcript_path`
   and the other fields the harness passes stay on the machine. `cwd` only goes
   into a local hash that identifies the session. With the transcript on, the
-  `transcript_path` file and `cwd` (as `workingDir`) go in the transcript upload.
+  `transcript_path` file and `cwd` (as `workingDir`) go in the transcript
+  upload; an extraction hook wired by hand also sends `cwd`, the prompt and the
+  last assistant reply when the harness passes them.
 - **Assistant replies and tool output**: not part of the `hooks/cue` bodies.
-  With the transcript on, they go inside the transcript.
+  They go inside the transcript whenever it is sent (switch on, or an
+  extraction hook wired by hand while the switch is unset).
 - **Token on the command line**: under protocol v2 the token lives in
   `~/.valorbrain/connect.json` (0600), never in the hook's argv.
 

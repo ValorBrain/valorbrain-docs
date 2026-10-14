@@ -82,8 +82,8 @@ mesmo com a chave ligada.
 
 | | |
 |---|---|
-| Harnesses | Claude Code e Grok CLI, cujo transcript o engine lê. Codex, Gemini CLI, Kiro e Cursor nunca enviam |
-| O que sai | o arquivo de transcript que o harness entrega no stop (`transcript_path` do Claude Code, `transcriptPath` do Grok), com o conteúdo inteiro como o harness o grava, até **8 MiB**. Acima disso vai o final do arquivo, e cada linha cortada do começo vira uma linha vazia. Junto: `sessionId`, `hookEventName: "Stop"` e `workingDir` (o diretório da sessão) |
+| Harnesses | Claude Code e Grok CLI, cujo transcript o engine lê. Os hooks que o instalador liga no Codex, Gemini CLI, Kiro e Cursor nunca fazem este envio (a exceção dos hooks de extração ligados à mão, em qualquer harness, está logo abaixo) |
+| O que sai | o arquivo de transcript que o harness entrega no stop (`transcript_path` do Claude Code, `transcriptPath` do Grok), com o conteúdo inteiro como o harness o grava, até **8 MiB**. Acima disso vai só o final do arquivo, e cada linha cortada do começo vira uma linha vazia. Junto: `sessionId`, `hookEventName: "Stop"` e `workingDir` (o diretório da sessão) |
 | Endpoint | `POST https://valorbrain-api.valor.digital/api/v1/hooks/run`, duas chamadas por envio: `episode-extractor` e depois `decision-extractor` |
 | Quando | no stop, depois de **3** stops da sessão; os seguintes só se o arquivo cresceu e passaram **10 min** desde o último envio. No máximo **8** envios a cada 10 min por harness. Não envia em sessão dirigida por SDK do Claude Code, em stop de continuação, nem em turno do Grok que não terminou com `end_turn`. Um 401, 403 ou 413 pausa os envios do harness por 6 h; um 429, por 30 min |
 | Como | um processo separado (destacado) faz o envio; o hook não espera por ele. Cada requisição é cortada em 180 s. Falhas vão para `~/.valorbrain/connect.log`, uma linha, sem conteúdo |
@@ -363,17 +363,25 @@ Isto vale para o cliente de hook comum (todos os harnesses acima, menos o
 Hermes e o OMP, que têm cliente próprio). Na ponte do OMP, com o transcript
 desligado (o padrão), o mesmo vale: nada além dos três corpos do `hooks/cue`.
 
-- **Transcript, com a chave desligada (o padrão)**: o cliente não lê o arquivo
-  de transcript. Além dos três corpos acima, do fallback legado e do
-  self-heal, ele não envia nada. Com `--transcript on`, o Claude Code e o Grok
-  enviam o transcript como descrito em "Transcript" acima; Codex, Gemini CLI,
-  Kiro e Cursor nunca enviam.
+- **Transcript**: os hooks que o instalador liga (`session-start`, `prompt`,
+  `stop`) não leem o arquivo de transcript enquanto a chave não estiver ligada.
+  Além dos três corpos acima, do fallback legado e do self-heal, eles não
+  enviam nada. Com `--transcript on`, o Claude Code e o Grok enviam o
+  transcript como descrito em "Transcript" acima; os hooks instalados do Codex,
+  Gemini CLI, Kiro e Cursor nunca enviam. Exceção: com a chave sem escolha (o
+  padrão), um hook de extração legado que você ligou à mão (`decision-extractor`,
+  `episode-extractor`, `handoff-generator`, `feedback-loop`,
+  `precompact-extract`), em qualquer harness, ainda lê e envia o transcript;
+  só `--transcript off` (ou `VALORBRAIN_SEND_TRANSCRIPT=off`) impede.
 - **Diretório de trabalho e o resto do payload**: `cwd`, `transcript_path` e os
   demais campos que o harness entrega ficam na máquina. O `cwd` só entra num
   hash local que identifica a sessão. Com o transcript ligado, o arquivo de
-  `transcript_path` e o `cwd` (como `workingDir`) vão no envio do transcript.
+  `transcript_path` e o `cwd` (como `workingDir`) vão no envio do transcript;
+  um hook de extração ligado à mão envia também o `cwd`, o prompt e a última
+  resposta do assistente, quando o harness os entrega.
 - **Respostas do assistente e saídas de ferramentas**: não fazem parte dos
-  corpos do `hooks/cue`. Com o transcript ligado, vão dentro do transcript.
+  corpos do `hooks/cue`. Vão dentro do transcript quando ele é enviado (chave
+  ligada, ou hook de extração ligado à mão com a chave sem escolha).
 - **Token na linha de comando**: no protocolo v2 o token fica em
   `~/.valorbrain/connect.json` (0600), nunca no argv do hook.
 

@@ -53,11 +53,14 @@ npx -y @valorbrain/connect@latest --token <vbm_…> --harness <claude-code|codex
 ```
 
 Tell your human first: the hooks send the prompt of each turn of the CLI (up to
-8,000 characters) to their ValorBrain workspace to fetch memory. The session
-transcript is not sent unless they turn the upload on: on Claude Code and Grok,
-`--transcript on` (connect ≥ 0.10.1, off by default) sends the session
-transcript (up to 8 MiB) at most every 10 min; the other CLIs in this list never
-send it. After the install, to stop sending the prompt:
+8,000 characters) to their ValorBrain workspace to fetch memory. The hooks the
+installer wires do not send the session transcript unless they turn the upload
+on: on Claude Code and Grok, `--transcript on` (connect ≥ 0.10.1, off by
+default) sends the session transcript (up to 8 MiB) at most every 10 min; the
+installed hooks of the other CLIs in this list never send it. An extraction
+hook someone wired by hand (`decision-extractor`, `episode-extractor`…) keeps
+sending the transcript while the switch is unset; only `--transcript off` stops
+it. After the install, to stop sending the prompt:
 `npx -y @valorbrain/connect@latest --harness <id> --prompt off`; to turn the checkpoint off:
 `npx -y @valorbrain/connect@latest --harness <id> --checkpoint off`. Except on Gemini CLI,
 `VALORBRAIN_SEND_PROMPT=off` and `VALORBRAIN_CHECKPOINT=off` in the CLI's
