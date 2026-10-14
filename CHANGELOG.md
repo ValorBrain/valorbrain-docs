@@ -42,6 +42,13 @@ and the project adheres to
 
 ### Changed
 
+- "O que sai da sua máquina" / "What leaves your machine" (pt + en): OpenCode
+  joins the opt-in transcript. With `--transcript on` (plugin v2, connect ≥
+  0.12.0), the plugin reads the main session on `session.idle`, writes it to
+  `~/.valorbrain/state/opencode/<session>.jsonl` (0600; no reasoning, attachments
+  or synthetic parts; tool output capped at 2,000 characters) and connect's
+  stop uploads it under the same rules as Claude Code and Grok. Subagent
+  sessions and aborted or failed turns never go; off, the session is not read.
 - Quickstart and Connect (pt + en), step 2: Claude Code, Codex, Kiro, Gemini CLI
   and Cursor get one `@valorbrain/connect` command (`--harness <id>`) for MCP +
   rules + hooks, with the consent (the prompt of each turn goes to the

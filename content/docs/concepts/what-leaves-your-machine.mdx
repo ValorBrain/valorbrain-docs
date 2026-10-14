@@ -29,7 +29,7 @@ a página diz **não determinado no código**.
 | Kiro | `SessionStart`, `UserPromptSubmit`, `Stop` (V3) ou `agentSpawn`, `userPromptSubmit`, `stop` (legado) | igual ao Claude Code | `~/.kiro/hooks/valorbrain.json` (V3) ou `~/.kiro/agents/valorbrain.json` (legado) |
 | Cursor | `sessionStart`, `stop` | início: ids; stop: só contadores. Sem hook de prompt | `~/.cursor/hooks.json` |
 | Grok CLI | `Stop` | só contadores. Com opt-in (`--transcript on`, connect ≥ 0.10.1), também o **transcript da sessão (até 8 MiB)**, no máximo a cada 10 min | `~/.grok/hooks/valorbrain.json` |
-| OpenCode | plugin `chat.message` | prompt: até 8.000 caracteres | `~/.config/opencode/plugins/valorbrain.ts` |
+| OpenCode | plugin: `chat.message`; `session.idle` só com o transcript ligado | prompt: até 8.000 caracteres. Com opt-in (`--transcript on`, plugin v2 com connect ≥ 0.12.0), também o **transcript da sessão principal (até 8 MiB)**, no máximo a cada 10 min | `~/.config/opencode/plugins/valorbrain.ts` |
 | Hermes Agent | plugin MemoryProvider: início, cada turno, compressão, fim de sessão | o prompt de cada turno; o **transcript da sessão (até 8 MiB)** só com opt-in (`--transcript on`) | `~/.hermes/config.yaml` + `~/.hermes/plugins/valorbrain/__init__.py` |
 | Oh My Pi (OMP) | ponte própria (`session_start`, cada turno, fim de turno, fim de sessão) | início: ids; prompt: até 8.000 caracteres; fim de turno: só contadores; o **transcript da sessão (até 8 MiB)** só com opt-in (`--transcript on`) | `~/.omp/agent/hooks/pre/valorbrain.ts` |
 
@@ -68,7 +68,7 @@ decide o que gravar pelo MCP. O que o modelo gravar sai por essa chamada MCP,
 não pelo hook. A única exceção é o envio do transcript abaixo, que só existe
 com opt-in.
 
-### Transcript (opt-in, connect ≥ 0.10.1, só Claude Code e Grok)
+### Transcript (opt-in: Claude Code e Grok com connect ≥ 0.10.1, OpenCode com connect ≥ 0.12.0)
 
 Desligado por padrão. Liga por harness com
 `npx -y @valorbrain/connect --harness <id> --transcript on` (grava
@@ -76,16 +76,16 @@ Desligado por padrão. Liga por harness com
 `--transcript off` grava `false`) ou na máquina inteira com
 `VALORBRAIN_SEND_TRANSCRIPT=on`, que vence o arquivo nos dois sentidos
 (`off`, `0`, `false`, `no` / `on`, `1`, `true`, `yes`). Só um "ligado" explícito
-envia. Este envio no stop existe do hook 0.10.1 em diante: o hook roda a
-versão fixada pelo engine, e um hook de versão anterior não faz este envio
-mesmo com a chave ligada.
+envia. Este envio no stop existe do hook 0.10.1 em diante (0.12.0 no OpenCode):
+o hook roda a versão fixada pelo engine, e um hook de versão anterior não faz
+este envio mesmo com a chave ligada.
 
 | | |
 |---|---|
-| Harnesses | Claude Code e Grok CLI, cujo transcript o engine lê. Os hooks que o instalador liga no Codex, Gemini CLI, Kiro e Cursor nunca fazem este envio (a exceção dos hooks de extração ligados à mão, em qualquer harness, está logo abaixo) |
-| O que sai | o arquivo de transcript que o harness entrega no stop (`transcript_path` do Claude Code, `transcriptPath` do Grok), com o conteúdo inteiro como o harness o grava, até **8 MiB**. Acima disso vai só o final do arquivo, e cada linha cortada do começo vira uma linha vazia. Junto: `sessionId`, `hookEventName: "Stop"` e `workingDir` (o diretório da sessão) |
+| Harnesses | Claude Code, Grok CLI e OpenCode, cujo transcript o engine lê. Os hooks que o instalador liga no Codex, Gemini CLI, Kiro e Cursor nunca fazem este envio (a exceção dos hooks de extração ligados à mão, em qualquer harness, está logo abaixo) |
+| O que sai | o arquivo de transcript que o harness entrega no stop (`transcript_path` do Claude Code, `transcriptPath` do Grok), com o conteúdo inteiro como o harness o grava, até **8 MiB**. Acima disso vai só o final do arquivo, e cada linha cortada do começo vira uma linha vazia. Junto: `sessionId`, `hookEventName: "Stop"` e `workingDir` (o diretório da sessão). O OpenCode não grava arquivo de transcript: o plugin v2 monta um a cada `session.idle` em `~/.valorbrain/state/opencode/<sessão>.jsonl` (só no seu disco, 0600), com o texto que você digitou, o texto do assistente, as chamadas de tool com a entrada e a saída de cada tool até 2.000 caracteres. Raciocínio do modelo, arquivos anexados e partes sintéticas ficam de fora. É esse arquivo que vai, pelas mesmas regras |
 | Endpoint | `POST https://valorbrain-api.valor.digital/api/v1/hooks/run`, duas chamadas por envio: `episode-extractor` e depois `decision-extractor` |
-| Quando | no stop, depois de **3** stops da sessão; os seguintes só se o arquivo cresceu e passaram **10 min** desde o último envio. No máximo **8** envios a cada 10 min por harness. Não envia em sessão dirigida por SDK do Claude Code, em stop de continuação, nem em turno do Grok que não terminou com `end_turn`. Um 401, 403 ou 413 pausa os envios do harness por 6 h; um 429, por 30 min |
+| Quando | no stop, depois de **3** stops da sessão; os seguintes só se o arquivo cresceu e passaram **10 min** desde o último envio. No máximo **8** envios a cada 10 min por harness. Não envia em sessão dirigida por SDK do Claude Code, em stop de continuação, em turno do Grok que não terminou com `end_turn`, nem em turno do OpenCode abortado ou com erro. No OpenCode, sessões de subagente (com `parentID`) nunca são lidas. Um 401, 403 ou 413 pausa os envios do harness por 6 h; um 429, por 30 min |
 | Como | um processo separado (destacado) faz o envio; o hook não espera por ele. Cada requisição é cortada em 180 s. Falhas vão para `~/.valorbrain/connect.log`, uma linha, sem conteúdo |
 
 Hooks de extração legados ligados à mão (`decision-extractor`,
@@ -282,12 +282,12 @@ Fonte: `/opt/valorbrain/src/harness/adapters.ts` (adapter `grok`),
 
 | | |
 |---|---|
-| Eventos | plugin: `chat.message` (cada mensagem do usuário). Não há início de sessão nem stop |
-| O que sai | o texto da mensagem, cortado em 8.000 caracteres no plugin e de novo no cliente, mais o `session_id` |
-| Endpoint | `POST https://valorbrain-api.valor.digital/api/v1/hooks/cue` (o plugin executa `npx -y @valorbrain/connect@0.9.0 hook context-surfacing --format=text --harness=opencode`) |
+| Eventos | plugin: `chat.message` (cada mensagem do usuário). Com o transcript ligado, também `session.idle` (fim de cada turno) da sessão principal. Não há início de sessão |
+| O que sai | o texto da mensagem, cortado em 8.000 caracteres no plugin e de novo no cliente, mais o `session_id`. Com o transcript ligado (opt-in, plugin v2 e connect ≥ 0.12.0), o stop também envia o transcript da sessão principal (veja "Transcript" acima). Desligado, o plugin não lê a sessão |
+| Endpoint | `POST https://valorbrain-api.valor.digital/api/v1/hooks/cue` (o plugin executa o cliente de hook do connect: `hook context-surfacing --format=text --harness=opencode`). Com o transcript ligado, o plugin executa também `hook stop --harness=opencode`, que envia a `POST …/api/v1/hooks/run` |
 | Credencial | entrada `opencode` em `~/.valorbrain/connect.json` |
-| Ritmo | 1 chamada por mensagem; o plugin mata o processo após 9 s |
-| Desligar | `VALORBRAIN_OPENCODE_DISABLE=true`; só o plugin: `npx -y @valorbrain/connect --token <vbm_…> --harness opencode --mcp-only`; tudo (MCP, regras, plugin, credencial): `npx -y @valorbrain/connect --harness opencode --remove`; ou apague `~/.config/opencode/plugins/valorbrain.ts` |
+| Ritmo | 1 chamada por mensagem; o plugin mata o processo após 9 s. Com o transcript ligado, 1 stop por turno da sessão principal, e o envio segue as regras de "Transcript" acima |
+| Desligar | `VALORBRAIN_OPENCODE_DISABLE=true`; só o plugin: `npx -y @valorbrain/connect --token <vbm_…> --harness opencode --mcp-only`; tudo (MCP, regras, plugin, credencial): `npx -y @valorbrain/connect --harness opencode --remove`; ou apague `~/.config/opencode/plugins/valorbrain.ts`; transcript (desligado por padrão): `--transcript on` / `--transcript off` ou `VALORBRAIN_SEND_TRANSCRIPT` |
 
 Uma vez por carregamento, o plugin também busca
 `GET https://valorbrain-api.valor.digital/setup/artifacts?agent=opencode` (ou a

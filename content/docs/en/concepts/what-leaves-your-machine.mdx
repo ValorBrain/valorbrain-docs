@@ -29,7 +29,7 @@ something, the page says **not determined in the code**.
 | Kiro | `SessionStart`, `UserPromptSubmit`, `Stop` (V3) or `agentSpawn`, `userPromptSubmit`, `stop` (legacy) | same as Claude Code | `~/.kiro/hooks/valorbrain.json` (V3) or `~/.kiro/agents/valorbrain.json` (legacy) |
 | Cursor | `sessionStart`, `stop` | start: ids; stop: counters only. No prompt hook | `~/.cursor/hooks.json` |
 | Grok CLI | `Stop` | counters only. With opt-in (`--transcript on`, connect ≥ 0.10.1), also the **session transcript (up to 8 MiB)**, at most every 10 min | `~/.grok/hooks/valorbrain.json` |
-| OpenCode | plugin `chat.message` | prompt: up to 8,000 characters | `~/.config/opencode/plugins/valorbrain.ts` |
+| OpenCode | plugin: `chat.message`; `session.idle` only with the transcript on | prompt: up to 8,000 characters. With opt-in (`--transcript on`, plugin v2 with connect ≥ 0.12.0), also the **main session's transcript (up to 8 MiB)**, at most every 10 min | `~/.config/opencode/plugins/valorbrain.ts` |
 | Hermes Agent | MemoryProvider plugin: start, every turn, compression, session end | each turn's prompt; the **session transcript (up to 8 MiB)** only with opt-in (`--transcript on`) | `~/.hermes/config.yaml` + `~/.hermes/plugins/valorbrain/__init__.py` |
 | Oh My Pi (OMP) | own bridge (`session_start`, every turn, turn end, session end) | start: ids; prompt: up to 8,000 characters; turn end: counters only; the **session transcript (up to 8 MiB)** only with opt-in (`--transcript on`) | `~/.omp/agent/hooks/pre/valorbrain.ts` |
 
@@ -68,7 +68,7 @@ record through MCP. Whatever the model records leaves through that MCP call,
 not through the hook. The one exception is the transcript upload below, which
 exists only with opt-in.
 
-### Transcript (opt-in, connect ≥ 0.10.1, Claude Code and Grok only)
+### Transcript (opt-in: Claude Code and Grok with connect ≥ 0.10.1, OpenCode with connect ≥ 0.12.0)
 
 Off by default. Turn it on per harness with
 `npx -y @valorbrain/connect --harness <id> --transcript on` (writes
@@ -76,15 +76,16 @@ Off by default. Turn it on per harness with
 `--transcript off` writes `false`) or for the whole machine with
 `VALORBRAIN_SEND_TRANSCRIPT=on`, which wins over the file both ways (`off`,
 `0`, `false`, `no` / `on`, `1`, `true`, `yes`). Only an explicit on sends. This
-Stop upload exists from the 0.10.1 hook on: the hook runs the version the
-engine pins, and an older hook does not make it even with the switch on.
+Stop upload exists from the 0.10.1 hook on (0.12.0 for OpenCode): the hook runs
+the version the engine pins, and an older hook does not make it even with the
+switch on.
 
 | | |
 |---|---|
-| Harnesses | Claude Code and Grok CLI, whose transcripts the engine reads. The hooks the installer wires for Codex, Gemini CLI, Kiro and Cursor never make this upload (the exception for extraction hooks wired by hand, on any harness, is right below) |
-| What leaves | the transcript file the harness passes at Stop (Claude Code's `transcript_path`, Grok's `transcriptPath`), its whole content as the harness writes it, up to **8 MiB**. Above that, only the end of the file is sent, and each line dropped from the head becomes an empty line. Along with it: `sessionId`, `hookEventName: "Stop"` and `workingDir` (the session's directory) |
+| Harnesses | Claude Code, Grok CLI and OpenCode, whose transcripts the engine reads. The hooks the installer wires for Codex, Gemini CLI, Kiro and Cursor never make this upload (the exception for extraction hooks wired by hand, on any harness, is right below) |
+| What leaves | the transcript file the harness passes at Stop (Claude Code's `transcript_path`, Grok's `transcriptPath`), its whole content as the harness writes it, up to **8 MiB**. Above that, only the end of the file is sent, and each line dropped from the head becomes an empty line. Along with it: `sessionId`, `hookEventName: "Stop"` and `workingDir` (the session's directory). OpenCode writes no transcript file: plugin v2 builds one on every `session.idle` at `~/.valorbrain/state/opencode/<session>.jsonl` (on your disk only, 0600) with what you typed, the assistant's text, tool calls with their input and each tool's output up to 2,000 characters. Model reasoning, attached files and synthetic parts are left out. That file is what leaves, under the same rules |
 | Endpoint | `POST https://valorbrain-api.valor.digital/api/v1/hooks/run`, two calls per upload: `episode-extractor`, then `decision-extractor` |
-| When | at Stop, after **3** Stops of the session; later ones only when the file grew and **10 min** passed since the last upload. At most **8** uploads per 10 min per harness. Never for an SDK-driven Claude Code session, a continuation Stop, or a Grok turn that did not end with `end_turn`. A 401, 403 or 413 pauses the harness's uploads for 6 h; a 429, for 30 min |
+| When | at Stop, after **3** Stops of the session; later ones only when the file grew and **10 min** passed since the last upload. At most **8** uploads per 10 min per harness. Never for an SDK-driven Claude Code session, a continuation Stop, a Grok turn that did not end with `end_turn`, or an OpenCode turn that was aborted or failed. On OpenCode, subagent sessions (with a `parentID`) are never read. A 401, 403 or 413 pauses the harness's uploads for 6 h; a 429, for 30 min |
 | How | a separate (detached) process uploads; the hook does not wait for it. Each request is cut at 180 s. Failures go to `~/.valorbrain/connect.log`, one line, never content |
 
 Hand-wired legacy extraction hooks (`decision-extractor`, `episode-extractor`,
@@ -280,12 +281,12 @@ Source: `/opt/valorbrain/src/harness/adapters.ts` (`grok` adapter),
 
 | | |
 |---|---|
-| Events | plugin: `chat.message` (every user message). No session start, no stop |
-| What leaves | the message text, cut to 8,000 characters in the plugin and again in the client, plus `session_id` |
-| Endpoint | `POST https://valorbrain-api.valor.digital/api/v1/hooks/cue` (the plugin runs `npx -y @valorbrain/connect@0.9.0 hook context-surfacing --format=text --harness=opencode`) |
+| Events | plugin: `chat.message` (every user message). With the transcript on, also `session.idle` (end of each turn) of the main session. No session start |
+| What leaves | the message text, cut to 8,000 characters in the plugin and again in the client, plus `session_id`. With the transcript on (opt-in, plugin v2 and connect ≥ 0.12.0), the stop also sends the main session's transcript (see "Transcript" above). Off, the plugin does not read the session |
+| Endpoint | `POST https://valorbrain-api.valor.digital/api/v1/hooks/cue` (the plugin runs connect's hook client: `hook context-surfacing --format=text --harness=opencode`). With the transcript on, the plugin also runs `hook stop --harness=opencode`, which uploads to `POST …/api/v1/hooks/run` |
 | Credential | `opencode` entry in `~/.valorbrain/connect.json` |
-| Cadence | 1 call per message; the plugin kills the process after 9 s |
-| Turn off | `VALORBRAIN_OPENCODE_DISABLE=true`; plugin only: `npx -y @valorbrain/connect --token <vbm_…> --harness opencode --mcp-only`; everything (MCP, rules, plugin, credential): `npx -y @valorbrain/connect --harness opencode --remove`; or delete `~/.config/opencode/plugins/valorbrain.ts` |
+| Cadence | 1 call per message; the plugin kills the process after 9 s. With the transcript on, 1 stop per turn of the main session, and the upload follows the "Transcript" rules above |
+| Turn off | `VALORBRAIN_OPENCODE_DISABLE=true`; plugin only: `npx -y @valorbrain/connect --token <vbm_…> --harness opencode --mcp-only`; everything (MCP, rules, plugin, credential): `npx -y @valorbrain/connect --harness opencode --remove`; or delete `~/.config/opencode/plugins/valorbrain.ts`; transcript (off by default): `--transcript on` / `--transcript off` or `VALORBRAIN_SEND_TRANSCRIPT` |
 
 Once per load, the plugin also fetches
 `GET https://valorbrain-api.valor.digital/setup/artifacts?agent=opencode` (or the
