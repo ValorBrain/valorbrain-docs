@@ -62,10 +62,10 @@ de extração que alguém ligou à mão (`decision-extractor`, `episode-extracto
 continua enviando o transcript enquanto a chave não for escolhida; só
 `--transcript off` impede. Depois da instalação, para parar de enviar o prompt:
 `npx -y @valorbrain/connect@latest --harness <id> --prompt off`; para desligar o checkpoint:
-`npx -y @valorbrain/connect@latest --harness <id> --checkpoint off`. Fora do Gemini CLI,
+`npx -y @valorbrain/connect@latest --harness <id> --checkpoint off`.
 `VALORBRAIN_SEND_PROMPT=off` e `VALORBRAIN_CHECKPOINT=off` no ambiente da CLI fazem
-o mesmo; o Gemini CLI limpa o ambiente dos hooks, então lá só valem as escolhas
-salvas. Para tirar só os hooks, rode a instalação de novo com `--mcp-only`;
+o mesmo, menos no Gemini CLI num runner do GitHub, que não passa essas variáveis
+aos hooks; ali só valem as escolhas salvas. Para tirar só os hooks, rode a instalação de novo com `--mcp-only`;
 `npx -y @valorbrain/connect@latest --harness <id> --remove` desfaz tudo (entrada do MCP,
 regras, hooks e credenciais salvas). Detalhes por CLI:
 [O que sai da sua máquina](/docs/concepts/what-leaves-your-machine).

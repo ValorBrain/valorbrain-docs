@@ -66,6 +66,15 @@ and the project adheres to
   Claude Code's `sessionAttended` (`CLAUDE_CODE_SESSION_ATTENDED=0` skips the
   upload, `=1` sends `sessionAttended: "1"`). Mirrors
   `packages/connect/README.md` at `@valorbrain/connect` v0.12.0.
+- "O que sai da sua máquina" / "What leaves your machine", Quickstart and
+  Connect (pt + en): corrected the claim that Gemini CLI strips the hook
+  environment. Gemini CLI 0.43 passes its process environment to hooks and
+  filters it only with `security.environmentVariableRedaction.enabled` (drops
+  secret-like names such as `VALORBRAIN_TOKEN`) or on a GitHub runner
+  (allowlist only). So `VALORBRAIN_SEND_PROMPT` / `VALORBRAIN_CHECKPOINT` /
+  `VALORBRAIN_SEND_TRANSCRIPT` work on Gemini except on a GitHub runner, where
+  `CI` / `GITHUB_ACTIONS` do not reach the hook either; the switches saved in
+  `connect.json` always work.
 - Quickstart and Connect (pt + en), step 2: Claude Code, Codex, Kiro, Gemini CLI
   and Cursor get one `@valorbrain/connect` command (`--harness <id>`) for MCP +
   rules + hooks, with the consent (the prompt of each turn goes to the

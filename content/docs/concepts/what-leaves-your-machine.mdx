@@ -116,7 +116,9 @@ Execuções que nunca enviam, mesmo com a chave ligada:
 - **Gemini CLI:** `gemini -p` / `--prompt`, Gemini com a pergunta na linha de
   comando (sem `-i`) e Gemini em CI (`CI=true` ou `GITHUB_ACTIONS=true`), a
   mesma regra de "headless" do Gemini; sessões de sub-agente
-  (`kind: "subagent"` no arquivo).
+  (`kind: "subagent"` no arquivo). Num runner do GitHub o Gemini não passa
+  `CI` nem `GITHUB_ACTIONS` ao hook (veja a seção do Gemini CLI); ali vale só a
+  checagem da linha de comando.
 - **Kiro:** `kiro-cli chat --no-interactive`; no motor legado, as sessões que
   um cliente ACP abriu (`session_created_reason: "subagent"` em
   `~/.kiro/sessions/cli/<id>.json`).
@@ -262,13 +264,25 @@ Fonte: `/opt/valorbrain/src/harness/adapters.ts` (`codexHooksArtifact`),
 | Eventos | `SessionStart`, `BeforeAgent` (prompt), `AfterAgent` (stop), timeout de 10.000 ms cada |
 | O que sai | igual ao Claude Code. Com o transcript ligado (opt-in, connect ≥ 0.12.0), o `AfterAgent` também envia o arquivo da sessão; `gemini -p`, pergunta na linha de comando, CI e sub-agentes nunca enviam (veja "Transcript" acima) |
 | Endpoint | `POST https://valorbrain-api.valor.digital/api/v1/hooks/cue` |
-| Credencial | entrada `gemini-cli` em `~/.valorbrain/connect.json`. O Gemini roda hooks com ambiente sanitizado, por isso o cliente lê o arquivo e não variáveis de ambiente |
+| Credencial | entrada `gemini-cli` em `~/.valorbrain/connect.json` (ordem completa acima). Com a redação de ambiente do Gemini ligada, `VALORBRAIN_TOKEN` não chega ao hook (o nome tem `TOKEN`), e o arquivo é o que vale |
 | Ritmo | igual ao Claude Code |
-| Desligar | só os hooks: `npx -y @valorbrain/connect --token <vbm_…> --harness gemini-cli --mcp-only`; tudo (MCP, regras, hooks, credencial): `npx -y @valorbrain/connect --harness gemini-cli --remove`; ou apague as entradas `valorbrain-*` em `hooks` de `~/.gemini/settings.json`; prompt: `npx -y @valorbrain/connect --harness gemini-cli --prompt off`; checkpoint: `npx -y @valorbrain/connect --harness gemini-cli --checkpoint off`; transcript (desligado por padrão): `--transcript on` / `--transcript off` |
+| Desligar | só os hooks: `npx -y @valorbrain/connect --token <vbm_…> --harness gemini-cli --mcp-only`; tudo (MCP, regras, hooks, credencial): `npx -y @valorbrain/connect --harness gemini-cli --remove`; ou apague as entradas `valorbrain-*` em `hooks` de `~/.gemini/settings.json`; prompt: `npx -y @valorbrain/connect --harness gemini-cli --prompt off`; checkpoint: `npx -y @valorbrain/connect --harness gemini-cli --checkpoint off`; transcript (desligado por padrão): `--transcript on` / `--transcript off`. As variáveis `VALORBRAIN_SEND_PROMPT`, `VALORBRAIN_CHECKPOINT` e `VALORBRAIN_SEND_TRANSCRIPT` também valem, menos num runner do GitHub (abaixo) |
 
-O Gemini sanitiza o ambiente dos hooks, então `VALORBRAIN_SEND_PROMPT` e
-`VALORBRAIN_CHECKPOINT` não chegam a eles: ali só valem as escolhas salvas em
-`~/.valorbrain/connect.json` com `--prompt off` e `--checkpoint off`.
+O Gemini CLI (0.43) passa aos hooks o ambiente do próprio processo, mais as
+variáveis `GEMINI_*`. Ele só filtra esse ambiente em dois casos:
+
+- com `security.environmentVariableRedaction.enabled: true` no `settings.json`
+  do Gemini: saem as variáveis com nome de segredo (`TOKEN`, `KEY`, `SECRET`,
+  `AUTH`, `PASSWORD`…), alguns nomes fixos e as listadas em `blocked`;
+- num runner do GitHub (`GITHUB_SHA` definido, ou `SURFACE=Github`): só passa
+  uma lista curta (`PATH`, `HOME`, `TERM`…) e as listadas em `allowed`.
+
+Por isso `VALORBRAIN_SEND_PROMPT`, `VALORBRAIN_CHECKPOINT` e
+`VALORBRAIN_SEND_TRANSCRIPT` chegam ao hook e valem como nos outros harnesses,
+menos num runner do GitHub. As escolhas salvas em `~/.valorbrain/connect.json`
+(`--prompt`, `--checkpoint`, `--transcript`) valem sempre. Num runner do GitHub
+também não chegam `CI` nem `GITHUB_ACTIONS`; ali, o que impede o envio do
+transcript é a checagem da linha de comando (`-p` ou pergunta no argv).
 
 Fonte: `/opt/valorbrain/src/harness/adapters.ts` (`geminiHooksArtifact`),
 `/opt/valorbrain/src/harness/hosted.ts`
@@ -462,14 +476,15 @@ Fonte: `/www/valorbrain-cli/packages/connect/hook.mjs`,
 - Só o checkpoint do stop, por harness: `npx -y @valorbrain/connect --harness <id> --checkpoint off`
   (grava `checkpoint: false` na entrada do harness; `--checkpoint on` religa).
   Na máquina inteira: `VALORBRAIN_CHECKPOINT=off` (ou `0`, ou `false`) no
-  ambiente do harness, que vence o arquivo nos dois sentidos. No Gemini CLI só
-  o `--checkpoint off` funciona; no Codex instalado antes da 0.9.0, só a
+  ambiente do harness, que vence o arquivo nos dois sentidos. No Gemini CLI a
+  variável não chega ao hook num runner do GitHub (veja a seção do Gemini CLI),
+  e ali só o `--checkpoint off` funciona; no Codex instalado antes da 0.9.0, só a
   variável, até reinstalar.
 - Só o prompt, por harness: `npx -y @valorbrain/connect --harness <id> --prompt off`
   (grava `send_prompt: false` na entrada do harness em
   `~/.valorbrain/connect.json`; `--prompt on` religa). Na máquina inteira:
-  `VALORBRAIN_SEND_PROMPT=off` no ambiente do harness (o Gemini CLI sanitiza o
-  ambiente; nele, use o `--prompt off`). Sem o prompt, o início de sessão e o
+  `VALORBRAIN_SEND_PROMPT=off` no ambiente do harness (num runner do GitHub o
+  Gemini CLI não passa essa variável aos hooks; ali, use o `--prompt off`). Sem o prompt, o início de sessão e o
   checkpoint continuam; o recall por prompt para.
 - Transcript (Claude Code, Grok, Codex, Gemini CLI, Kiro, Cursor, OpenCode,
   Hermes e OMP): desligado por padrão; liga com
