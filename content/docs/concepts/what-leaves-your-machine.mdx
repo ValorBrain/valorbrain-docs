@@ -24,12 +24,12 @@ a página diz **não determinado no código**.
 | Harness | Eventos com hook | O que sai por evento | Arquivo de config |
 |---|---|---|---|
 | Claude Code | `SessionStart`, `UserPromptSubmit`, `Stop` | início: ids; prompt: até 8.000 caracteres; stop: só contadores. Com opt-in (`--transcript on`, connect ≥ 0.10.1), o stop também envia o **transcript da sessão (até 8 MiB)**, no máximo a cada 10 min | `~/.claude/settings.json` |
-| Codex | `SessionStart`, `UserPromptSubmit`, `Stop` | igual ao Claude Code | `~/.codex/hooks.json` |
-| Gemini CLI | `SessionStart`, `BeforeAgent`, `AfterAgent` | igual ao Claude Code | `~/.gemini/settings.json` |
-| Kiro | `SessionStart`, `UserPromptSubmit`, `Stop` (V3) ou `agentSpawn`, `userPromptSubmit`, `stop` (legado) | igual ao Claude Code | `~/.kiro/hooks/valorbrain.json` (V3) ou `~/.kiro/agents/valorbrain.json` (legado) |
-| Cursor | `sessionStart`, `stop` | início: ids; stop: só contadores. Sem hook de prompt | `~/.cursor/hooks.json` |
+| Codex | `SessionStart`, `UserPromptSubmit`, `Stop` | igual ao Claude Code, mas o **transcript da sessão** (opt-in) exige connect ≥ 0.12.0 | `~/.codex/hooks.json` |
+| Gemini CLI | `SessionStart`, `BeforeAgent`, `AfterAgent` | igual ao Claude Code, mas o **transcript da sessão** (opt-in) exige connect ≥ 0.12.0 | `~/.gemini/settings.json` |
+| Kiro | `SessionStart`, `UserPromptSubmit`, `Stop` (V3) ou `agentSpawn`, `userPromptSubmit`, `stop` (legado) | igual ao Claude Code, mas o **transcript da sessão** (opt-in) exige connect ≥ 0.12.0 | `~/.kiro/hooks/valorbrain.json` (V3) ou `~/.kiro/agents/valorbrain.json` (legado) |
+| Cursor | `sessionStart`, `stop` | início: ids; stop: só contadores. Sem hook de prompt. Com opt-in (`--transcript on`, connect ≥ 0.12.0), o stop também envia o **transcript da sessão (até 8 MiB)**, no máximo a cada 10 min | `~/.cursor/hooks.json` |
 | Grok CLI | `Stop` | só contadores. Com opt-in (`--transcript on`, connect ≥ 0.10.1), também o **transcript da sessão (até 8 MiB)**, no máximo a cada 10 min | `~/.grok/hooks/valorbrain.json` |
-| OpenCode | plugin `chat.message` | prompt: até 8.000 caracteres | `~/.config/opencode/plugins/valorbrain.ts` |
+| OpenCode | plugin: `chat.message`; `session.idle` só com o transcript ligado | prompt: até 8.000 caracteres. Com opt-in (`--transcript on`, plugin v2 com connect ≥ 0.12.0), também o **transcript da sessão principal (até 8 MiB)**, no máximo a cada 10 min | `~/.config/opencode/plugins/valorbrain.ts` |
 | Hermes Agent | plugin MemoryProvider: início, cada turno, compressão, fim de sessão | o prompt de cada turno; o **transcript da sessão (até 8 MiB)** só com opt-in (`--transcript on`) | `~/.hermes/config.yaml` + `~/.hermes/plugins/valorbrain/__init__.py` |
 | Oh My Pi (OMP) | ponte própria (`session_start`, cada turno, fim de turno, fim de sessão) | início: ids; prompt: até 8.000 caracteres; fim de turno: só contadores; o **transcript da sessão (até 8 MiB)** só com opt-in (`--transcript on`) | `~/.omp/agent/hooks/pre/valorbrain.ts` |
 
@@ -68,7 +68,7 @@ decide o que gravar pelo MCP. O que o modelo gravar sai por essa chamada MCP,
 não pelo hook. A única exceção é o envio do transcript abaixo, que só existe
 com opt-in.
 
-### Transcript (opt-in, connect ≥ 0.10.1, só Claude Code e Grok)
+### Transcript (opt-in: Claude Code e Grok com connect ≥ 0.10.1; Codex, Gemini CLI, Kiro, Cursor e OpenCode com connect ≥ 0.12.0)
 
 Desligado por padrão. Liga por harness com
 `npx -y @valorbrain/connect --harness <id> --transcript on` (grava
@@ -76,17 +76,62 @@ Desligado por padrão. Liga por harness com
 `--transcript off` grava `false`) ou na máquina inteira com
 `VALORBRAIN_SEND_TRANSCRIPT=on`, que vence o arquivo nos dois sentidos
 (`off`, `0`, `false`, `no` / `on`, `1`, `true`, `yes`). Só um "ligado" explícito
-envia. Este envio no stop existe do hook 0.10.1 em diante: o hook roda a
-versão fixada pelo engine, e um hook de versão anterior não faz este envio
-mesmo com a chave ligada.
+envia. Este envio no stop existe do hook 0.10.1 em diante no Claude Code e no
+Grok, e do 0.12.0 em diante no Codex, Gemini CLI, Kiro, Cursor e OpenCode:
+o hook roda a versão fixada pelo engine, e um hook de versão anterior não faz
+este envio mesmo com a chave ligada.
 
 | | |
 |---|---|
-| Harnesses | Claude Code e Grok CLI, cujo transcript o engine lê. Os hooks que o instalador liga no Codex, Gemini CLI, Kiro e Cursor nunca fazem este envio (a exceção dos hooks de extração ligados à mão, em qualquer harness, está logo abaixo) |
-| O que sai | o arquivo de transcript que o harness entrega no stop (`transcript_path` do Claude Code, `transcriptPath` do Grok), com o conteúdo inteiro como o harness o grava, até **8 MiB**. Acima disso vai só o final do arquivo, e cada linha cortada do começo vira uma linha vazia. Junto: `sessionId`, `hookEventName: "Stop"` e `workingDir` (o diretório da sessão) |
+| Harnesses | Claude Code, Grok CLI, Codex, Gemini CLI, Kiro, Cursor e OpenCode. Um stop só envia pelo arquivo de hooks do próprio harness: o Cursor rodando o `settings.json` do Claude Code, ou o Grok rodando o `hooks.json` do Cursor, não envia com a credencial do outro harness. (A exceção dos hooks de extração ligados à mão, em qualquer harness, está logo abaixo) |
+| O que sai | o arquivo de transcript da sessão (onde o hook o acha, por harness, está na tabela seguinte), com o conteúdo inteiro como o harness o grava, até **8 MiB**. Acima disso, num arquivo JSONL vai só o final do arquivo, e cada linha cortada do começo vira uma linha vazia; um transcript em JSON de arquivo único (Gemini CLI antigo) acima de 8 MiB não é cortado e **não é enviado**. Junto: `sessionId`, `hookEventName: "Stop"`, `workingDir` (o diretório da sessão) e, só no Claude Code com `CLAUDE_CODE_SESSION_ATTENDED=1`, `sessionAttended: "1"`. O OpenCode não grava arquivo de transcript: o plugin v2 monta um a cada `session.idle` em `~/.valorbrain/state/opencode/<sessão>.jsonl` (só no seu disco, 0600), com o texto que você digitou, o texto do assistente e as chamadas de tool. A entrada de cada tool (em JSON) e a saída vão cortadas em **2.000 caracteres**, com a marca `…[truncated N chars]`: um edit ou write leva o arquivo inteiro na entrada, e esse conteúdo não sai inteiro. Raciocínio do modelo, arquivos anexados e partes sintéticas ficam de fora. É esse arquivo que vai, pelas mesmas regras. O plugin apaga desse diretório os arquivos parados há mais de **7 dias** |
 | Endpoint | `POST https://valorbrain-api.valor.digital/api/v1/hooks/run`, duas chamadas por envio: `episode-extractor` e depois `decision-extractor` |
-| Quando | no stop, depois de **3** stops da sessão; os seguintes só se o arquivo cresceu e passaram **10 min** desde o último envio. No máximo **8** envios a cada 10 min por harness. Não envia em sessão dirigida por SDK do Claude Code, em stop de continuação, nem em turno do Grok que não terminou com `end_turn`. Um 401, 403 ou 413 pausa os envios do harness por 6 h; um 429, por 30 min |
+| Quando | no stop, depois de **3** stops da sessão; os seguintes só se o arquivo cresceu e passaram **10 min** desde o último envio. No máximo **8** envios a cada 10 min por harness. Só a sessão principal de uma pessoa envia: as execuções que ficam de fora estão na lista abaixo da tabela. Também não envia em stop de continuação (`stop_hook_active`), em turno do Grok que não terminou com `end_turn`, nem em turno do Cursor ou do OpenCode que não terminou como `completed`. Um 401, 403 ou 413 pausa os envios do harness por 6 h; um 429, por 30 min |
 | Como | um processo separado (destacado) faz o envio; o hook não espera por ele. Cada requisição é cortada em 180 s. Falhas vão para `~/.valorbrain/connect.log`, uma linha, sem conteúdo |
+
+Onde o hook acha o arquivo:
+
+| Harness | Arquivo |
+|---|---|
+| Claude Code | `transcript_path` do payload |
+| Grok CLI | `transcriptPath` do payload |
+| Codex | `transcript_path` do payload: o rollout em `~/.codex/sessions/` |
+| Gemini CLI | `transcript_path` do `AfterAgent`: `~/.gemini/tmp/<projeto>/chats/session-*.jsonl` (versões antigas: um arquivo `.json` único) |
+| Cursor | `transcript_path` do payload ou `CURSOR_TRANSCRIPT_PATH`; sem eles, pelo `conversation_id` em `~/.cursor/projects/<workspace>/agent-transcripts/` (`<id>.jsonl` ou `<id>/<id>.jsonl`). Só arquivo `.jsonl` |
+| Kiro | o payload não traz caminho, só `session_id` e `cwd`. Kiro CLI 3.0 / `--v3`: `~/.kiro/sessions/<sha256 do cwd, 16 caracteres>/<sess_…>/messages.jsonl`, e, se o hash do `cwd` não bater, o mesmo `<sess_…>/messages.jsonl` em qualquer diretório de `~/.kiro/sessions/`. Motor legado: `~/.kiro/sessions/cli/<id>.jsonl` |
+| OpenCode | o JSONL que o plugin grava em `~/.valorbrain/state/opencode/` |
+
+Execuções que nunca enviam, mesmo com a chave ligada:
+
+- **Claude Code:** sessão dirigida por SDK (`CLAUDE_CODE_ENTRYPOINT` começando
+  com `sdk`) e toda sessão que o Claude Code marca como sem ninguém
+  (`CLAUDE_CODE_SESSION_ATTENDED=0`: `-p`/SDK, sessões em segundo plano e um
+  claude aberto por outro). Com `=1`, o envio leva `sessionAttended: "1"`, e o
+  engine só tira fatos dos turnos digitados por uma pessoa. Sem a variável,
+  o campo não vai.
+- **Codex:** `codex exec` (é o que o SDK do Codex roda), `codex mcp-server`,
+  clientes SDK do app-server e threads de sub-agente. O hook lê isso na linha
+  `session_meta` do rollout (`source`, `thread_source`, `originator`); um
+  rollout sem essa linha também não envia.
+- **Gemini CLI:** `gemini -p` / `--prompt`, Gemini com a pergunta na linha de
+  comando (sem `-i`) e Gemini em CI (`CI=true` ou `GITHUB_ACTIONS=true`), a
+  mesma regra de "headless" do Gemini; sessões de sub-agente
+  (`kind: "subagent"` no arquivo). Num runner do GitHub o Gemini não passa
+  `CI` nem `GITHUB_ACTIONS` ao hook (veja a seção do Gemini CLI); ali vale só a
+  checagem da linha de comando.
+- **Kiro:** `kiro-cli chat --no-interactive`; no motor legado, as sessões que
+  um cliente ACP abriu (`session_created_reason: "subagent"` em
+  `~/.kiro/sessions/cli/<id>.json`).
+- **Cursor:** `cursor-agent -p` / `--print`. O `stop` do Cursor só dispara
+  para a conversa principal; subagentes têm o `subagentStop`, que o connect
+  não liga.
+- **OpenCode:** sessões de subagente (com `parentID`) nunca são lidas.
+
+Gemini CLI, Kiro e Cursor não dizem no payload nem no ambiente que a execução
+é não interativa. O hook roda um `ps` (Linux e macOS), sobe a árvore de
+processos a partir do pai e lê a linha de comando do processo do harness. Nada
+disso sai da máquina. Onde não há `ps` (Windows) ou ele falha, essa checagem
+não acontece e a execução conta como interativa: só vale o mínimo de 3 stops.
 
 Hooks de extração legados ligados à mão (`decision-extractor`,
 `episode-extractor`, `handoff-generator`, `feedback-loop`,
@@ -185,7 +230,10 @@ Fonte: `/www/valorbrain-cli/packages/connect/hook.mjs`,
 | Desligar | só os hooks: `npx -y @valorbrain/connect --token <vbm_…> --harness claude-code --mcp-only`; tudo (MCP, regras, hooks, credencial): `npx -y @valorbrain/connect --harness claude-code --remove`; ou apague as entradas com `@valorbrain/connect` em `~/.claude/settings.json`; só o checkpoint: `npx -y @valorbrain/connect --harness claude-code --checkpoint off` ou `VALORBRAIN_CHECKPOINT=off`; transcript (desligado por padrão): `--transcript on` / `--transcript off` ou `VALORBRAIN_SEND_TRANSCRIPT` |
 
 Sessões do Claude Code dirigidas por SDK (`CLAUDE_CODE_ENTRYPOINT` começando
-com `sdk`) nunca recebem checkpoint e não chamam a rede no stop.
+com `sdk`) nunca recebem checkpoint e não chamam a rede no stop. Com o
+transcript ligado, uma sessão com `CLAUDE_CODE_SESSION_ATTENDED=0` também não
+envia o transcript, e com `=1` o envio leva `sessionAttended: "1"` (connect ≥
+0.12.0; veja "Transcript" acima).
 
 Fonte: `/opt/valorbrain/src/harness/adapters.ts` (adapter `claude-code`),
 `/www/valorbrain-cli/packages/connect/hook.mjs`
@@ -195,11 +243,11 @@ Fonte: `/opt/valorbrain/src/harness/adapters.ts` (adapter `claude-code`),
 | | |
 |---|---|
 | Eventos | `SessionStart`, `UserPromptSubmit`, `Stop` (timeout de 10 s cada) |
-| O que sai | igual ao Claude Code |
+| O que sai | igual ao Claude Code. Com o transcript ligado (opt-in, connect ≥ 0.12.0), o stop também envia o rollout da sessão; `codex exec`, `codex mcp-server`, clientes SDK e sub-agentes nunca enviam (veja "Transcript" acima) |
 | Endpoint | `POST https://valorbrain-api.valor.digital/api/v1/hooks/cue` |
 | Credencial | entrada `codex` em `~/.valorbrain/connect.json` |
 | Ritmo | igual ao Claude Code |
-| Desligar | só os hooks: `npx -y @valorbrain/connect --token <vbm_…> --harness codex --mcp-only`; tudo (MCP, regras, hooks, credencial): `npx -y @valorbrain/connect --harness codex --remove`; ou apague as entradas com `@valorbrain/connect` em `~/.codex/hooks.json`; só o checkpoint: `npx -y @valorbrain/connect --harness codex --checkpoint off` (hooks da 0.9.0) ou `VALORBRAIN_CHECKPOINT=off` |
+| Desligar | só os hooks: `npx -y @valorbrain/connect --token <vbm_…> --harness codex --mcp-only`; tudo (MCP, regras, hooks, credencial): `npx -y @valorbrain/connect --harness codex --remove`; ou apague as entradas com `@valorbrain/connect` em `~/.codex/hooks.json`; só o checkpoint: `npx -y @valorbrain/connect --harness codex --checkpoint off` (hooks da 0.9.0) ou `VALORBRAIN_CHECKPOINT=off`; transcript (desligado por padrão): `--transcript on` / `--transcript off` ou `VALORBRAIN_SEND_TRANSCRIPT` |
 
 O Codex pede que você revise e confie nos hooks alterados uma vez, em `/hooks`.
 Por isso o self-heal não migra os hooks do Codex sozinho: uma instalação
@@ -214,15 +262,27 @@ Fonte: `/opt/valorbrain/src/harness/adapters.ts` (`codexHooksArtifact`),
 | | |
 |---|---|
 | Eventos | `SessionStart`, `BeforeAgent` (prompt), `AfterAgent` (stop), timeout de 10.000 ms cada |
-| O que sai | igual ao Claude Code |
+| O que sai | igual ao Claude Code. Com o transcript ligado (opt-in, connect ≥ 0.12.0), o `AfterAgent` também envia o arquivo da sessão; `gemini -p`, pergunta na linha de comando, CI e sub-agentes nunca enviam (veja "Transcript" acima) |
 | Endpoint | `POST https://valorbrain-api.valor.digital/api/v1/hooks/cue` |
-| Credencial | entrada `gemini-cli` em `~/.valorbrain/connect.json`. O Gemini roda hooks com ambiente sanitizado, por isso o cliente lê o arquivo e não variáveis de ambiente |
+| Credencial | entrada `gemini-cli` em `~/.valorbrain/connect.json` (ordem completa acima). Com a redação de ambiente do Gemini ligada, `VALORBRAIN_TOKEN` não chega ao hook (o nome tem `TOKEN`), e o arquivo é o que vale |
 | Ritmo | igual ao Claude Code |
-| Desligar | só os hooks: `npx -y @valorbrain/connect --token <vbm_…> --harness gemini-cli --mcp-only`; tudo (MCP, regras, hooks, credencial): `npx -y @valorbrain/connect --harness gemini-cli --remove`; ou apague as entradas `valorbrain-*` em `hooks` de `~/.gemini/settings.json`; prompt: `npx -y @valorbrain/connect --harness gemini-cli --prompt off`; checkpoint: `npx -y @valorbrain/connect --harness gemini-cli --checkpoint off` |
+| Desligar | só os hooks: `npx -y @valorbrain/connect --token <vbm_…> --harness gemini-cli --mcp-only`; tudo (MCP, regras, hooks, credencial): `npx -y @valorbrain/connect --harness gemini-cli --remove`; ou apague as entradas `valorbrain-*` em `hooks` de `~/.gemini/settings.json`; prompt: `npx -y @valorbrain/connect --harness gemini-cli --prompt off`; checkpoint: `npx -y @valorbrain/connect --harness gemini-cli --checkpoint off`; transcript (desligado por padrão): `--transcript on` / `--transcript off`. As variáveis `VALORBRAIN_SEND_PROMPT`, `VALORBRAIN_CHECKPOINT` e `VALORBRAIN_SEND_TRANSCRIPT` também valem, menos num runner do GitHub (abaixo) |
 
-O Gemini sanitiza o ambiente dos hooks, então `VALORBRAIN_SEND_PROMPT` e
-`VALORBRAIN_CHECKPOINT` não chegam a eles: ali só valem as escolhas salvas em
-`~/.valorbrain/connect.json` com `--prompt off` e `--checkpoint off`.
+O Gemini CLI (0.43) passa aos hooks o ambiente do próprio processo, mais as
+variáveis `GEMINI_*`. Ele só filtra esse ambiente em dois casos:
+
+- com `security.environmentVariableRedaction.enabled: true` no `settings.json`
+  do Gemini: saem as variáveis com nome de segredo (`TOKEN`, `KEY`, `SECRET`,
+  `AUTH`, `PASSWORD`…), alguns nomes fixos e as listadas em `blocked`;
+- num runner do GitHub (`GITHUB_SHA` definido, ou `SURFACE=Github`): só passa
+  uma lista curta (`PATH`, `HOME`, `TERM`…) e as listadas em `allowed`.
+
+Por isso `VALORBRAIN_SEND_PROMPT`, `VALORBRAIN_CHECKPOINT` e
+`VALORBRAIN_SEND_TRANSCRIPT` chegam ao hook e valem como nos outros harnesses,
+menos num runner do GitHub. As escolhas salvas em `~/.valorbrain/connect.json`
+(`--prompt`, `--checkpoint`, `--transcript`) valem sempre. Num runner do GitHub
+também não chegam `CI` nem `GITHUB_ACTIONS`; ali, o que impede o envio do
+transcript é a checagem da linha de comando (`-p` ou pergunta no argv).
 
 Fonte: `/opt/valorbrain/src/harness/adapters.ts` (`geminiHooksArtifact`),
 `/opt/valorbrain/src/harness/hosted.ts`
@@ -232,11 +292,11 @@ Fonte: `/opt/valorbrain/src/harness/adapters.ts` (`geminiHooksArtifact`),
 | | |
 |---|---|
 | Eventos | Engine V3 (padrão): `SessionStart`, `UserPromptSubmit`, `Stop` no arquivo avulso. Engine legado (`--kiro-engine=legacy`): `agentSpawn`, `userPromptSubmit`, `stop` na config de agente, com `timeout: 10000` |
-| O que sai | igual ao Claude Code |
+| O que sai | igual ao Claude Code. Com o transcript ligado (opt-in, connect ≥ 0.12.0), o stop também envia o arquivo da sessão, que o hook acha pelo `session_id` em `~/.kiro/sessions/`; `kiro-cli chat --no-interactive` e, no motor legado, sessões abertas por um cliente ACP nunca enviam (veja "Transcript" acima) |
 | Endpoint | `POST https://valorbrain-api.valor.digital/api/v1/hooks/cue` |
 | Credencial | entrada `kiro` em `~/.valorbrain/connect.json` |
 | Ritmo | igual ao Claude Code. O timeout do arquivo V3 não é definido pelo connect; o valor padrão do Kiro é não determinado no código |
-| Desligar | só os hooks: `npx -y @valorbrain/connect --token <vbm_…> --harness kiro --mcp-only`; tudo: `npx -y @valorbrain/connect --harness kiro --remove` (MCP, regras, credencial e os arquivos dos dois modos); ou apague `~/.kiro/hooks/valorbrain.json` e `~/.kiro/agents/valorbrain.json`; só o checkpoint: `npx -y @valorbrain/connect --harness kiro --checkpoint off` ou `VALORBRAIN_CHECKPOINT=off` |
+| Desligar | só os hooks: `npx -y @valorbrain/connect --token <vbm_…> --harness kiro --mcp-only`; tudo: `npx -y @valorbrain/connect --harness kiro --remove` (MCP, regras, credencial e os arquivos dos dois modos); ou apague `~/.kiro/hooks/valorbrain.json` e `~/.kiro/agents/valorbrain.json`; só o checkpoint: `npx -y @valorbrain/connect --harness kiro --checkpoint off` ou `VALORBRAIN_CHECKPOINT=off`; transcript (desligado por padrão): `--transcript on` / `--transcript off` ou `VALORBRAIN_SEND_TRANSCRIPT` |
 
 Com `--scope workspace`, o arquivo vai para `.kiro/` dentro do projeto.
 
@@ -248,15 +308,16 @@ Fonte: `/opt/valorbrain/src/harness/adapters.ts` (adapter `kiro`),
 | | |
 |---|---|
 | Eventos | `sessionStart`, `stop` (timeout de 10 s cada). Não há hook de prompt: `beforeSubmitPrompt` pode bloquear um prompt, mas não adicionar contexto |
-| O que sai | início: ids; stop: só contadores |
+| O que sai | início: ids; stop: só contadores. Com o transcript ligado (opt-in, connect ≥ 0.12.0), o stop também envia o transcript `.jsonl` da conversa; `cursor-agent -p` e turnos que não terminaram como `completed` nunca enviam (veja "Transcript" acima) |
 | Endpoint | `POST https://valorbrain-api.valor.digital/api/v1/hooks/cue` |
 | Credencial | entrada `cursor` em `~/.valorbrain/connect.json` |
 | Ritmo | 1 chamada por início de sessão; stop segundo a política. O próprio Cursor limita follow-ups por conversa (`loop_limit`, padrão 5) |
-| Desligar | só os hooks: `npx -y @valorbrain/connect --token <vbm_…> --harness cursor --mcp-only`; tudo (MCP, regras, hooks, credencial): `npx -y @valorbrain/connect --harness cursor --remove`; ou apague as entradas com `valorbrain` em `~/.cursor/hooks.json`; só o checkpoint: `npx -y @valorbrain/connect --harness cursor --checkpoint off` ou `VALORBRAIN_CHECKPOINT=off` |
+| Desligar | só os hooks: `npx -y @valorbrain/connect --token <vbm_…> --harness cursor --mcp-only`; tudo (MCP, regras, hooks, credencial): `npx -y @valorbrain/connect --harness cursor --remove`; ou apague as entradas com `valorbrain` em `~/.cursor/hooks.json`; só o checkpoint: `npx -y @valorbrain/connect --harness cursor --checkpoint off` ou `VALORBRAIN_CHECKPOINT=off`; transcript (desligado por padrão): `--transcript on` / `--transcript off` ou `VALORBRAIN_SEND_TRANSCRIPT` |
 
 O Cursor também carrega `~/.claude/settings.json`. Quando ele dispara o hook de
 prompt do Claude Code, o cliente reconhece o Cursor pelo payload e não chama o
-`hooks/cue`.
+`hooks/cue`. Um stop do Cursor que chega por esse arquivo não envia o
+transcript: só o `~/.cursor/hooks.json` envia, com a credencial `cursor`.
 
 Fonte: `/opt/valorbrain/src/harness/adapters.ts` (`cursorHooksArtifact`),
 `/www/valorbrain-cli/packages/connect/hook.mjs`
@@ -282,12 +343,12 @@ Fonte: `/opt/valorbrain/src/harness/adapters.ts` (adapter `grok`),
 
 | | |
 |---|---|
-| Eventos | plugin: `chat.message` (cada mensagem do usuário). Não há início de sessão nem stop |
-| O que sai | o texto da mensagem, cortado em 8.000 caracteres no plugin e de novo no cliente, mais o `session_id` |
-| Endpoint | `POST https://valorbrain-api.valor.digital/api/v1/hooks/cue` (o plugin executa `npx -y @valorbrain/connect@0.9.0 hook context-surfacing --format=text --harness=opencode`) |
+| Eventos | plugin: `chat.message` (cada mensagem do usuário). Com o transcript ligado, também `session.idle` (fim de cada turno) da sessão principal. Não há início de sessão |
+| O que sai | o texto da mensagem, cortado em 8.000 caracteres no plugin e de novo no cliente, mais o `session_id`. Com o transcript ligado (opt-in, plugin v2 e connect ≥ 0.12.0), o stop também envia o transcript da sessão principal (veja "Transcript" acima). Desligado, o plugin não lê a sessão |
+| Endpoint | `POST https://valorbrain-api.valor.digital/api/v1/hooks/cue` (o plugin executa o cliente de hook do connect: `hook context-surfacing --format=text --harness=opencode`). Com o transcript ligado, o plugin executa também `hook stop --harness=opencode`, que envia a `POST …/api/v1/hooks/run` |
 | Credencial | entrada `opencode` em `~/.valorbrain/connect.json` |
-| Ritmo | 1 chamada por mensagem; o plugin mata o processo após 9 s |
-| Desligar | `VALORBRAIN_OPENCODE_DISABLE=true`; só o plugin: `npx -y @valorbrain/connect --token <vbm_…> --harness opencode --mcp-only`; tudo (MCP, regras, plugin, credencial): `npx -y @valorbrain/connect --harness opencode --remove`; ou apague `~/.config/opencode/plugins/valorbrain.ts` |
+| Ritmo | 1 chamada por mensagem; o plugin mata o processo após 9 s. Com o transcript ligado, 1 stop por turno da sessão principal, e o envio segue as regras de "Transcript" acima |
+| Desligar | `VALORBRAIN_OPENCODE_DISABLE=true`; só o plugin: `npx -y @valorbrain/connect --token <vbm_…> --harness opencode --mcp-only`; tudo (MCP, regras, plugin, credencial): `npx -y @valorbrain/connect --harness opencode --remove`; ou apague `~/.config/opencode/plugins/valorbrain.ts`; transcript (desligado por padrão): `--transcript on` / `--transcript off` ou `VALORBRAIN_SEND_TRANSCRIPT` |
 
 Uma vez por carregamento, o plugin também busca
 `GET https://valorbrain-api.valor.digital/setup/artifacts?agent=opencode` (ou a
@@ -366,17 +427,23 @@ desligado (o padrão), o mesmo vale: nada além dos três corpos do `hooks/cue`.
 - **Transcript**: os hooks que o instalador liga (`session-start`, `prompt`,
   `stop`) não leem o arquivo de transcript enquanto a chave não estiver ligada.
   Além dos três corpos acima, do fallback legado e do self-heal, eles não
-  enviam nada. Com `--transcript on`, o Claude Code e o Grok enviam o
-  transcript como descrito em "Transcript" acima; os hooks instalados do Codex,
-  Gemini CLI, Kiro e Cursor nunca enviam. Exceção: com a chave sem escolha (o
-  padrão), um hook de extração legado que você ligou à mão (`decision-extractor`,
-  `episode-extractor`, `handoff-generator`, `feedback-loop`,
-  `precompact-extract`), em qualquer harness, ainda lê e envia o transcript;
-  só `--transcript off` (ou `VALORBRAIN_SEND_TRANSCRIPT=off`) impede.
+  enviam nada. Com `--transcript on`, o Claude Code e o Grok, e do connect
+  0.12.0 em diante o Codex, o Gemini CLI, o Kiro, o Cursor e o OpenCode,
+  enviam o transcript como descrito em "Transcript" acima. Para achar o
+  arquivo e decidir se a execução é de uma pessoa, o hook lê só na máquina: a
+  primeira linha do rollout do Codex, o começo do arquivo do Gemini,
+  `~/.kiro/sessions/` e `~/.cursor/projects/<workspace>/agent-transcripts/`, e
+  a linha de comando dos processos acima dele (`ps`). Exceção: com a chave sem
+  escolha (o padrão), um hook de extração legado que você ligou à mão
+  (`decision-extractor`, `episode-extractor`, `handoff-generator`,
+  `feedback-loop`, `precompact-extract`), em qualquer harness, ainda lê e
+  envia o transcript; só `--transcript off` (ou
+  `VALORBRAIN_SEND_TRANSCRIPT=off`) impede.
 - **Diretório de trabalho e o resto do payload**: `cwd`, `transcript_path` e os
   demais campos que o harness entrega ficam na máquina. O `cwd` só entra num
-  hash local que identifica a sessão. Com o transcript ligado, o arquivo de
-  `transcript_path` e o `cwd` (como `workingDir`) vão no envio do transcript;
+  hash local que identifica a sessão (no Kiro, também no hash que acha o
+  diretório da sessão). Com o transcript ligado, o arquivo de transcript e o
+  `cwd` (como `workingDir`) vão no envio do transcript;
   um hook de extração ligado à mão envia também o `cwd`, o prompt e a última
   resposta do assistente, quando o harness os entrega.
 - **Respostas do assistente e saídas de ferramentas**: não fazem parte dos
@@ -409,16 +476,18 @@ Fonte: `/www/valorbrain-cli/packages/connect/hook.mjs`,
 - Só o checkpoint do stop, por harness: `npx -y @valorbrain/connect --harness <id> --checkpoint off`
   (grava `checkpoint: false` na entrada do harness; `--checkpoint on` religa).
   Na máquina inteira: `VALORBRAIN_CHECKPOINT=off` (ou `0`, ou `false`) no
-  ambiente do harness, que vence o arquivo nos dois sentidos. No Gemini CLI só
-  o `--checkpoint off` funciona; no Codex instalado antes da 0.9.0, só a
+  ambiente do harness, que vence o arquivo nos dois sentidos. No Gemini CLI a
+  variável não chega ao hook num runner do GitHub (veja a seção do Gemini CLI),
+  e ali só o `--checkpoint off` funciona; no Codex instalado antes da 0.9.0, só a
   variável, até reinstalar.
 - Só o prompt, por harness: `npx -y @valorbrain/connect --harness <id> --prompt off`
   (grava `send_prompt: false` na entrada do harness em
   `~/.valorbrain/connect.json`; `--prompt on` religa). Na máquina inteira:
-  `VALORBRAIN_SEND_PROMPT=off` no ambiente do harness (o Gemini CLI sanitiza o
-  ambiente; nele, use o `--prompt off`). Sem o prompt, o início de sessão e o
+  `VALORBRAIN_SEND_PROMPT=off` no ambiente do harness (num runner do GitHub o
+  Gemini CLI não passa essa variável aos hooks; ali, use o `--prompt off`). Sem o prompt, o início de sessão e o
   checkpoint continuam; o recall por prompt para.
-- Transcript (Claude Code, Grok, Hermes e OMP): desligado por padrão; liga com
+- Transcript (Claude Code, Grok, Codex, Gemini CLI, Kiro, Cursor, OpenCode,
+  Hermes e OMP): desligado por padrão; liga com
   `npx -y @valorbrain/connect --harness <id> --transcript on`, ou com
   `VALORBRAIN_SEND_TRANSCRIPT=on` no ambiente do harness, que vence o arquivo
   nos dois sentidos. `--transcript off` desliga.

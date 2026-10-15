@@ -42,6 +42,39 @@ and the project adheres to
 
 ### Changed
 
+- "O que sai da sua máquina" / "What leaves your machine" (pt + en): OpenCode
+  joins the opt-in transcript. With `--transcript on` (plugin v2, connect ≥
+  0.12.0), the plugin reads the main session on `session.idle`, writes it to
+  `~/.valorbrain/state/opencode/<session>.jsonl` (0600; no reasoning, attachments
+  or synthetic parts; tool input and output each capped at 2,000 characters with
+  a truncation marker; files idle for 7 days removed) and connect's
+  stop uploads it under the same rules as Claude Code and Grok. Subagent
+  sessions and aborted or failed turns never go; off, the session is not read.
+- "O que sai da sua máquina" / "What leaves your machine" (pt + en): Codex,
+  Gemini CLI, Kiro and Cursor join the opt-in transcript (connect ≥ 0.12.0;
+  Claude Code and Grok stay at ≥ 0.10.1). The page no longer says their hooks
+  never upload. It now lists where the Stop hook finds each file (Codex
+  rollout, Gemini session file, Kiro `messages.jsonl` / legacy
+  `cli/<id>.jsonl` by `session_id` with the cwd hash or a scan, Cursor
+  `transcript_path` or `agent-transcripts/<conversation_id>.jsonl`), the size
+  rule (JSONL tail cap at 8 MiB; a single-file JSON over 8 MiB is not sent),
+  the runs that never upload (`codex exec`/`mcp-server`/SDK/sub-agents from
+  `session_meta`, `gemini -p`/query argument/CI/sub-agents, `kiro-cli
+  --no-interactive` and legacy ACP sessions, `cursor-agent -p` and
+  non-completed turns, a Stop arriving through another harness's hook file),
+  the local `ps` check and that it is skipped where there is no `ps`, and
+  Claude Code's `sessionAttended` (`CLAUDE_CODE_SESSION_ATTENDED=0` skips the
+  upload, `=1` sends `sessionAttended: "1"`). Mirrors
+  `packages/connect/README.md` at `@valorbrain/connect` v0.12.0.
+- "O que sai da sua máquina" / "What leaves your machine", Quickstart and
+  Connect (pt + en): corrected the claim that Gemini CLI strips the hook
+  environment. Gemini CLI 0.43 passes its process environment to hooks and
+  filters it only with `security.environmentVariableRedaction.enabled` (drops
+  secret-like names such as `VALORBRAIN_TOKEN`) or on a GitHub runner
+  (allowlist only). So `VALORBRAIN_SEND_PROMPT` / `VALORBRAIN_CHECKPOINT` /
+  `VALORBRAIN_SEND_TRANSCRIPT` work on Gemini except on a GitHub runner, where
+  `CI` / `GITHUB_ACTIONS` do not reach the hook either; the switches saved in
+  `connect.json` always work.
 - Quickstart and Connect (pt + en), step 2: Claude Code, Codex, Kiro, Gemini CLI
   and Cursor get one `@valorbrain/connect` command (`--harness <id>`) for MCP +
   rules + hooks, with the consent (the prompt of each turn goes to the

@@ -62,10 +62,10 @@ hook someone wired by hand (`decision-extractor`, `episode-extractor`…) keeps
 sending the transcript while the switch is unset; only `--transcript off` stops
 it. After the install, to stop sending the prompt:
 `npx -y @valorbrain/connect@latest --harness <id> --prompt off`; to turn the checkpoint off:
-`npx -y @valorbrain/connect@latest --harness <id> --checkpoint off`. Except on Gemini CLI,
+`npx -y @valorbrain/connect@latest --harness <id> --checkpoint off`.
 `VALORBRAIN_SEND_PROMPT=off` and `VALORBRAIN_CHECKPOINT=off` in the CLI's
-environment do the same; Gemini CLI strips the environment of its hooks, so
-there only the saved choices work. To drop only the hooks, run the install
+environment do the same, except for Gemini CLI on a GitHub runner, which does
+not pass those variables to its hooks; there only the saved choices work. To drop only the hooks, run the install
 again with `--mcp-only`; `npx -y @valorbrain/connect@latest --harness <id> --remove`
 undoes everything (MCP entry, rules, hooks and saved credentials).
 Per-CLI details: [What leaves your machine](/en/docs/concepts/what-leaves-your-machine).
