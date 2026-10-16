@@ -1,35 +1,48 @@
 ---
 title: Devin
-description: MCP personalizado da organização, transporte HTTP, com OAuth de acesso Pessoal.
+description: MCP personalizado com transporte HTTP e OAuth, para cada pessoa entrar como ela mesma.
 ---
 
-O Devin adiciona servidores MCP remotos por organização. Por isso o caminho
-certo é OAuth com acesso **Pessoal**: cada membro entra no ValorBrain como ele
-mesmo, e o que o Devin grava fica com a pessoa da sessão. Não há token para
-colar.
+O Devin guarda MCPs personalizados em três escopos de **Customize → MCPs**:
+**Personal**, **Organization** e **Enterprise**. Conta sem organização só tem
+o Personal. Em qualquer escopo, o caminho certo é OAuth: cada pessoa entra no
+ValorBrain com a própria conta, o que o Devin grava fica com quem está na
+sessão, e não há token para colar.
 
-## 1. Adicione o servidor (admin da organização)
+## 1. Adicione o servidor
 
-Precisa da permissão **Manage MCP Servers** no Devin.
+Escolha o escopo:
 
-1. Abra [Customize → MCPs](https://app.devin.ai/customize?tab=mcps).
+- **Personal**: qualquer pessoa adiciona para as próprias sessões;
+- **Organization** ou **Enterprise**: uma vez para todos, por quem tem a
+  permissão **Manage MCP Servers**.
+
+Depois:
+
+1. Abra [Customize → MCPs](https://app.devin.ai/customize?tab=mcps) no escopo
+   escolhido.
 2. **Add MCP** → **Add custom MCP**.
 3. Preencha:
    - **Server Name**: `ValorBrain`;
+   - **Short Description**: `Memória da empresa`;
    - **Transport**: `HTTP`;
    - **Server URL**: `https://mcpbrain.valor.digital/mcp`;
-   - **Authentication method**: `OAuth`, com **Access** `Personal`.
+   - **Authentication method**: `OAuth`;
+   - **Access** (só em Organization ou Enterprise): `Personal`, para cada
+     membro autorizar a própria conta.
 4. **Save**.
 
-O Devin registra o próprio cliente sozinho (registro dinâmico de cliente) e
-usa o callback dele; não é preciso criar aplicativo OAuth no ValorBrain.
+O Devin registra o próprio cliente OAuth sozinho (registro dinâmico de
+cliente) e usa o callback dele; não é preciso criar aplicativo OAuth no
+ValorBrain.
 
-## 2. Conecte (cada membro)
+## 2. Conecte
 
 Em **Customize → MCPs**, abra o ValorBrain e clique em **Connect**. O
 navegador abre a tela de consentimento do ValorBrain: entre com a sua conta e
-aprove. A partir daí as sessões do Devin dessa pessoa usam a memória com a
-identidade e as permissões dela.
+aprove. A partir daí as suas sessões do Devin usam a memória com a sua
+identidade e as suas permissões. Num servidor da organização, cada membro faz
+o próprio **Connect**.
 
 Quem ainda não tem conta cria uma em
 [valorbrain.valor.digital](https://valorbrain.valor.digital/auth/register)
@@ -41,10 +54,22 @@ Em **Test tools**, o Devin lista as ferramentas do ValorBrain. Numa sessão,
 peça para chamar `memory_prepare`: ela devolve quem você é no workspace e a
 memória relevante para a tarefa.
 
-## Por que não um token no cabeçalho
+## Quem mais age com a sua conexão
 
-O Devin também aceita **Auth Header** (`Authorization: Bearer <vbm_…>`), mas
-esse cabeçalho vale para a organização inteira: todo membro passaria a agir
-como a dona do token, com as permissões e os documentos privados dela. Use o
-cabeçalho só numa organização com uma pessoa. Um token gateway também não
-serve aqui: sem `X-User-ID` por pessoa, ele lê o workspace inteiro.
+O próprio Devin avisa que o acesso **Personal** não é uma fronteira de
+segurança: outras pessoas da organização podem interagir com as suas sessões.
+Quem fizer isso age, pelo Devin, com a sua identidade no ValorBrain e enxerga
+a sua memória privada. Combine com o time quem entra nas sessões de quem.
+
+## E um token no cabeçalho?
+
+O Devin também aceita **Auth Header** (`Authorization: Bearer <vbm_…>`). O
+cabeçalho é fixo e vale para todas as sessões do escopo onde o servidor foi
+adicionado:
+
+- no escopo **Personal**, com o seu token pessoal, funciona: só você usa;
+- no escopo **Organization** ou **Enterprise**, com o token de uma pessoa,
+  todo membro passaria a agir como o dono do token, com as permissões e os
+  documentos privados dele;
+- um token gateway também não serve: sem um `X-User-ID` por pessoa, ele lê o
+  workspace inteiro.
