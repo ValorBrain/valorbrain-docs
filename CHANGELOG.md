@@ -9,6 +9,11 @@ and the project adheres to
 
 ### Added
 
+- Devin integration page (pt + en, FB-0196): a custom MCP over HTTP with
+  OAuth at Devin's Personal, Organization or Enterprise scope (Access Personal
+  on shared scopes), the Connect step for each person, Devin's warning that
+  Personal access is not a security boundary, and when an Auth Header token
+  fits (Personal scope, your own token).
 - Credential pages generated from the engine's credential matrix (pt + en):
   "Tokens" (rewritten), "Ciclo de vida dos tokens" / "Token lifecycle",
   "Limites de requisição" / "Rate limits" and "Catálogo de erros" / "Error

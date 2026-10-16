@@ -1,0 +1,75 @@
+---
+title: Devin
+description: Custom MCP over HTTP with OAuth, so each person signs in as themselves.
+---
+
+Devin keeps custom MCPs at three scopes of **Customize → MCPs**:
+**Personal**, **Organization** and **Enterprise**. An account without an
+organization only has Personal. At any scope the right path is OAuth: each
+person signs in to ValorBrain with their own account, what Devin writes is
+recorded under whoever connected, and there is no token to paste.
+
+## 1. Add the server
+
+Pick the scope:
+
+- **Personal**: anyone adds it for their own sessions;
+- **Organization** or **Enterprise**: once for everyone, by someone with the
+  **Manage MCP Servers** permission.
+
+Then:
+
+1. Open [Customize → MCPs](https://app.devin.ai/customize?tab=mcps) at that
+   scope.
+2. **Add MCP** → **Add custom MCP**.
+3. Fill in:
+   - **Server Name**: `ValorBrain`;
+   - **Short Description**: `Company memory`;
+   - **Transport**: `HTTP`;
+   - **Server URL**: `https://mcpbrain.valor.digital/mcp`;
+   - **Authentication method**: `OAuth`;
+   - **Access** (Organization or Enterprise only): `Personal`, so each member
+     authorizes their own account.
+4. **Save**.
+
+Devin registers its own OAuth client (dynamic client registration) and uses
+its own callback; there is no OAuth app to create in ValorBrain.
+
+## 2. Connect
+
+In **Customize → MCPs**, open ValorBrain and click **Connect**. The browser
+opens the ValorBrain consent screen: sign in with your account and approve.
+From then on your Devin sessions use the memory with your identity and
+permissions. On an organization server, each member does their own
+**Connect**.
+
+Without an account yet, create one at
+[valorbrain.valor.digital](https://valorbrain.valor.digital/auth/register)
+before **Connect**.
+
+## 3. Verify
+
+In **Test tools**, Devin lists the ValorBrain tools. In a session, ask it to
+call `memory_prepare`: it returns who you are in the workspace and the memory
+relevant to the task.
+
+## Who else acts through your connection
+
+Devin itself warns that **Personal** access is not a security boundary:
+other people in the organization can interact with your sessions. Whoever
+does acts, through Devin, with your ValorBrain identity and sees your private
+memory. Agree with your team on who joins whose sessions.
+
+## What about a token in the header?
+
+Devin also accepts an **Auth Header** (`Authorization: Bearer <vbm_…>`). The
+header is fixed and applies to every session of the scope where the server
+was added:
+
+- at **Personal** scope, with your own personal token, it works: only you use
+  it;
+- at **Organization** or **Enterprise** scope, with one person's token, every
+  member would act as the token's owner, with their permissions and private
+  documents;
+- a gateway token does not fit either: without a per-person `X-User-ID`, it
+  reads the whole workspace.
