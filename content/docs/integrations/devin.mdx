@@ -1,0 +1,50 @@
+---
+title: Devin
+description: MCP personalizado da organização, transporte HTTP, com OAuth de acesso Pessoal.
+---
+
+O Devin adiciona servidores MCP remotos por organização. Por isso o caminho
+certo é OAuth com acesso **Pessoal**: cada membro entra no ValorBrain como ele
+mesmo, e o que o Devin grava fica com a pessoa da sessão. Não há token para
+colar.
+
+## 1. Adicione o servidor (admin da organização)
+
+Precisa da permissão **Manage MCP Servers** no Devin.
+
+1. Abra [Customize → MCPs](https://app.devin.ai/customize?tab=mcps).
+2. **Add MCP** → **Add custom MCP**.
+3. Preencha:
+   - **Server Name**: `ValorBrain`;
+   - **Transport**: `HTTP`;
+   - **Server URL**: `https://mcpbrain.valor.digital/mcp`;
+   - **Authentication method**: `OAuth`, com **Access** `Personal`.
+4. **Save**.
+
+O Devin registra o próprio cliente sozinho (registro dinâmico de cliente) e
+usa o callback dele; não é preciso criar aplicativo OAuth no ValorBrain.
+
+## 2. Conecte (cada membro)
+
+Em **Customize → MCPs**, abra o ValorBrain e clique em **Connect**. O
+navegador abre a tela de consentimento do ValorBrain: entre com a sua conta e
+aprove. A partir daí as sessões do Devin dessa pessoa usam a memória com a
+identidade e as permissões dela.
+
+Quem ainda não tem conta cria uma em
+[valorbrain.valor.digital](https://valorbrain.valor.digital/auth/register)
+antes do **Connect**.
+
+## 3. Verifique
+
+Em **Test tools**, o Devin lista as ferramentas do ValorBrain. Numa sessão,
+peça para chamar `memory_prepare`: ela devolve quem você é no workspace e a
+memória relevante para a tarefa.
+
+## Por que não um token no cabeçalho
+
+O Devin também aceita **Auth Header** (`Authorization: Bearer <vbm_…>`), mas
+esse cabeçalho vale para a organização inteira: todo membro passaria a agir
+como a dona do token, com as permissões e os documentos privados dela. Use o
+cabeçalho só numa organização com uma pessoa. Um token gateway também não
+serve aqui: sem `X-User-ID` por pessoa, ele lê o workspace inteiro.

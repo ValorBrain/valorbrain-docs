@@ -9,6 +9,9 @@ and the project adheres to
 
 ### Added
 
+- Devin integration page (pt + en, FB-0196): organization custom MCP over
+  HTTP with Personal-access OAuth, so each member signs in as themselves, and
+  why an Auth Header token does not fit a multi-person organization.
 - Credential pages generated from the engine's credential matrix (pt + en):
   "Tokens" (rewritten), "Ciclo de vida dos tokens" / "Token lifecycle",
   "Limites de requisição" / "Rate limits" and "Catálogo de erros" / "Error
