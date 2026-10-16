@@ -6,8 +6,8 @@ description: MCP personalizado com transporte HTTP e OAuth, para cada pessoa ent
 O Devin guarda MCPs personalizados em três escopos de **Customize → MCPs**:
 **Personal**, **Organization** e **Enterprise**. Conta sem organização só tem
 o Personal. Em qualquer escopo, o caminho certo é OAuth: cada pessoa entra no
-ValorBrain com a própria conta, o que o Devin grava fica com quem está na
-sessão, e não há token para colar.
+ValorBrain com a própria conta, o que o Devin grava fica no nome de quem
+conectou, e não há token para colar.
 
 ## 1. Adicione o servidor
 
@@ -51,8 +51,8 @@ antes do **Connect**.
 ## 3. Verifique
 
 Em **Test tools**, o Devin lista as ferramentas do ValorBrain. Numa sessão,
-peça para chamar `memory_prepare`: ela devolve quem você é no workspace e a
-memória relevante para a tarefa.
+peça para chamar `memory_prepare`: a ferramenta devolve quem você é no
+workspace e a memória relevante para a tarefa.
 
 ## Quem mais age com a sua conexão
 
