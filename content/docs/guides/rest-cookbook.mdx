@@ -224,7 +224,7 @@ O ledger de uso registra cada operação por canal (mcp / rest / hook / cli) com
 
 ## REST vs MCP
 
-Tudo acima é REST. As ferramentas MCP ([catálogo gerado](/docs/api/generated-mcp): `memory_retrieve`, `memory_store`, `decisions`, `conflicts`, `kg_query`, …) são uma superfície diferente sobre o mesmo engine, com ergonomia mais rica (expansão de consulta server-side, budgets de snippet, tokens de persona). Se o seu cliente fala MCP, prefira — veja [Ferramentas MCP](/docs/mcp/tools) e os [schemas completos](/mcp-schemas.md). Se fala só HTTP, esta página é o jogo inteiro.
+Tudo acima é REST. As ferramentas MCP ([catálogo gerado](/docs/api/generated-mcp): `memory_retrieve`, `memory_store`, `decisions`, `conflicts`, `kg_query`, …) são uma superfície diferente sobre o mesmo engine, com ergonomia mais rica (expansão de consulta server-side, budgets de snippet, identidade do agente pelos cabeçalhos do contrato (`X-Source-Agent`)). Se o seu cliente fala MCP, prefira — veja [Ferramentas MCP](/docs/mcp/tools) e os [schemas completos](/mcp-schemas.md). Se fala só HTTP, esta página é o jogo inteiro.
 
 ## Falhas comuns
 

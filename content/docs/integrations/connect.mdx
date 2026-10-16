@@ -35,8 +35,10 @@ Sem claim, as duas credenciais expiram em 30 dias; veja
 
 **Com conta:** crie o token no app, em
 [Configurações → Tokens MCP](https://valorbrain.valor.digital/settings/mcp-tokens).
-Um token por agente ou persona deixa as escritas atribuíveis e a revogação de
-um não derruba os outros.
+Um token por pessoa, em qualquer harness e persona: agentes e harnesses se
+identificam pelos cabeçalhos do contrato (`X-Source-Agent`, `X-Run-Kind`,
+`X-Requested-By`, `X-Agent-Team`), nunca por um token por agente. Gateway e
+integração existem para sistemas sem pessoa.
 
 **Sem token para colar (OAuth):** claude.ai, ChatGPT e Cursor aceitam a URL do
 MCP como conector personalizado, `https://mcpbrain.valor.digital/mcp`. O
