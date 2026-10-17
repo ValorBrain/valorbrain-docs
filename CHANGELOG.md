@@ -47,6 +47,10 @@ and the project adheres to
 
 ### Changed
 
+- Credential pages (pt + en: tokens, token lifecycle, rate limits, error
+  catalog) and `/valorbrain-credentials.json` regenerated from engine matrix
+  `1e1ecfce3a57` (agentxagi/valorbrain#556, was `9d2b630103a5`): the connect
+  device flow issues one token per computer, shared by the agents on it.
 - "O que sai da sua máquina" / "What leaves your machine" (pt + en): OpenCode
   joins the opt-in transcript. With `--transcript on` (plugin v2, connect ≥
   0.12.0), the plugin reads the main session on `session.idle`, writes it to
