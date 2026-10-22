@@ -154,6 +154,13 @@ and the project adheres to
   `Referrer-Policy: strict-origin-when-cross-origin`.
 - "Edit on GitHub" pointed at `content/docs/$/…` for regular pages.
 
+### Security
+
+- Next.js 16.4.2 (from 16.3.3), React 19.3.1 and sharp 0.35.5: the
+  October 14, 2026 Next.js security update (GHSA-673q-mjm6-r5xr, CVE-2026-96889
+  / GHSA-2464-fhr4-w9xw, GHSA-p3m5-59mp-jv5r) and the React advisories
+  GHSA-xqc2-xf4c-x3h3 and GHSA-h3gv-c5rc-p453.
+
 ## [0.0.23] - 2026-09-23
 
 ### Added
