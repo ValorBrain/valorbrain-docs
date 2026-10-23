@@ -47,6 +47,12 @@ and the project adheres to
 
 ### Changed
 
+- Type-checking runs on TypeScript 7: `@typescript/native` (`typescript@7`)
+  provides `tsc`, and `bun run build` runs `bun run types:check` before
+  `next build`, which no longer type-checks on the TS 6 API
+  (`typescript.ignoreBuildErrors`). `typescript` is the
+  `@typescript/typescript6` compatibility package, so ESLint and Next keep the
+  TS 6 API.
 - Credential pages (pt + en: tokens, token lifecycle, rate limits, error
   catalog) and `/valorbrain-credentials.json` regenerated from engine matrix
   `1e1ecfce3a57` (agentxagi/valorbrain#556, was `9d2b630103a5`): the connect

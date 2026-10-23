@@ -37,6 +37,11 @@ function markdownRewrites(prefix) {
 const config = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // `bun run build` type-checks first with TypeScript 7 (`bun run types:check`);
+  // Next's own check would run the project again on the TS 6 API.
+  typescript: {
+    ignoreBuildErrors: true,
+  },
   async redirects() {
     // Origin-side edge: a plain-http request through the tunnel goes to https.
     return [
