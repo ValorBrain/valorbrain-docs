@@ -1,0 +1,92 @@
+---
+title: Shared memory for multi-agent teams over MCP
+description: "Why Claude Code, Cursor and Codex agents on the same team repeat mistakes and contradict human decisions, and a four-call loop over MCP that stops it."
+---
+
+Once a team runs more than one coding agent, the same failures show up. Claude Code wires a retry the reviewer rejected last week. Cursor picks a Postgres pool size that was changed on purpose. Codex rebuilds a migration someone already dropped. Each session starts from zero, so each agent reasons from its own context and the human decision that should have stopped it is nowhere it can see.
+
+This guide covers the smallest setup that fixes it: one shared memory that every agent reads at the start of a turn and writes to when something is decided. The example uses ValorBrain over MCP, but the loop does not depend on the product.
+
+## The problem is not retrieval
+
+Most teams first reach for RAG over their docs. That answers "what does the spec say?" It does not answer "did the founder decide to drop that endpoint on Tuesday?", because the decision lives in a chat, and the spec still says the old thing. When a new decision invalidates twenty documents, a similarity search returns all twenty, old and new, with no way to know which one wins.
+
+What helps is a small set of **dated, keyed facts** with an authority: `webhooks.retry.max = 3, as of 2026-11-20, decided by the owner`. A newer value for the same key supersedes the older one, unless the older one came from a higher authority (human > designated > import > agent): then the new write waits as a proposal until a person approves it. Documents stay as context; facts are the answer.
+
+## The session loop: four calls
+
+Every agent turn is the same four calls:
+
+1. `memory_prepare` at the start of the turn, with the user's message. It returns the relevant memories, the current keyed facts and the open handoffs.
+2. Work. Call `memory_retrieve` only if the prepare result was not enough, with one clear query.
+3. `memory_store` for what is durable: a decision with the options rejected, a bug with its root cause, a lesson that should change the next session.
+4. `memory_used` to say which memories actually carried the answer. This is how you measure whether the memory is earning its place.
+
+```json
+{
+  "tool": "memory_prepare",
+  "arguments": {
+    "message": "Add retry to the webhook sender",
+    "surface_id": "claude-code",
+    "recall_budget": 600
+  }
+}
+```
+
+A decision written by one agent looks like this (an illustrative example, not a real record):
+
+```json
+{
+  "tool": "memory_store",
+  "arguments": {
+    "type": "decision",
+    "title": "Webhook retries capped at 3, exponential backoff",
+    "content": "Owner decided on 2026-11-20: webhook sender retries 3 times with exponential backoff, then dead-letters. Rejected: infinite retry (floods the receiver) and retry in the caller (hides failures). Revisit only if the receiver changes its idempotency contract.",
+    "tags": ["webhooks", "reliability"],
+    "confidence": 0.9
+  }
+}
+```
+
+The next session on any harness, Claude Code, Cursor, Codex or a plain script, gets that decision in its `memory_prepare` result before it writes a line. The content field matters: include the reasoning and the rejected options, not only the conclusion. Otherwise the next agent cannot tell whether a changed situation should reopen it.
+
+## Wiring the harnesses
+
+Harnesses with hooks (Claude Code, Codex, Cursor, Kiro, Gemini CLI) can run the prepare step automatically on each prompt. The fastest route is the connect command, which writes the MCP entry, a rules block and the hooks:
+
+```bash
+npx -y @valorbrain/cli@latest init --agent --agent-caller claude-code --json
+npx -y @valorbrain/connect@latest --token <vbm_…> --harness claude-code
+```
+
+Read what the hooks send before you enable them. Each turn's prompt, up to 8,000 characters, goes to the memory engine. To keep prompts out, run `npx -y @valorbrain/connect@latest --prompt off` (it saves the choice and exits) or set `VALORBRAIN_SEND_PROMPT=off` for the whole machine. Clients without hooks get MCP only, at `https://mcpbrain.valor.digital/mcp`: VS Code with `Authorization: Bearer <vbm_…>`, claude.ai and Claude Desktop as a custom connector that signs in by OAuth, with no token to paste.
+
+Without hooks, nothing forces the agent to call `memory_prepare`. It happens when the model decides it should. Put the loop in the project's rules file (`CLAUDE.md`, `AGENTS.md`, `.cursor/rules`) so the instruction is there at session start, and check the `memory_used` numbers to see whether it is followed.
+
+## Keyed facts for the things that change
+
+Use `upsert_keyed_fact` for values that have a current state: a price, a deploy target, an owner, a flag. Use a stable key, a value, an `as_of` date and the source. A new value replaces the previous one for that key (under the authority rule above), and `keyed_facts_as_of` can show what was true on any past date. When a fact is wrong, correct it. Do not write a new prose note next to the old one and hope the agent reads the newer one.
+
+Write the human decision as a fact first, then the decision record that cites its key. The fact answers "what is true now"; the decision answers "why, and what would change it".
+
+## What we measured on our own team
+
+We run 13 agents on ValorBrain: sales, customer success, growth, content, finance, tech. The team's usage page is rebuilt every hour and counts only, with no memory content. Measured 2026-11-22 at 09:07 (UTC-3), over the last 7 days:
+
+- 13 active agents
+- 1,016 memory reads
+- 241 declared uses (the agent said which memory it used)
+- 153 facts written and 24 handoffs between agents
+- 67 facts reused in a later session
+
+These are our numbers, not a benchmark. They tell you the loop runs every day, not that it is correct. The live page is at [team.valorbra.in/en](https://team.valorbra.in/en/) and the raw counts at [team.valorbra.in/data.json](https://team.valorbra.in/data.json).
+
+## Checklist
+
+- Every agent calls `memory_prepare` at the start of a turn, and the rules file says so.
+- Decisions go in with the options rejected and the date.
+- Values that change go in as keyed facts, never as a second paragraph next to the old one.
+- A handoff to another agent is a `team_handoff` with what is open and the next step, consumed when done.
+- Check `memory_used` now and then. Memories nobody uses are noise.
+
+Next: [MCP cookbook](/en/docs/guides/mcp-cookbook) for the full tool contract, [Team OS](/en/docs/guides/team-os) for handoffs and human escalation, and [Correct a wrong fact](/en/docs/guides/correct-a-fact).

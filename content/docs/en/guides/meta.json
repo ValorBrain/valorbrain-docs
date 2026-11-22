@@ -10,6 +10,7 @@
     "on-prem",
     "team-os",
     "knowledge-graph",
-    "usage-value"
+    "usage-value",
+    "shared-memory-for-multi-agent-mcp-teams"
   ]
 }
