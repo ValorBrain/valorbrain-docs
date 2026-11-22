@@ -1,0 +1,92 @@
+---
+title: Memória compartilhada para times multiagente com MCP
+description: "Por que agentes do Claude Code, do Cursor e do Codex no mesmo time repetem erros e contradizem decisões humanas, e o loop de quatro chamadas pelo MCP que acaba com isso."
+---
+
+Quando um time passa a rodar mais de um agente de código, as mesmas falhas aparecem. O Claude Code coloca um retry que o revisor recusou na semana passada. O Cursor escolhe um tamanho de pool do Postgres que foi mudado de propósito. O Codex refaz uma migration que alguém já tinha descartado. Cada sessão começa do zero, então cada agente raciocina a partir do próprio contexto, e a decisão humana que deveria ter parado o agente não está em nenhum lugar que ele enxergue.
+
+Este guia mostra a menor configuração que resolve isso: uma memória compartilhada que todo agente lê no início do turno e na qual escreve quando algo é decidido. O exemplo usa o ValorBrain pelo MCP, mas o loop não depende do produto.
+
+## O problema não é recuperação
+
+A maioria dos times começa com RAG sobre a documentação. Isso responde "o que a spec diz?". Não responde "o fundador decidiu tirar aquele endpoint na terça?", porque a decisão mora num chat e a spec ainda diz a coisa antiga. Quando uma decisão nova invalida vinte documentos, a busca por similaridade devolve os vinte, velhos e novos, sem como saber qual vale.
+
+O que ajuda é um conjunto pequeno de **keyed facts com data** e com uma autoridade: `webhooks.retry.max = 3, em 2026-11-20, decidido pelo dono`. Um valor mais novo para a mesma chave substitui o anterior, a menos que o anterior tenha vindo de uma autoridade maior (human > designated > import > agent): aí a escrita nova fica como proposta até uma pessoa aprovar. Os documentos continuam como contexto; os fatos são a resposta.
+
+## O loop de sessão: quatro chamadas
+
+Todo turno de agente são as mesmas quatro chamadas:
+
+1. `memory_prepare` no início do turno, com a mensagem do usuário. Devolve as memórias relevantes, os keyed facts vigentes e os handoffs abertos.
+2. Trabalho. Chame `memory_retrieve` só se o resultado do prepare não bastou, com uma pergunta clara.
+3. `memory_store` para o que é durável: uma decisão com as opções recusadas, um bug com a causa raiz, uma lição que deve mudar a próxima sessão.
+4. `memory_used` para dizer quais memórias de fato sustentaram a resposta. É assim que você mede se a memória está pagando o lugar que ocupa.
+
+```json
+{
+  "tool": "memory_prepare",
+  "arguments": {
+    "message": "Adicionar retry no envio de webhooks",
+    "surface_id": "claude-code",
+    "recall_budget": 600
+  }
+}
+```
+
+Uma decisão escrita por um agente fica assim (exemplo ilustrativo, não é um registro real):
+
+```json
+{
+  "tool": "memory_store",
+  "arguments": {
+    "type": "decision",
+    "title": "Retry de webhook limitado a 3, com backoff exponencial",
+    "content": "O dono decidiu em 2026-11-20: o envio de webhooks tenta 3 vezes com backoff exponencial e depois manda para a dead-letter. Recusados: retry infinito (inunda o receptor) e retry em quem chama (esconde falhas). Reabrir só se o receptor mudar o contrato de idempotência.",
+    "tags": ["webhooks", "confiabilidade"],
+    "confidence": 0.9
+  }
+}
+```
+
+A próxima sessão em qualquer harness, Claude Code, Cursor, Codex ou um script simples, recebe essa decisão no resultado do `memory_prepare` antes de escrever uma linha. O campo `content` importa: coloque o raciocínio e as opções recusadas, não só a conclusão. Sem isso, o próximo agente não consegue saber se uma situação nova deveria reabrir a decisão.
+
+## Ligando os harnesses
+
+Harnesses com hooks (Claude Code, Codex, Cursor, Kiro, Gemini CLI) podem rodar o passo de prepare sozinhos a cada prompt. O caminho mais rápido é o comando connect, que escreve a entrada do MCP, um bloco de regras e os hooks:
+
+```bash
+npx -y @valorbrain/cli@latest init --agent --agent-caller claude-code --json
+npx -y @valorbrain/connect@latest --token <vbm_…> --harness claude-code
+```
+
+Leia o que os hooks enviam antes de ligar. O prompt de cada turno, até 8.000 caracteres, vai para o motor de memória. Para não enviar prompts, rode `npx -y @valorbrain/connect@latest --prompt off` (ele salva a escolha e sai) ou defina `VALORBRAIN_SEND_PROMPT=off` para a máquina toda. Clientes sem hooks ficam só com o MCP, em `https://mcpbrain.valor.digital/mcp`: o VS Code com `Authorization: Bearer <vbm_…>`, o claude.ai e o Claude Desktop como conector personalizado, com login por OAuth e sem token para colar.
+
+Sem hooks, nada obriga o agente a chamar `memory_prepare`. Ele chama quando o modelo decide que deve. Coloque o loop no arquivo de regras do projeto (`CLAUDE.md`, `AGENTS.md`, `.cursor/rules`) para a instrução estar lá no início da sessão, e acompanhe os números do `memory_used` para ver se ela é seguida.
+
+## Keyed facts para o que muda
+
+Use `upsert_keyed_fact` para valores que têm um estado atual: um preço, um destino de deploy, um dono, uma flag. Use uma chave estável, um valor, uma data `as_of` e a fonte. Um valor novo substitui o anterior daquela chave (com a regra de autoridade acima), e `keyed_facts_as_of` mostra o que valia em qualquer data passada. Quando um fato está errado, corrija o fato. Não escreva uma nota nova em prosa ao lado da antiga esperando que o agente leia a mais nova.
+
+Escreva a decisão humana primeiro como fato e depois o registro da decisão citando a chave. O fato responde "o que vale agora"; a decisão responde "por quê, e o que mudaria isso".
+
+## O que medimos no nosso próprio time
+
+Rodamos 13 agentes no ValorBrain: vendas, sucesso do cliente, growth, conteúdo, financeiro e tecnologia. A página de uso do time é refeita a cada hora e só traz contagens, sem conteúdo de memória. Medido em 2026-11-22 às 09:07 (UTC-3), nos últimos 7 dias:
+
+- 13 agentes ativos
+- 1.016 leituras de memória
+- 241 usos declarados (o agente disse qual memória usou)
+- 153 fatos escritos e 24 handoffs entre agentes
+- 67 fatos reaproveitados numa sessão posterior
+
+São números nossos, não um benchmark. Mostram que o loop roda todo dia, não que ele está certo. A página ao vivo está em [team.valorbra.in](https://team.valorbra.in/) e as contagens brutas em [team.valorbra.in/data.json](https://team.valorbra.in/data.json).
+
+## Checklist
+
+- Todo agente chama `memory_prepare` no início do turno, e o arquivo de regras diz isso.
+- Decisões entram com as opções recusadas e a data.
+- Valores que mudam entram como keyed facts, nunca como um segundo parágrafo ao lado do antigo.
+- Um handoff para outro agente é um `team_handoff` com o que está aberto e o próximo passo, consumido quando termina.
+- Olhe o `memory_used` de vez em quando. Memória que ninguém usa é ruído.
+
+Próximos: [Cookbook MCP](/docs/guides/mcp-cookbook) para o contrato completo das ferramentas, [Team OS](/docs/guides/team-os) para handoffs e escalonamento humano, e [Corrija um fato errado](/docs/guides/correct-a-fact).

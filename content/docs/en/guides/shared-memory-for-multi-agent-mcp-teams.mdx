@@ -11,7 +11,7 @@ This guide covers the smallest setup that fixes it: one shared memory that every
 
 Most teams first reach for RAG over their docs. That answers "what does the spec say?" It does not answer "did the founder decide to drop that endpoint on Tuesday?", because the decision lives in a chat, and the spec still says the old thing. When a new decision invalidates twenty documents, a similarity search returns all twenty, old and new, with no way to know which one wins.
 
-What helps is a small set of **dated, keyed facts** with an authority: `pricing.plan.pro = 49 USD, as of 2026-11-18, decided by the owner`. A newer fact with the same key supersedes the older one. Documents stay as context; facts are the answer.
+What helps is a small set of **dated, keyed facts** with an authority: `webhooks.retry.max = 3, as of 2026-11-20, decided by the owner`. A newer value for the same key supersedes the older one, unless the older one came from a higher authority (human > designated > import > agent): then the new write waits as a proposal until a person approves it. Documents stay as context; facts are the answer.
 
 ## The session loop: four calls
 
@@ -59,13 +59,13 @@ npx -y @valorbrain/cli@latest init --agent --agent-caller claude-code --json
 npx -y @valorbrain/connect@latest --token <vbm_…> --harness claude-code
 ```
 
-Read what the hooks send before you enable them. Each turn's prompt, up to 8,000 characters, goes to the memory engine. To keep prompts out, run `npx -y @valorbrain/connect@latest --prompt off` (it saves the choice and exits) or set `VALORBRAIN_SEND_PROMPT=off` for the whole machine. Clients without hooks (claude.ai, Claude Desktop, VS Code) get MCP only, at `https://mcpbrain.valor.digital/mcp` with `Authorization: Bearer <vbm_…>`.
+Read what the hooks send before you enable them. Each turn's prompt, up to 8,000 characters, goes to the memory engine. To keep prompts out, run `npx -y @valorbrain/connect@latest --prompt off` (it saves the choice and exits) or set `VALORBRAIN_SEND_PROMPT=off` for the whole machine. Clients without hooks get MCP only, at `https://mcpbrain.valor.digital/mcp`: VS Code with `Authorization: Bearer <vbm_…>`, claude.ai and Claude Desktop as a custom connector that signs in by OAuth, with no token to paste.
 
 Without hooks, nothing forces the agent to call `memory_prepare`. It happens when the model decides it should. Put the loop in the project's rules file (`CLAUDE.md`, `AGENTS.md`, `.cursor/rules`) so the instruction is there at session start, and check the `memory_used` numbers to see whether it is followed.
 
 ## Keyed facts for the things that change
 
-Use `upsert_keyed_fact` for values that have a current state: a price, a deploy target, an owner, a flag. Use a stable key, a value, an `as_of` date and the source. A fact with a key replaces the previous value for that key, and `keyed_facts_as_of` can show what was true on any past date. When a fact is wrong, correct it. Do not write a new prose note next to the old one and hope the agent reads the newer one.
+Use `upsert_keyed_fact` for values that have a current state: a price, a deploy target, an owner, a flag. Use a stable key, a value, an `as_of` date and the source. A new value replaces the previous one for that key (under the authority rule above), and `keyed_facts_as_of` can show what was true on any past date. When a fact is wrong, correct it. Do not write a new prose note next to the old one and hope the agent reads the newer one.
 
 Write the human decision as a fact first, then the decision record that cites its key. The fact answers "what is true now"; the decision answers "why, and what would change it".
 
