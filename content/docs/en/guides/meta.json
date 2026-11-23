@@ -11,6 +11,7 @@
     "team-os",
     "knowledge-graph",
     "usage-value",
-    "shared-memory-for-multi-agent-mcp-teams"
+    "shared-memory-for-multi-agent-mcp-teams",
+    "switching-agent-frameworks-keeps-team-memory"
   ]
 }

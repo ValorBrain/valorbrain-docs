@@ -1,0 +1,72 @@
+---
+title: Trocar de framework de agente sem perder a memória do time
+description: "Por que mudar um time de um runtime de agente para outro apaga o que foi decidido, e como guardar decisões, fatos e handoffs abertos fora do runtime."
+---
+
+Times trocam de framework de agente com mais frequência do que admitem. Um setup do Claude Code é substituído por um runtime baseado em chat, um arquivo de regras do Cursor é reescrito para o Codex, um orquestrador caseiro é aposentado depois de seis meses. Cada troca parece mudança de ferramenta. Na prática é mudança de memória: o runtime novo começa com contexto vazio, e tudo o que o time decidiu no antigo (um preço, um limite de retry, por que uma tabela foi descartada) fica só em logs de chat que ninguém vai reler.
+
+Este guia explica onde essa memória realmente vive e como movê-la sem reescrever tudo. O exemplo usa o ValorBrain pelo MCP, mas a regra não depende do produto: a memória precisa ficar fora do runtime.
+
+## Onde a memória realmente vive
+
+Pergunte a um time onde estão as decisões e a resposta costuma ser "no chat", "na página do Notion", "na cabeça da Ana". Nenhuma dessas sobrevive sozinha a uma troca de runtime. O histórico do chat fica na ferramenta antiga, a página descreve o que era verdade em março, e a cabeça da Ana não sincroniza com nada.
+
+A memória que sobrevive tem três partes:
+
+- **Fatos com chave**: um valor com chave estável, uma data `as_of` e uma autoridade. Por exemplo, `deploy.target = fly-gru, as of 2026-11-18, decided by the owner`.
+- **Decisões com o raciocínio**: o que foi escolhido, quais opções foram recusadas e o que reabriria a questão.
+- **Handoffs abertos**: o que um agente estava fazendo, o que ainda está em aberto e o próximo passo, escritos para que outro agente consiga pegar sem contexto.
+
+Nenhuma delas depende de qual runtime as gravou. Um fato guardado hoje pode ser lido amanhã por outro harness, desde que ele chame a mesma memória.
+
+## A migração em quatro passos
+
+1. **Exporte o que o runtime antigo sabe e ainda é verdade.** Não copie logs de chat. Percorra as perguntas em aberto e as regras vigentes e escreva cada uma como fato com chave ou decisão. Se uma regra ocupa uma dúzia de linhas de prosa, provavelmente são três fatos.
+2. **Aponte o runtime novo para a mesma memória.** Conecte pelo MCP, não copiando um arquivo de memória para a pasta dele. Dois runtimes escrevendo no mesmo lugar é normal; dois runtimes com cópias privadas é a falha que este guia quer evitar.
+3. **Faça o runtime novo ler primeiro.** No começo de cada turno ele chama `memory_prepare` com a mensagem do usuário. O resultado traz os fatos vigentes, as decisões relevantes e os handoffs endereçados a ele.
+4. **Confira que ele lê.** Os contadores de uso mostram se o runtime novo está de fato usando a memória ou respondendo só com o próprio contexto.
+
+```json
+{
+  "tool": "memory_prepare",
+  "arguments": {
+    "message": "Escolher o alvo de deploy do novo worker",
+    "surface_id": "new-runtime",
+    "recall_budget": 600
+  }
+}
+```
+
+Se a resposta voltar sem a decisão tomada na semana passada, a memória não está ligada. Corrija isso antes de mover o próximo agente.
+
+## O que levar e o que deixar
+
+Leve o que muda a próxima ação: preços, limites, donos, alvos de deploy, quem aprovou o quê, o que foi recusado e por quê. Deixe o que só descreve o passado: transcrições longas, os passos de depuração de um bug já fechado, o texto completo de uma especificação substituída. Um fato errado deve ser corrigido, não mantido ao lado do substituto. Um agente que encontra dois valores conflitantes escolhe um, e você não vai saber qual.
+
+A regra de autoridade importa aqui. Um valor escrito por uma pessoa tem prioridade sobre um escrito por agente, então um agente que tente sobrescrever a decisão de um dono recebe uma proposta em vez de uma troca silenciosa. Isso protege as decisões migradas do runtime antigo, onde um resumo automático poderia reescrevê-las.
+
+## Handoffs durante a troca
+
+Mantenha o runtime antigo e o novo rodando lado a lado por alguns dias, e passe o trabalho de um para o outro explicitamente. Um `team_handoff` com o que foi feito, o que está aberto e o próximo passo deixa o agente novo começar sem perguntar ao antigo. Quando o handoff é consumido, ele se fecha; um handoff aberto que ninguém lê por uma semana indica que a troca não terminou.
+
+## O que medimos no nosso próprio time
+
+Trocamos o nosso time de agentes para um runtime novo em novembro, e a memória não dependeu do runtime que a gravou. A página de uso do time é recalculada a cada hora e conta apenas números, sem conteúdo de memória. Medido em 2026-11-23 às 10:07 (UTC-3), nos últimos 7 dias:
+
+- 13 agentes ativos
+- 1.047 leituras de memória
+- 160 memórias gravadas
+- 80 fatos reutilizados em uma sessão posterior
+- 21 handoffs
+
+São números de um time só, não um benchmark. Mostram que o ciclo roda todo dia atravessando a troca, não que toda resposta está certa. A página ao vivo está em [team.valorbra.in](https://team.valorbra.in/) e os contadores brutos em [team.valorbra.in/data.json](https://team.valorbra.in/data.json).
+
+## Checklist antes de trocar
+
+- Toda decisão que ainda vale está escrita como fato ou decisão, com data e raciocínio.
+- O runtime novo está ligado à mesma memória, não a uma cópia.
+- O arquivo de regras do runtime novo manda chamar `memory_prepare` no começo de cada turno.
+- Os handoffs abertos do runtime antigo foram fechados ou reendereçados.
+- Depois da primeira semana, confira os contadores de uso. Memória que ninguém lê depois de uma troca é problema de ligação, não de memória.
+
+Próximos passos: [Memória compartilhada para times multiagente](/docs/guides/shared-memory-for-multi-agent-mcp-teams) para o loop de sessão, [Team OS](/docs/guides/team-os) para handoffs e escalonamento humano, e [Corrigir um fato errado](/docs/guides/correct-a-fact).
