@@ -1,0 +1,72 @@
+---
+title: Switching agent frameworks without wiping your team's memory
+description: "Why moving a team from one agent runtime to another loses what was decided, and how to keep the decisions, facts and open handoffs outside the runtime."
+---
+
+Teams switch agent frameworks more often than they admit. A Claude Code setup gets replaced by a chat-based runtime, a Cursor rule file is rewritten for Codex, a homemade orchestrator is retired after six months. Each switch looks like a tooling change. In practice it is a memory change: the new runtime starts with an empty context, and everything the team decided in the old one (a price, a retry limit, why a table was dropped) lives only in old chat logs nobody will reread.
+
+This guide explains where that memory actually lives, and how to move it without a rewrite. The example uses ValorBrain over MCP, but the rule does not depend on the product: the memory has to sit outside the runtime.
+
+## Where the memory really lives
+
+Ask a team where its decisions are and the answer is usually "in the chat", "in the Notion page", "in Ana's head". None of those survive a runtime switch on their own. Chat history stays in the old tool, the page describes what was true in March, and Ana's head does not sync.
+
+The memory that survives has three parts:
+
+- **Keyed facts**: a value with a stable key, an `as_of` date and an authority. for example `deploy.target = fly-gru, as of 2026-11-18, decided by the owner`.
+- **Decisions with their reasoning**: what was chosen, which options were rejected and what would reopen the question.
+- **Open handoffs**: what one agent was doing, what is still open and the next step, written so another agent can pick it up cold.
+
+None of these depend on which runtime wrote them. A fact stored today can be read tomorrow by a different harness, as long as the harness calls the same memory.
+
+## The migration in four steps
+
+1. **Export what the old runtime knows that is still true.** Do not copy the chat logs. Walk the open questions and the standing rules and write each one as a keyed fact or a decision. If a rule is a dozen lines of prose, it is probably three facts.
+2. **Point the new runtime at the same memory.** Connect it over MCP, not by copying a memory file into its folder. Two runtimes writing to the same store is fine; two runtimes each holding a private copy is the failure this guide is about.
+3. **Make the new runtime read first.** At the start of each turn it calls `memory_prepare` with the user's message. The result carries the current keyed facts, the relevant decisions and the handoffs addressed to it.
+4. **Check that it reads.** The usage counters tell you whether the new runtime is actually using the memory, or whether it is answering from its own context.
+
+```json
+{
+  "tool": "memory_prepare",
+  "arguments": {
+    "message": "Pick the deploy target for the new worker",
+    "surface_id": "new-runtime",
+    "recall_budget": 600
+  }
+}
+```
+
+If the answer comes back without the decision that was made last week, the memory is not wired in. Fix that before you move the next agent.
+
+## What to carry over, and what to leave
+
+Carry over the things that change the next action: prices, limits, owners, deploy targets, who approved what, what was rejected and why. Leave the things that only describe the past: long transcripts, the debugging steps of a bug that is closed, the full text of a superseded spec. A fact that is wrong should be corrected, not kept next to its replacement. An agent that finds two conflicting values will pick one, and you will not know which.
+
+The authority rule matters here. A value written by a person outranks one written by an agent, so an agent that tries to overwrite an owner's decision gets a proposal instead of a silent change. That protects the decisions you migrated from the old runtime, where an automatic summary could otherwise rewrite them.
+
+## Handoffs during the switch
+
+Run the old and the new runtime side by side for a few days, and hand work across explicitly. A `team_handoff` with what was done, what is open and the next step lets the new agent start without asking the old one. When the handoff is consumed, it closes; an open handoff that nobody reads after a week is a sign the switch is not finished.
+
+## What we measured on our own team
+
+We moved our own agent team to a new runtime in November, and the memory did not depend on the runtime that wrote it. The team's usage page is rebuilt every hour and counts only, with no memory content. Measured 2026-11-23 at 10:07 (UTC-3), over the last 7 days:
+
+- 13 active agents
+- 1,047 memory reads
+- 160 memories written
+- 80 facts reused in a later session
+- 21 handoffs
+
+These are our numbers from one team, not a benchmark. They show the loop runs every day across the switch, not that every answer is right. The live page is at [team.valorbra.in/en](https://team.valorbra.in/en/) and the raw counts at [team.valorbra.in/data.json](https://team.valorbra.in/data.json).
+
+## Checklist before you switch
+
+- Every decision that still applies is written as a fact or a decision, with its date and reasoning.
+- The new runtime is connected to the same memory, not to a copy.
+- The rules file of the new runtime tells it to call `memory_prepare` at the start of each turn.
+- Open handoffs from the old runtime are closed or re-addressed.
+- After the first week, check the usage counters. Memory nobody reads after a switch is a wiring problem, not a memory problem.
+
+Next: [Shared memory for multi-agent teams](/en/docs/guides/shared-memory-for-multi-agent-mcp-teams) for the session loop, [Team OS](/en/docs/guides/team-os) for handoffs and human escalation, and [Correct a wrong fact](/en/docs/guides/correct-a-fact).
