@@ -1,0 +1,59 @@
+---
+title: A ten-minute test for RAG on team decisions
+description: "If your agent team already has RAG over its docs, ask it five questions whose answers changed this month. How to score the answers, and what a failing one looks like."
+---
+
+Most teams that run more than one coding agent already have some retrieval over their docs. The question that matters is whether that retrieval can answer what the team decided last week, not what the spec said in March. You can check that in ten minutes, with five questions and no new tool.
+
+## The test
+
+Pick five facts your team changed in the last 30 days: a price, a deploy target, a retry limit, an owner, a feature flag. For each one, write down the old value, the new value and the date it changed. Then ask your current retrieval the question the way a new agent would, with no hints.
+
+Score each answer:
+
+- **Correct and current**: the answer gives the new value and says when it was decided.
+- **Right but unsourced**: the new value appears, but nothing says when or by whom. The next agent cannot tell whether it still holds.
+- **Stale**: the old value comes back first, or both values come back and the agent has to guess.
+
+If more than one of the five is stale, your retrieval is not the team's memory. It is a search over documents that disagree with each other.
+
+## Why it fails
+
+Similarity search ranks passages by how much they look like the question. A decision made in a chat on Tuesday does not look more like "what is the retry limit?" than the spec does, and the spec is usually longer and was written first. The old text can win on sheer volume.
+
+There is no authority either. A note from the owner and a line copied from an old forum post can sit at the same rank. And there is no time: most retrieval returns chunks without an `as_of`, so the agent cannot tell which chunk is the newest.
+
+Open work fails the same way. "Step 3 of the billing migration is still open, and the agent that started it handed it over on Monday" is a state, not a paragraph about billing. It has to be consumed when done, not found again next month.
+
+## What passing looks like
+
+Keep the documents, but stop asking them to answer current-state questions. Store the values that change as keyed facts, each with a stable key, a value, an `as_of` date and an authority (human, designated, import or agent). A newer value for the same key replaces the older one. A lower-authority write does not overwrite a human decision: it waits for a person to approve it.
+
+With ValorBrain over MCP, the value goes in with `upsert_keyed_fact`, and the reasoning goes in with `memory_store` as a `decision` that cites the key:
+
+```json
+{
+  "tool": "upsert_keyed_fact",
+  "arguments": {
+    "fact_key": "webhooks.retry.max",
+    "fact_value": "3",
+    "as_of": "2026-11-20",
+    "evidence": "decided by the owner in the planning call",
+    "authority": "human"
+  }
+}
+```
+
+`authority: "human"` only holds when the token making the call belongs to the person who decided. A token with no user behind it is capped at `agent`, so an agent recording someone else's decision should say who decided in `evidence` and let that person confirm it.
+
+Run the five questions again after a week. The answers should now show the value and its date. `keyed_facts_as_of` lets you check what was true on any earlier day, which is the quickest way to find out why an agent did something last month.
+
+## Our own numbers, same caveat as always
+
+We run 13 agents on ValorBrain across sales, customer success, growth, content and finance. The team usage page counts only, with no memory content, and is rebuilt every hour. Measured 2026-11-24 at 10:07 (UTC-3), over the last 7 days: 970 memory reads, 159 memories written, 70 facts reused in a later session and 19 handoffs between agents.
+
+These numbers show the loop runs every day. They do not show that any particular answer is correct. That is what the five-question test is for, and you should run it on your own setup rather than trust ours. The live page is at [team.valorbra.in/en](https://team.valorbra.in/en/) and the raw counts at [team.valorbra.in/data.json](https://team.valorbra.in/data.json).
+
+## Where to go next
+
+The full session loop is in [shared memory for multi-agent teams](/en/docs/guides/shared-memory-for-multi-agent-mcp-teams). The contract for each tool is in the [MCP cookbook](/en/docs/guides/mcp-cookbook). When a fact is wrong, follow [Correct a wrong fact](/en/docs/guides/correct-a-fact).

@@ -1,0 +1,59 @@
+---
+title: Um teste de dez minutos para RAG em decisões do time
+description: "Se o seu time de agentes já tem RAG sobre os docs, faça cinco perguntas cujas respostas mudaram neste mês. Como pontuar as respostas e como é uma resposta que falha."
+---
+
+A maioria dos times que roda mais de um agente de código já tem alguma recuperação sobre os próprios docs. A pergunta que importa é se essa recuperação responde o que o time decidiu semana passada, e não o que a spec dizia em março. Dá para checar em dez minutos, com cinco perguntas e nenhuma ferramenta nova.
+
+## O teste
+
+Escolha cinco fatos que o time mudou nos últimos 30 dias: um preço, um destino de deploy, um limite de retentativas, um responsável, uma flag de funcionalidade. Para cada um, anote o valor antigo, o valor novo e a data da mudança. Depois pergunte à sua recuperação atual, do jeito que um agente novo perguntaria, sem dicas.
+
+Pontue cada resposta:
+
+- **Correta e atual**: a resposta traz o valor novo e diz quando foi decidido.
+- **Certa, mas sem fonte**: o valor novo aparece, mas nada diz quando nem por quem. O próximo agente não sabe se ele ainda vale.
+- **Desatualizada**: o valor antigo volta primeiro, ou os dois voltam e o agente precisa adivinhar.
+
+Se mais de uma das cinco estiver desatualizada, a sua recuperação não é a memória do time. É uma busca sobre documentos que se contradizem.
+
+## Por que falha
+
+A busca por similaridade ranqueia trechos pelo quanto eles se parecem com a pergunta. Uma decisão tomada numa conversa na terça-feira não se parece mais com "qual é o limite de retentativas?" do que a spec se parece, e a spec costuma ser mais longa e foi escrita antes. O texto antigo pode ganhar só pelo volume.
+
+Também falta autoridade. Uma nota do dono e uma linha copiada de um fórum antigo podem ficar no mesmo nível. E falta tempo: a maioria das recuperações devolve trechos sem `as_of`, então o agente não sabe qual trecho é o mais novo.
+
+Trabalho em aberto falha do mesmo jeito. "O passo 3 da migração de cobrança ainda está aberto, e o agente que começou passou para outro na segunda" é um estado, não um parágrafo sobre cobrança. Precisa ser consumido quando terminar, não reencontrado no mês seguinte.
+
+## Como é passar no teste
+
+Mantenha os documentos, mas pare de pedir que eles respondam perguntas de estado atual. Guarde os valores que mudam como fatos com chave: uma chave estável, um valor, uma data `as_of` e uma autoridade (humano, designado, importado ou agente). Um valor mais novo para a mesma chave substitui o anterior. Uma escrita de autoridade menor não sobrescreve uma decisão humana: ela espera uma pessoa aprovar.
+
+Com o ValorBrain via MCP, o valor entra com `upsert_keyed_fact`, e o raciocínio entra com `memory_store` como `decision` citando a chave:
+
+```json
+{
+  "tool": "upsert_keyed_fact",
+  "arguments": {
+    "fact_key": "webhooks.retry.max",
+    "fact_value": "3",
+    "as_of": "2026-11-20",
+    "evidence": "decidido pelo dono na reunião de planejamento",
+    "authority": "human"
+  }
+}
+```
+
+`authority: "human"` só vale quando o token que faz a chamada pertence à pessoa que decidiu. Um token sem usuário por trás fica limitado a `agent`, então um agente que registra a decisão de outra pessoa deve dizer quem decidiu em `evidence` e deixar essa pessoa confirmar.
+
+Refaça as cinco perguntas depois de uma semana. As respostas devem mostrar o valor e a data. `keyed_facts_as_of` permite conferir o que era verdade em qualquer dia anterior, que é o jeito mais rápido de descobrir por que um agente fez algo no mês passado.
+
+## Os nossos números, com a mesma ressalva
+
+Rodamos 13 agentes no ValorBrain, em vendas, sucesso do cliente, growth, conteúdo e financeiro. A página de uso do time conta só contagens, sem conteúdo de memória, e é refeita de hora em hora. Medido em 24/11/2026 às 10:07 (UTC-3), nos últimos 7 dias: 970 leituras de memória, 159 memórias gravadas, 70 fatos reaproveitados em outra sessão e 19 handoffs entre agentes.
+
+Esses números mostram que o ciclo roda todo dia. Não mostram que uma resposta específica está certa. Para isso serve o teste das cinco perguntas, e você deve rodá-lo no seu setup, não confiar no nosso. A página ao vivo está em [team.valorbra.in](https://team.valorbra.in/) e os números brutos em [team.valorbra.in/data.json](https://team.valorbra.in/data.json).
+
+## Próximos passos
+
+O ciclo completo de sessão está em [memória compartilhada para times multiagente](/docs/guides/shared-memory-for-multi-agent-mcp-teams). O contrato de cada ferramenta está no [cookbook MCP](/docs/guides/mcp-cookbook). Quando um fato estiver errado, siga [Corrigir um fato errado](/docs/guides/correct-a-fact).
