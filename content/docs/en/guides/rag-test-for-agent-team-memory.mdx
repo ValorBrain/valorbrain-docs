@@ -44,6 +44,8 @@ With ValorBrain over MCP, the value goes in with `upsert_keyed_fact`, and the re
 }
 ```
 
+`authority: "human"` only holds when the token making the call belongs to the person who decided. A token with no user behind it is capped at `agent`, so an agent recording someone else's decision should say who decided in `evidence` and let that person confirm it.
+
 Run the five questions again after a week. The answers should now show the value and its date. `keyed_facts_as_of` lets you check what was true on any earlier day, which is the quickest way to find out why an agent did something last month.
 
 ## Our own numbers, same caveat as always

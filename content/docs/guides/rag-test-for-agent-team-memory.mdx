@@ -44,6 +44,8 @@ Com o ValorBrain via MCP, o valor entra com `upsert_keyed_fact`, e o raciocínio
 }
 ```
 
+`authority: "human"` só vale quando o token que faz a chamada pertence à pessoa que decidiu. Um token sem usuário por trás fica limitado a `agent`, então um agente que registra a decisão de outra pessoa deve dizer quem decidiu em `evidence` e deixar essa pessoa confirmar.
+
 Refaça as cinco perguntas depois de uma semana. As respostas devem mostrar o valor e a data. `keyed_facts_as_of` permite conferir o que era verdade em qualquer dia anterior, que é o jeito mais rápido de descobrir por que um agente fez algo no mês passado.
 
 ## Os nossos números, com a mesma ressalva
