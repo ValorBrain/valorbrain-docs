@@ -1,0 +1,39 @@
+---
+title: Dimensionar uma camada de memória para um time de agentes, antes da página de preços
+description: "Camadas de memória cobram por gravação e por recuperação. Um time de agentes recupera muito mais do que grava. Como contar o seu próprio tráfego e checar o limite antes de fechar."
+---
+
+A maioria das camadas de memória para agentes de código cobra por gravação e por leitura, e os dois números crescem em ritmos bem diferentes. Um time de agentes lê a memória no começo de toda sessão e só grava quando algo é decidido. Por isso o limite que estoura primeiro quase sempre é o de leitura.
+
+A página pública de preços do Mem0, conferida em 25 de novembro de 2026, lista dois planos: Free e Custom. O plano Free tem dois conjuntos de limites. Nos primeiros 30 dias, o Mem0 paga as chamadas de modelo e os limites são 10.000 gravações (adds) e 1.000 recuperações por mês. Depois disso você usa a sua própria chave de LLM, e os limites passam a 50.000 gravações e 10.000 recuperações por mês. O uso acima dos limites é cobrado, com um teto mensal que você define. Planos mudam, então confira a página antes de orçar. A conta abaixo vale para qualquer camada que cobre desse jeito.
+
+## Passo 1: conte recuperações, não gravações
+
+Toda sessão que começa consultando a memória custa pelo menos uma recuperação. Agentes costumam fazer mais de uma, por exemplo uma no início e outra antes de uma mudança arriscada. Gravações só acontecem quando uma decisão, um fato ou um handoff é guardado, o que para a maioria dos times são poucas vezes por dia.
+
+Pegue um time de cinco agentes, dez sessões por dia cada, três recuperações por sessão. São 150 recuperações por dia, ou 4.500 num mês de 30 dias.
+
+- Nos primeiros 30 dias do plano Free, o limite de 1.000 recuperações acaba em cerca de 7 dias.
+- Com a sua própria chave de LLM, o limite de 10.000 aguenta, e esse time usa 45% dele no mês.
+
+O mesmo time vai bem numa fase e fica travado na outra. Coloque os seus números na mesma fórmula antes de escolher.
+
+## Passo 2: confira o que o fornecedor conta
+
+Leia a definição de recuperação na documentação. Uma busca que não devolve nada conta? Um rerank ou uma travessia de grafo conta como uma chamada ou várias? Uma atualização conta como gravação? Rode um dia de trabalho com log ligado e conte as chamadas na mão. Confie nessa contagem mais do que na estimativa.
+
+## Passo 3: meça as suas sessões por uma semana
+
+Não chute sessões por dia. Conte nos seus logs durante uma semana inteira. O número costuma mudar bastante nas primeiras semanas depois que o time ganha um agente, então meça de novo a cada agente ou rotina nova.
+
+## Passo 4: descubra quem paga as chamadas de modelo
+
+No plano gratuito, o fornecedor muitas vezes paga as chamadas de modelo que a extração exige, e é por isso que os limites gratuitos parecem generosos. Quando a sua chave passa a pagar, a extração em cada gravação vira o custo que cresce com as escritas. Faça duas perguntas: qual modelo a camada usa para extrair fatos, e quanto custam 1.000 gravações com esse modelo no tamanho dos seus textos.
+
+## Passo 5: teste a resposta, não só a conta
+
+Uma memória barata que devolve a decisão do mês passado é pior do que nenhuma memória, porque o agente age em cima dela com confiança. Antes de fechar com qualquer camada, faça cinco perguntas cujas respostas mudaram neste mês e veja se ela devolve o valor novo, com a data. O [teste de dez minutos](/docs/guides/rag-test-for-agent-team-memory) mostra o passo a passo.
+
+## O que fazer com o resultado
+
+Se a conta diz que o time bate no limite na segunda semana, isso é um problema de planejamento antes de ser um problema de preço. Escolha a camada depois dos números, não antes, e anote os números com a data em que você mediu, para que a próxima pessoa refaça a conta quando o plano mudar.
