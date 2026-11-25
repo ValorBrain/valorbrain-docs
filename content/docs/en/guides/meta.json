@@ -13,6 +13,7 @@
     "usage-value",
     "shared-memory-for-multi-agent-mcp-teams",
     "switching-agent-frameworks-keeps-team-memory",
-    "rag-test-for-agent-team-memory"
+    "rag-test-for-agent-team-memory",
+    "size-memory-layer-for-agent-team"
   ]
 }

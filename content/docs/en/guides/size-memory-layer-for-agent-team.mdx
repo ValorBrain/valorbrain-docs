@@ -1,0 +1,39 @@
+---
+title: Sizing a memory layer for a team of agents, before the pricing page
+description: "Memory layers bill per add and per retrieval. A team of agents retrieves far more than it writes. How to count your own traffic and check the cap before you commit."
+---
+
+Most memory layers for coding agents bill per write and per read, and the two numbers grow at very different speeds. A team of agents reads memory at the start of every session and writes only when something is decided. So the cap you hit first is almost always the read cap.
+
+Mem0's public pricing page, checked on 25 November 2026, lists two plans: Free and Custom. The Free plan has two sets of limits. For the first 30 days, Mem0 pays the model calls and the limits are 10,000 adds and 1,000 retrievals a month. After that you bring your own LLM key, and the limits are 50,000 adds and 10,000 retrievals a month. Usage past the limits is billed with a monthly cap you set. Plans change, so check the page before you budget. The arithmetic below works for any layer that bills this way.
+
+## Step 1: count retrievals, not adds
+
+Every session that starts with a memory lookup costs at least one retrieval. Agents often do more than one, for example one at start and one before a risky change. Adds only happen when a decision, a fact or a handoff is stored, which is a few times a day for most teams.
+
+Take a team of five agents, ten sessions a day each, three retrievals per session. That is 150 retrievals a day, or 4,500 in a 30-day month.
+
+- In the first 30 days on the Free plan, the 1,000 retrieval limit runs out in about 7 days.
+- With your own LLM key, the 10,000 limit holds, and this team uses 45% of it in a month.
+
+The same team is fine in one phase and blocked in the other. Put your own numbers in the same formula before you choose.
+
+## Step 2: check what the provider counts
+
+Read the definition of a retrieval in the docs. Does a search that returns nothing count? Does a rerank or a graph traversal count as one call or several? Does an update count as an add? Run one working day with logging on and count the calls by hand. Trust that count over the estimate.
+
+## Step 3: measure your sessions for a week
+
+Do not guess sessions per day. Count them from your logs for a full week. The number usually moves a lot in the first weeks after a team adds an agent, so measure again after each new agent or new routine.
+
+## Step 4: find who pays for model calls
+
+On a free tier the provider often pays the model calls that extraction needs, and that is why the free limits look generous. Once your own key pays, extraction on each add becomes the cost that grows with writes. Ask two questions: which model does the layer use to extract facts, and what does 1,000 adds cost with that model at your text size.
+
+## Step 5: test the answer, not only the bill
+
+A cheap memory that returns last month's decision is worse than no memory, because the agent acts on it with confidence. Before you commit to any layer, ask it five questions whose answers changed this month and check whether it returns the new value with its date. The [ten-minute test](/en/docs/guides/rag-test-for-agent-team-memory) walks through it.
+
+## What to do with the result
+
+If the arithmetic says the team hits the cap in the second week, that is a planning problem before it is a pricing one. Pick the layer after the numbers, not before, and write the numbers down with the date you measured them, so the next person can redo the sum when the plan changes.
