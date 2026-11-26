@@ -33,6 +33,10 @@ So resume covers one case well: you, in the same tool, in the same directory, so
 
 The repository already holds the diff. The handoff holds what the diff cannot show.
 
+<a href="/guides/handoff-between-coding-agents-en.png">
+  <img src="/guides/handoff-between-coding-agents-en.png" alt="Card comparing what the next agent sees. Left, the repo: branch, changed files and one failing test, but not what was ruled out, so the agent starts over with an unlimited retry that was already ruled out. Right, the handoff: the two rejected approaches with their reasons, the one that stayed, the migration that must not run, and the next step, the one test left." width={2400} height={1350} loading="lazy" />
+</a>
+
 1. **The goal and what done means.** One sentence for the goal, one for the check that proves it: a command and the output you expect.
 2. **The state, with verified and assumed kept apart.** Branch and commit. What you ran and saw pass. What you believe but did not run. "Tests pass" and "tests should pass" are different facts, and the recipient cannot tell which one you meant unless you say so.
 3. **Decisions, with the reason and what was rejected.** This is the part that stops the next agent from repeating your first hour. Write each rejected approach and why it failed.

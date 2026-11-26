@@ -23,6 +23,12 @@ Similarity search ranks passages by how much they look like the question. A deci
 
 There is no authority either. A note from the owner and a line copied from an old forum post can sit at the same rank. And there is no time: most retrieval returns chunks without an `as_of`, so the agent cannot tell which chunk is the newest.
 
+<a href="/guides/rag-test-for-agent-team-memory-en.png">
+  <img src="/guides/rag-test-for-agent-team-memory-en.png" alt="RAG picks the most similar chunk (March, 30 days) while a keyed fact returns the current value (7 days) with source and date." width={2400} height={1350} loading="lazy" />
+</a>
+
+The values in the card are an illustrative example, not a measurement.
+
 Open work fails the same way. "Step 3 of the billing migration is still open, and the agent that started it handed it over on Monday" is a state, not a paragraph about billing. It has to be consumed when done, not found again next month.
 
 ## What passing looks like
