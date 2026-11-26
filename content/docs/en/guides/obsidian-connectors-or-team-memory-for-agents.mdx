@@ -1,0 +1,128 @@
+---
+title: Obsidian connectors for agents, or a team memory? What each one holds
+description: "Obsidian shipped official connectors for agents on 25 November 2026. What they install, when a shared vault is all a team of agents needs, and when you also need facts with a date and an owner."
+---
+
+On 25 November 2026 Obsidian announced official connectors "for every agent". The help page lists Claude, ChatGPT, Cursor, GitHub Copilot, Grok Bot, Hermes, Kiro and others. The pitch is a shared knowledge base your agents can read and write, in local files you own. If you run more than one agent, the obvious question follows: is a shared vault enough, or does the team still need a memory layer?
+
+The answer depends on what you ask the vault to hold. This guide goes through what the connectors install, where a vault is the right tool, and the three things a folder of notes does not do for you. The examples use ValorBrain over MCP, but the split applies to any memory layer.
+
+## What the connectors are
+
+The [help page](https://obsidian.md/help/connectors), read on 26 November 2026, describes them as a set of skills in the Agent Skills format, open source at [obsidianmd/obsidian-skills](https://github.com/obsidianmd/obsidian-skills). There are seven:
+
+| Skill | What it teaches the agent |
+|---|---|
+| `obsidian-markdown` | Notes in Obsidian Flavored Markdown: wikilinks, embeds, callouts, properties |
+| `obsidian-bases` | Bases files with views, filters, formulas and summaries |
+| `json-canvas` | Canvas files in the JSON Canvas format |
+| `obsidian-cli` | Search, read and manage notes in the running app through Obsidian CLI |
+| `obsidian-headless` | Sync and publish vaults from the command line, without the desktop app |
+| `defuddle` | Extract clean Markdown from web pages |
+| `knap` | Render Markdown templates from JSON or CSV |
+
+Installing is one or two commands. For Claude Code:
+
+```bash
+claude plugin marketplace add obsidianmd/obsidian-skills
+claude plugin install obsidian@obsidian-skills
+```
+
+For agents without a plugin directory entry, `npx skills add https://github.com/obsidianmd/obsidian-skills` asks which agents to install into.
+
+Three details on that page matter for a team:
+
+- The Markdown, Bases and Canvas skills "only describe file formats". They work in any agent that can read and write files in the vault. Nothing is running: the agent learns how to write a correct note.
+- The `obsidian-cli` skill needs the Obsidian desktop app running with the CLI turned on, and an agent that can run commands on that computer. A cloud agent does not have that.
+- The connectors send nothing by themselves, but the notes an agent reads become part of its conversation and go to the model you use. Check that before you point an agent at a vault with sensitive notes.
+
+So the connector is not a server and not a memory engine. It is instructions that make agents good citizens of a folder of Markdown files. That is a sound design, and for a lot of work it is all you need.
+
+## When the vault is enough
+
+Use the vault alone, and skip the memory layer, when most of these are true:
+
+- One person, or a small team where a human reads the notes often and fixes what is stale.
+- The content is knowledge that ages slowly: research, specs, meeting notes, how-tos, diagrams.
+- Agents work on the same machine as the vault, or you already sync it with Git or Obsidian Sync.
+- When two notes disagree, a person notices and decides.
+
+You get plain files in open formats that work offline and survive any change of agent. That last part is real: a vault does not care which harness wrote the note.
+
+## What a folder of notes does not do
+
+The trouble starts with values that change and work that passes between agents. Three gaps, in the order teams hit them.
+
+### 1. Nothing says which value is current
+
+A team decides on Tuesday that webhook retries are capped at 3. The spec note says 5. A meeting note from Tuesday says 3. A daily note from Wednesday says "maybe 4, check with Ana". `obsidian search query="webhook retry"` returns matching file paths, and all three files match. The agent picks one, and you do not know which.
+
+You can fix part of this with discipline. Obsidian properties support date types, so a note can carry the date and the owner in its front matter:
+
+```yaml
+---
+key: webhooks.retry.max
+value: 3
+as_of: 2026-11-24
+decided_by: owner
+---
+```
+
+A Base can then show these notes in one view, filtered by key. That works as long as every agent follows the convention on every write. Nothing in the vault rejects a second note with the same key, and nothing marks the older one as replaced.
+
+A memory layer makes that rule part of the write. In ValorBrain a keyed fact has a stable key, a value, an `as_of` date and a source. A newer value for the same key supersedes the older one, and `keyed_facts_as_of` shows what was true on any past date.
+
+### 2. Nothing stops an agent from overwriting a person
+
+In a vault every writer is equal. An agent that summarizes a long thread can rewrite the note that holds the owner's decision, and the file looks as valid as before. File recovery or Sync history tells you afterwards that it happened. It does not stop it.
+
+With keyed facts the write carries an authority (human > designated > import > agent). When an agent tries to replace a value a person set, the write waits as a proposal until a person approves it.
+
+### 3. Open work is not a note
+
+"I migrated four of the nine tables, the fifth fails on a foreign key, next step is to drop the constraint" is not knowledge. It is state addressed to whoever picks the task up next. In a vault it becomes a line in a daily note, and the next agent finds it only if it searches for the right words.
+
+A `team_handoff` has a recipient, what was done, what is open and the next step. The recipient gets it at the start of its next session without searching, and it closes when it is consumed.
+
+## A five-minute check on your own vault
+
+Before you add anything, test what you have. Pick three values your team changed this month: a price, a limit, an owner. For each one, start a fresh agent session with the Obsidian skills installed and ask for the current value and the date it was decided.
+
+- All three come back right, with the date: the vault is doing the job. Keep it.
+- A value comes back old, or without a date, or the agent quotes two notes: this is gap 1.
+- Now ask a second agent what the first one left unfinished yesterday. If it has to guess, this is gap 3.
+
+The [ten-minute test](/en/docs/guides/rag-test-for-agent-team-memory) runs the same idea against a RAG setup.
+
+## Using both
+
+The two do not compete for the same content. A split that works:
+
+- **Vault**: documents people read. Specs, research, runbooks, canvases, meeting notes.
+- **Memory**: what an agent has to get right before it acts. Current values as keyed facts, decisions with the options rejected, handoffs.
+
+A decision note in the vault can cite the fact key, and the fact can cite the note as its source. The agent reads the fact for the answer and opens the note when it needs the reasoning. Each agent calls `memory_prepare` at the start of a turn and gets the current facts and the handoffs addressed to it; the [session loop](/en/docs/guides/shared-memory-for-multi-agent-mcp-teams) covers the four calls.
+
+The memory layer has its own cost. It is one more service, the facts live in a database behind an API and not in Markdown files you can open, and an agent without hooks calls `memory_prepare` only if its rules file says so. If the five-minute check passes on your vault, you do not need it yet.
+
+## What we measured on our own team
+
+We run 13 agents on ValorBrain across sales, customer success, growth, content, finance and tech. The team's usage page is rebuilt every hour and shows counts only, with no memory content. Measured 2026-11-26 at 07:07 (UTC-3), over the last 7 days:
+
+- 13 active agents
+- 863 memory reads
+- 181 memories written
+- 68 facts reused in a later session
+- 17 handoffs
+
+These are our numbers from one team, not a benchmark. They show how often agents go back to a stored fact, not that every answer was right. The live page is at [team.valorbra.in/en](https://team.valorbra.in/en/) and the raw counts at [team.valorbra.in/data.json](https://team.valorbra.in/data.json).
+
+## Checklist
+
+- Run the five-minute check before you choose. Keep the result with its date.
+- Notes that people read stay in the vault, in open files.
+- Values that change go in as keyed facts with a date and a source, never as a second note next to the old one.
+- Work that passes between agents is a handoff with a recipient, not a line in a daily note.
+- Read your agent's privacy policy before you connect a vault with sensitive notes. This applies to any connector.
+
+Next: [Shared memory for multi-agent teams](/en/docs/guides/shared-memory-for-multi-agent-mcp-teams) for the session loop, [Switching agent frameworks](/en/docs/guides/switching-agent-frameworks-keeps-team-memory) for what to carry over, and [Correct a wrong fact](/en/docs/guides/correct-a-fact).

@@ -1,0 +1,128 @@
+---
+title: Conectores do Obsidian para agentes ou memória de time? O que cada um guarda
+description: "O Obsidian lançou conectores oficiais para agentes em 25 de novembro de 2026. O que eles instalam, quando um vault compartilhado basta para um time de agentes e quando você também precisa de fatos com data e dono."
+---
+
+Em 25 de novembro de 2026 o Obsidian anunciou conectores oficiais "for every agent", para qualquer agente. A página de ajuda cita Claude, ChatGPT, Cursor, GitHub Copilot, Grok Bot, Hermes, Kiro e outros. A proposta é uma base de conhecimento compartilhada que os seus agentes leem e escrevem, em arquivos locais que são seus. Se você roda mais de um agente, a pergunta vem logo: um vault compartilhado basta, ou o time ainda precisa de uma camada de memória?
+
+A resposta depende do que você pede para o vault guardar. Este guia mostra o que os conectores instalam, quando o vault é a ferramenta certa e as três coisas que uma pasta de notas não faz por você. Os exemplos usam o ValorBrain via MCP, mas a divisão vale para qualquer camada de memória.
+
+## O que são os conectores
+
+A [página de ajuda](https://obsidian.md/help/connectors), lida em 26 de novembro de 2026, descreve os conectores como um conjunto de skills no formato Agent Skills, de código aberto em [obsidianmd/obsidian-skills](https://github.com/obsidianmd/obsidian-skills). São sete:
+
+| Skill | O que ensina ao agente |
+|---|---|
+| `obsidian-markdown` | Notas em Obsidian Flavored Markdown: wikilinks, embeds, callouts, propriedades |
+| `obsidian-bases` | Arquivos de Bases com visões, filtros, fórmulas e resumos |
+| `json-canvas` | Arquivos de Canvas no formato JSON Canvas |
+| `obsidian-cli` | Buscar, ler e organizar notas no app aberto, pelo Obsidian CLI |
+| `obsidian-headless` | Sincronizar e publicar vaults pela linha de comando, sem o app desktop |
+| `defuddle` | Extrair Markdown limpo de páginas web |
+| `knap` | Gerar Markdown a partir de templates e dados em JSON ou CSV |
+
+A instalação é um ou dois comandos. No Claude Code:
+
+```bash
+claude plugin marketplace add obsidianmd/obsidian-skills
+claude plugin install obsidian@obsidian-skills
+```
+
+Para agentes que não estão em nenhum diretório de plugins, `npx skills add https://github.com/obsidianmd/obsidian-skills` pergunta em quais agentes instalar.
+
+Três detalhes dessa página importam para um time:
+
+- As skills de Markdown, Bases e Canvas "only describe file formats", ou seja, só descrevem formatos de arquivo. Funcionam em qualquer agente que leia e escreva arquivos no vault. Nada fica rodando: o agente aprende a escrever uma nota correta.
+- A skill `obsidian-cli` exige o app desktop do Obsidian aberto, com o CLI ligado, e um agente que rode comandos naquele computador. Um agente na nuvem não tem isso.
+- Os conectores não enviam nada sozinhos, mas as notas que o agente lê entram na conversa e vão para o modelo que você usa. Confira isso antes de apontar um agente para um vault com notas sensíveis.
+
+Então o conector não é um servidor nem um motor de memória. São instruções que fazem os agentes se comportarem bem numa pasta de arquivos Markdown. É um bom desenho, e para muito trabalho é tudo de que você precisa.
+
+## Quando o vault basta
+
+Use só o vault, sem camada de memória, quando a maior parte disto for verdade:
+
+- Uma pessoa, ou um time pequeno em que alguém lê as notas com frequência e corrige o que ficou velho.
+- O conteúdo é conhecimento que envelhece devagar: pesquisa, especificação, ata de reunião, tutorial, diagrama.
+- Os agentes trabalham na mesma máquina do vault, ou você já sincroniza o vault com Git ou com o Obsidian Sync.
+- Quando duas notas discordam, uma pessoa percebe e decide.
+
+Você fica com arquivos simples, em formatos abertos, que funcionam offline e sobrevivem a qualquer troca de agente. Essa última parte é real: o vault não liga para qual harness escreveu a nota.
+
+## O que uma pasta de notas não faz
+
+O problema começa com valores que mudam e com trabalho que passa de um agente para outro. São três lacunas, na ordem em que os times esbarram nelas.
+
+### 1. Nada diz qual valor vale agora
+
+Na terça o time decide que os retries de webhook param em 3. A nota de especificação diz 5. A ata de terça diz 3. A nota diária de quarta diz "talvez 4, ver com a Ana". `obsidian search query="webhook retry"` devolve os caminhos dos arquivos que batem com a busca, e os três batem. O agente escolhe um, e você não sabe qual.
+
+Dá para resolver parte disso com disciplina. As propriedades do Obsidian aceitam o tipo data, então uma nota pode levar a data e o dono no front matter:
+
+```yaml
+---
+key: webhooks.retry.max
+value: 3
+as_of: 2026-11-24
+decided_by: owner
+---
+```
+
+Uma Base pode então mostrar essas notas numa visão só, filtrada pela chave. Funciona enquanto todo agente seguir a convenção em toda escrita. Nada no vault recusa uma segunda nota com a mesma chave, e nada marca a mais antiga como substituída.
+
+Uma camada de memória põe essa regra na própria escrita. No ValorBrain um fato com chave tem uma chave estável, um valor, uma data `as_of` e uma fonte. Um valor mais novo para a mesma chave substitui o anterior, e `keyed_facts_as_of` mostra o que valia em qualquer data passada.
+
+### 2. Nada impede um agente de sobrescrever uma pessoa
+
+Num vault todo mundo que escreve tem o mesmo peso. Um agente que resume uma conversa longa pode reescrever a nota com a decisão do dono, e o arquivo continua parecendo tão válido quanto antes. O File recovery ou o histórico do Sync mostram depois que isso aconteceu. Não impedem.
+
+Com fatos com chave, a escrita carrega uma autoridade (human > designated > import > agent). Quando um agente tenta trocar um valor que uma pessoa definiu, a escrita fica parada como proposta até uma pessoa aprovar.
+
+### 3. Trabalho em aberto não é nota
+
+"Migrei quatro das nove tabelas, a quinta falha numa chave estrangeira, o próximo passo é tirar a constraint" não é conhecimento. É estado endereçado a quem pegar a tarefa depois. Num vault isso vira uma linha na nota diária, e o próximo agente só acha se buscar pelas palavras certas.
+
+Um `team_handoff` tem destinatário, o que foi feito, o que está aberto e o próximo passo. Quem recebe vê o handoff no começo da próxima sessão, sem buscar, e ele fecha quando é consumido.
+
+## Um teste de cinco minutos no seu vault
+
+Antes de acrescentar qualquer coisa, teste o que você tem. Escolha três valores que o time mudou neste mês: um preço, um limite, um responsável. Para cada um, abra uma sessão nova de agente com as skills do Obsidian instaladas e pergunte o valor atual e a data da decisão.
+
+- Os três voltam certos, com a data: o vault está fazendo o trabalho. Fique com ele.
+- Um valor volta velho, sem data, ou o agente cita duas notas: é a lacuna 1.
+- Agora pergunte a um segundo agente o que o primeiro deixou sem terminar ontem. Se ele tiver que adivinhar, é a lacuna 3.
+
+O [teste de dez minutos](/docs/guides/rag-test-for-agent-team-memory) aplica a mesma ideia a uma montagem de RAG.
+
+## Usar os dois
+
+Os dois não disputam o mesmo conteúdo. Uma divisão que funciona:
+
+- **Vault**: documentos que pessoas leem. Especificações, pesquisas, runbooks, canvases, atas.
+- **Memória**: o que um agente precisa acertar antes de agir. Valores atuais como fatos com chave, decisões com as opções descartadas, handoffs.
+
+Uma nota de decisão no vault pode citar a chave do fato, e o fato pode citar a nota como fonte. O agente lê o fato para ter a resposta e abre a nota quando precisa do porquê. Cada agente chama `memory_prepare` no começo do turno e recebe os fatos atuais e os handoffs endereçados a ele; o [ciclo de sessão](/docs/guides/shared-memory-for-multi-agent-mcp-teams) explica as quatro chamadas.
+
+A camada de memória tem o seu custo. É mais um serviço, os fatos ficam num banco de dados atrás de uma API e não em arquivos Markdown que você abre, e um agente sem hooks só chama `memory_prepare` se o arquivo de regras dele mandar. Se o teste de cinco minutos passar no seu vault, você ainda não precisa dela.
+
+## O que medimos no nosso time
+
+Rodamos 13 agentes no ValorBrain, em vendas, sucesso do cliente, growth, conteúdo, financeiro e tecnologia. A página de uso do time é refeita de hora em hora e mostra só contagens, sem conteúdo de memória. Medido em 26/11/2026 às 07:07 (UTC-3), nos últimos 7 dias:
+
+- 13 agentes ativos
+- 863 leituras de memória
+- 181 memórias gravadas
+- 68 fatos reaproveitados em outra sessão
+- 17 handoffs
+
+São números nossos, de um time só, não um benchmark. Mostram com que frequência os agentes voltam a um fato guardado, não que toda resposta estava certa. A página ao vivo está em [team.valorbra.in](https://team.valorbra.in/) e as contagens brutas em [team.valorbra.in/data.json](https://team.valorbra.in/data.json).
+
+## Checklist
+
+- Rode o teste de cinco minutos antes de escolher. Guarde o resultado com a data.
+- Notas que pessoas leem ficam no vault, em arquivos abertos.
+- Valores que mudam entram como fatos com chave, com data e fonte, nunca como uma segunda nota ao lado da antiga.
+- Trabalho que passa entre agentes é um handoff com destinatário, não uma linha na nota diária.
+- Leia a política de privacidade do seu agente antes de ligar um vault com notas sensíveis. Isso vale para qualquer conector.
+
+A seguir: [Memória compartilhada para times multiagente](/docs/guides/shared-memory-for-multi-agent-mcp-teams) para o ciclo de sessão, [Trocar de framework de agente](/docs/guides/switching-agent-frameworks-keeps-team-memory) para o que levar junto, e [Corrija um fato errado](/docs/guides/correct-a-fact).
