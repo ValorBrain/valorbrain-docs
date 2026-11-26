@@ -33,6 +33,10 @@ O resume cobre bem um caso: você, na mesma ferramenta, no mesmo diretório, pou
 
 O repositório já guarda o diff. O handoff guarda o que o diff não mostra.
 
+<a href="/guides/handoff-between-coding-agents-pt.png">
+  <img src="/guides/handoff-between-coding-agents-pt.png" alt="Card comparando o que o próximo agente vê. À esquerda, o repositório: branch, arquivos alterados e um teste falhando, mas não o que foi descartado, e o agente recomeça por um retry sem limite já descartado. À direita, o handoff: as duas abordagens descartadas com o motivo, a que ficou, a migration que não pode rodar e o próximo passo, o teste que falta." width={2400} height={1350} loading="lazy" />
+</a>
+
 1. **O objetivo e o que significa pronto.** Uma frase para o objetivo e uma para a verificação que prova: um comando e a saída esperada.
 2. **O estado, com verificado e suposto separados.** Branch e commit. O que você rodou e viu passar. O que você acredita, mas não rodou. "Os testes passam" e "os testes devem passar" são fatos diferentes, e quem recebe só sabe qual dos dois você quis dizer se você escrever.
 3. **As decisões, com o motivo e o que foi descartado.** É a parte que impede o próximo agente de repetir a sua primeira hora. Escreva cada abordagem descartada e por que falhou.
