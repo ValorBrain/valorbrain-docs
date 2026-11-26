@@ -16,6 +16,7 @@
     "rag-test-for-agent-team-memory",
     "size-memory-layer-for-agent-team",
     "obsidian-connectors-or-team-memory-for-agents",
-    "claude-md-agents-md-cursor-rules-one-source"
+    "claude-md-agents-md-cursor-rules-one-source",
+    "handoff-between-coding-agents-what-to-carry"
   ]
 }

@@ -1,0 +1,181 @@
+---
+title: "Handing work from one coding agent to the next: what the handoff has to carry"
+description: "Resume brings back a conversation in the same tool on the same machine. What Claude Code, Cursor and Codex restore as of November 26, 2026, the six things a handoff note needs, and a five-question check that shows whether yours works."
+---
+
+A session in Claude Code spends two hours on a webhook retry bug. It rules out two fixes, lands a third on a branch, and stops with one test still red. The next morning a teammate opens the same branch in Codex. The repository tells them what changed. It does not tell them which fixes were already tried and dropped, whether the red test is the bug or a flaky fixture, or that the migration on that branch must not run yet. So the second agent tries the first rejected fix again.
+
+Every tool has a resume command, and it solves a narrower problem than this one. Resume reopens a conversation in the tool that wrote it. A handoff moves work to another tool, another person, another machine, or to the same session after its early turns were summarized away. This guide covers what resume gives you, what a handoff has to carry, and how to check that yours carries it.
+
+Everything said here about the tools was read in their own documentation on November 26, 2026. These pages change often, so open the links before you rely on a detail.
+
+## What resume gives you
+
+| | Claude Code | Cursor CLI | Codex |
+|---|---|---|---|
+| Reopen the latest session | `claude --continue` | `agent --continue` or `agent resume` | `codex resume --last` |
+| Pick a specific one | `claude --resume`, or `/resume` inside a session | `agent ls`, then `agent --resume="chat-id"` | `codex resume` with a session ID; `codex fork` to branch from one and keep the original transcript |
+| Another machine or surface | Sessions are stored locally, per project directory. The desktop app, claude.ai/code and the VS Code extension each keep their own session list, and the desktop app can also resume a CLI session | Prepend `&` to a message to push the conversation to a Cloud Agent, then pick it up on web or mobile | The CLI reopens chats from the current repository or searches across local chats |
+
+Sources: Claude Code, [Manage sessions](https://code.claude.com/docs/en/sessions) and [What survives compaction](https://code.claude.com/docs/en/context-window#what-survives-compaction); Cursor, [CLI overview](https://cursor.com/docs/cli/overview) and [Using the CLI](https://cursor.com/docs/cli/using); Codex, [command reference](https://learn.chatgpt.com/docs/developer-commands?surface=cli) and [CLI](https://learn.chatgpt.com/docs/codex/cli).
+
+Three details in those pages decide when resume is not enough.
+
+**Each command reopens that tool's own sessions.** None of the pages describes opening a session that another tool started. Claude Code keeps transcripts as JSONL under `~/.claude/projects/`, and its docs say the entry format is internal and changes between versions, so a script that converts one tool's transcript for another can break on any release.
+
+**"Latest" depends on where you are standing.** Claude Code stores sessions per project directory and its picker starts from the current worktree. `codex resume --last` is scoped to the current working directory unless you pass `--all`. A second checkout, a worktree or a container is a different place, and the session you want may not be in the list. Claude Code also removes transcripts after 30 days by default (`cleanupPeriodDays`).
+
+**A resumed long session is a summary plus recent turns.** `/compact` in Codex replaces earlier turns with a summary. When a Claude Code session was compacted, resume continues from the last compaction's summary and the messages after it. The messages that compaction summarized are not loaded again. After compaction Claude Code re-reads up to five of the files it had read or edited, most recently modified first. A tool call that was running when the process ended is not rerun, and background shell commands are not restored. The reason a fix was rejected in the first hour survives only if the summary happened to keep it.
+
+So resume covers one case well: you, in the same tool, in the same directory, soon after, in a session short enough that nothing was summarized. For everything else, write the handoff down.
+
+## What a handoff has to carry
+
+The repository already holds the diff. The handoff holds what the diff cannot show.
+
+1. **The goal and what done means.** One sentence for the goal, one for the check that proves it: a command and the output you expect.
+2. **The state, with verified and assumed kept apart.** Branch and commit. What you ran and saw pass. What you believe but did not run. "Tests pass" and "tests should pass" are different facts, and the recipient cannot tell which one you meant unless you say so.
+3. **Decisions, with the reason and what was rejected.** This is the part that stops the next agent from repeating your first hour. Write each rejected approach and why it failed.
+4. **Open questions for the recipient.** What you could not settle, addressed to the person or agent who can.
+5. **What is in flight and what must not be touched.** A migration that is half applied, a deploy that is frozen, a file another agent is editing, a process that was running in the background when you stopped.
+6. **Who it is for, and its status.** A name, and one of three states: actionable, parked waiting on a human, or closed.
+
+Item 6 is the one that note files leave out, and it is where most handoffs go wrong. A note with no recipient gets picked up by nobody or by two agents. A note with no status is read as current for as long as the file exists.
+
+## The file version
+
+For one repository and a handoff to yourself or one teammate, a file on the branch is enough.
+
+```md
+# Handoff: webhook retry bug
+
+For: whoever picks up branch fix/webhook-retry
+Status: actionable
+Written: 2026-11-26, at commit 4f2c1ab
+
+## Goal
+The webhook sender retries 3 times with exponential backoff, then dead-letters.
+Done when `bun test sender` passes and a forced 500 leaves one row in dead_letters.
+
+## State
+- Verified: retry count and backoff are in place, `bun test sender` shows 11 of 12 passing.
+- Not verified: the dead-letter write. `dead_letter.test.ts` fails, and I did not find out
+  whether the cause is the code or the fixture.
+
+## Decisions
+- Retry lives in the sender, not in the caller. Retrying in the caller hid failures from the queue metrics.
+- Rejected: unlimited retry. It flooded the receiver in staging.
+
+## Open questions
+- Should a 429 count toward the 3 attempts?
+
+## Do not touch
+- Migration 0192 is on this branch and has not been applied anywhere. Do not run it before the question above is settled.
+
+## Next command
+bun test sender -t dead_letter
+```
+
+The example is illustrative, not a real record. Keep the file short enough that an agent reads all of it, and tell the next session to read it first: one line in `AGENTS.md` such as "if `HANDOFF.md` exists on this branch, read it before anything else" is loaded by all three tools once [their instruction files point at the same source](/en/docs/guides/claude-md-agents-md-cursor-rules-one-source).
+
+The file breaks in four places:
+
+- **It lives on a branch.** An agent on another branch, or in another repository, does not see it.
+- **Nobody closes it.** The work merges and the file stays. Three weeks later an agent reads "do not run migration 0192" about a migration that shipped.
+- **Nothing says who has it.** Two agents can read the same file and both start.
+- **There is no list.** "What is waiting for me?" has no answer short of opening every branch of every repository.
+
+For a solo developer none of these matter much. They start to matter with the second agent that works on its own schedule.
+
+## The memory-layer version
+
+On ValorBrain a handoff is a record with a recipient and a status, kept outside any repository. The sender creates it:
+
+```json
+{
+  "tool": "team_handoff",
+  "arguments": {
+    "action": "create",
+    "to": "ana",
+    "summary": "Finish the dead-letter write on fix/webhook-retry: dead_letter.test.ts is red and migration 0192 must not run until the 429 question is settled. Context is in the memory titled 'Handoff context: webhook retry bug'.",
+    "open_questions": ["Should a 429 count toward the 3 attempts?"],
+    "files_changed": ["src/sender.ts", "migrations/0192-dead-letters.sql"],
+    "priority": "normal",
+    "status": "pending"
+  }
+}
+```
+
+`summary` holds 5 to 500 characters and says what needs to be done, not what you did. `status` is `pending` for actionable work or `blocked_on_human` for work parked until a person decides. The second state exists so that agents stop escalating the same item to each other.
+
+Five hundred characters do not fit the decisions and the rejected approaches. Those go into a memory of type `handoff`, which stays searchable after the handoff item is closed:
+
+```json
+{
+  "tool": "memory_store",
+  "arguments": {
+    "type": "handoff",
+    "title": "Handoff context: webhook retry bug",
+    "content": "Goal: sender retries 3 times with exponential backoff, then dead-letters. State at commit 4f2c1ab on fix/webhook-retry: retry and backoff verified (11 of 12 sender tests pass); dead-letter write not verified. Decision: retry lives in the sender, because retrying in the caller hid failures from the queue metrics. Rejected: unlimited retry, it flooded the receiver in staging. Do not run migration 0192 until the 429 question is settled.",
+    "tags": ["webhooks", "handoff"]
+  }
+}
+```
+
+The recipient does not have to be told. At session start, in whichever tool they use, one call returns what is waiting:
+
+```json
+{ "tool": "team_briefing", "arguments": {} }
+```
+
+It returns the unread inbox, the handoffs pending for that agent, the team's shared mission and recent activity. When the work is done, the recipient closes the item:
+
+```json
+{ "tool": "team_handoff", "arguments": { "action": "consume", "handoff_id": 42, "note": "dead-letter write fixed; 429 counts as an attempt, decided by the owner" } }
+```
+
+Consume it when the work is done, not when you have read it. An item closed without the work behind it makes the next briefing wrong, and an item nobody closes keeps showing up as open work that no one is doing. The full contract is in [Team OS](/en/docs/guides/team-os).
+
+This fixes recipient, status and the list. It does not fix a bad note. A handoff that says "continue the webhook thing" is as useless in a database as in a file.
+
+## A five-question check
+
+You can test a handoff the same way whichever version you use. It takes about ten minutes.
+
+1. Open a fresh session in a different tool from the one that did the work. If the work was done in Claude Code, use Codex or Cursor.
+2. Give it the repository and the handoff. Do not give it the old conversation.
+3. Ask it five questions and tell it to answer only from what it was given:
+   - What is the goal, and how will we know it is done?
+   - What is finished and verified, and what is finished but not verified?
+   - What was tried and rejected, and why?
+   - What is the next command to run?
+   - What must not be touched?
+4. Compare the answers with what the sender knows.
+
+Read the result this way:
+
+- Five answers match: the handoff works. Keep the format you have.
+- The agent answers a question with a guess: the handoff is missing that item. The question about rejected approaches is the one to look at first.
+- The agent answers correctly, but only after it was told the handoff exists: the problem is delivery, not content. Add the read-it-first line to `AGENTS.md`, or move the handoff to a place a new session is told about without anyone pointing at it.
+
+## What we measured on our own team
+
+We run 13 agents on ValorBrain across sales, customer success, growth, content, finance and tech. The team usage page is rebuilt every hour and shows counts only, with no memory content. Measured 2026-11-26 at 16:07 (UTC-3):
+
+- 471 handoffs created since first use on 2026-07-27
+- 389 of them completed
+- 113 handoffs in the last 30 days
+- 14 handoffs in the last 7 days
+
+That leaves 82 handoffs not completed. The count does not separate work that is still pending from items that went stale and that nobody closed, and we expect it holds both. These are our numbers, from one team, not a benchmark. They show how often agents pass work to each other through a record with a recipient, not that every handoff carried what the next agent needed. The live page is at [team.valorbra.in/en](https://team.valorbra.in/en/) and the raw counts at [team.valorbra.in/data.json](https://team.valorbra.in/data.json).
+
+## Checklist
+
+- The handoff states the goal and the command that proves it is done.
+- Verified and assumed are written apart.
+- Every rejected approach is there with its reason.
+- It names what is in flight and what must not be touched.
+- It has a recipient and a status, and somebody closes it when the work is done.
+- A fresh session in a different tool answered the five questions from the handoff alone.
+
+Next: [Team OS](/en/docs/guides/team-os) for the full handoff and briefing contract, [Shared memory for multi-agent teams](/en/docs/guides/shared-memory-for-multi-agent-mcp-teams) for the session loop, and [CLAUDE.md, AGENTS.md and .cursor/rules in one repo](/en/docs/guides/claude-md-agents-md-cursor-rules-one-source) for the instruction files every tool loads.
