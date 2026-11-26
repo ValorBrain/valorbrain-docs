@@ -1,0 +1,169 @@
+---
+title: "CLAUDE.md, AGENTS.md and .cursor/rules in one repo: one source for what is decided"
+description: "Claude Code, Cursor and Codex each read their own instruction files. What each one loads as of 26 November 2026, how to share one file between the three, and where to keep the values that change."
+---
+
+A repository worked on by Claude Code, Cursor and Codex ends up with three sets of instructions: `CLAUDE.md`, `.cursor/rules/` and `AGENTS.md`. On Tuesday someone decides that production deploys are frozen until 1 December and writes it in the file their own tool reads. On Wednesday another agent ships.
+
+Two different problems hide in that story. The first is file drift: the same rule lives in three files and one of them gets edited. That one is mostly solved now, because all three tools read `AGENTS.md`. The second is that a value that changes was written into a file built for instructions that do not. This guide covers both, in that order.
+
+Everything said here about the tools was read in their documentation on 26 November 2026. Those pages change often, so open the links before you rely on a detail.
+
+## What each tool reads today
+
+| | Claude Code | Cursor | Codex |
+|---|---|---|---|
+| Its own project files | `CLAUDE.md` or `.claude/CLAUDE.md`, plus `.claude/rules/*.md` | `.cursor/rules/*.mdc` | `AGENTS.md` |
+| Reads `AGENTS.md` | Yes, from v2.1.277. By default only when there is no `CLAUDE.md`, `.claude/CLAUDE.md` or `CLAUDE.local.md` in the working directory or above it | Yes, in the project root and in subdirectories | Yes, from the project root down to the working directory, at most one file per directory |
+| Personal files outside the repo | `~/.claude/CLAUDE.md`, and a gitignored `CLAUDE.local.md` | User Rules, set in the app | `~/.codex/AGENTS.md` |
+| Scoping to part of the code | `paths:` frontmatter in `.claude/rules/` | `globs:` frontmatter in the `.mdc` file | A nested `AGENTS.md` or `AGENTS.override.md` |
+| Size guidance | Under 200 lines per file | Under 500 lines per rule | 32 KiB combined by default (`project_doc_max_bytes`) |
+
+Cursor also has Team Rules, managed from the dashboard on Team and Enterprise plans, and Claude Code has a managed `CLAUDE.md` that an organization deploys to every machine. Both sit outside the repository.
+
+Sources: Claude Code, [How Claude remembers your project](https://code.claude.com/docs/en/memory); Cursor, [Rules](https://cursor.com/docs/rules); Codex, [Custom instructions with AGENTS.md](https://learn.chatgpt.com/docs/agent-configuration/agents-md).
+
+## Step 1: one file for the instructions
+
+Make the root `AGENTS.md` the shared file and keep the tool-specific files thin. Four details decide whether all three tools really load it.
+
+### A CLAUDE.md hides AGENTS.md from Claude Code
+
+By default Claude Code reads `AGENTS.md` only when it finds no `CLAUDE.md`. A `CLAUDE.local.md` counts too, so one developer's private notes file switches their sessions back to `CLAUDE.md` only, with no warning. The fix that travels with the repo is an import at the top of `CLAUDE.md`:
+
+```markdown
+@AGENTS.md
+
+## Claude Code
+
+Use plan mode for changes under `src/billing/`.
+```
+
+The other way is the **Project instructions** setting in `/config`, with the value `claude-md-and-agents-md`. Claude Code ignores that setting in project and local settings files, so you cannot commit it for the team. Each person sets it, or your managed settings do.
+
+### AGENTS.override.md reaches Codex only
+
+In Codex, an `AGENTS.override.md` replaces the `AGENTS.md` in the same directory. Claude Code's page lists `AGENTS.override.md` among the files it does not read, and Cursor's rules page does not mention it. A rule you put in an override reaches one tool out of three.
+
+### Imports and file mentions are not the same thing
+
+Claude Code expands an `@path` import into the context, in `AGENTS.md` too. Cursor treats an `@file` mention inside a rule as a pointer: the agent opens the file when it needs it, and the content is not inlined. The Codex page describes no import syntax. If a rule has to be in context for every tool, write it in the body of `AGENTS.md`.
+
+### Path-scoped rules do not port
+
+`paths:` in `.claude/rules/` and `globs:` in `.cursor/rules/*.mdc` are two formats, and a plain `.md` file inside `.cursor/rules/` is ignored by Cursor. The form all three tools understand is a nested `AGENTS.md` in the subdirectory. They load it at different moments:
+
+- Codex reads the files between the project root and the directory you started it in, once per run.
+- Cursor applies a nested file when it works with files in that directory or below it.
+- Claude Code reads it when it opens a file in that directory, and only in sessions where it is reading `AGENTS.md` directly. If the root has a `CLAUDE.md` with the import above, the default setting loads `CLAUDE.md` files only, so the nested directory needs its own `CLAUDE.md` with `@AGENTS.md`, or the `claude-md-and-agents-md` setting.
+
+### Check what loaded
+
+Do not trust the layout. Ask each tool:
+
+- Claude Code: run `/context all` and read the list under **Memory files**. When it falls back to `AGENTS.md`, an interactive session prints a line such as `no CLAUDE.md found; AGENTS.md loaded: /home/you/repo/AGENTS.md`.
+- Codex: `codex --ask-for-approval never "Summarize the current instructions."`
+- Cursor: Customize, then Rules, lists every rule and its status. For `AGENTS.md`, open a new chat and ask the agent to quote the first heading of its instructions.
+
+## Step 2: what an instruction file cannot carry
+
+Back to the freeze. Even with one shared file, `AGENTS.md` is the wrong place for "production deploys are frozen until 1 December". The reasons come from how these files work:
+
+- **The file is context, not enforcement.** Claude Code's page says it plainly: "Claude treats CLAUDE.md files as context, not enforced configuration". And when two instructions contradict each other, "Claude may pick one arbitrarily".
+- **The file is per checkout.** `AGENTS.md` is versioned with the code, which is right for rules about the code. But a branch cut last week, or a worktree an agent has been running in since Monday, carries last week's file. The freeze you committed to main on Tuesday is not in it.
+- **There are copies outside the repo.** User-level files and Cursor Team Rules live on machines and in a dashboard. Cursor applies Team Rules, then Project Rules, then User Rules, and the earlier source wins a conflict. A stale Team Rule beats the line you just fixed in the repository.
+- **A line has no date and no author** unless someone runs `git blame`, and an agent reading the file at session start does not.
+- **Agents write these files too.** `/init` in Claude Code and `/create-rule` in Cursor write them for you. Nothing in the file separates a decision a person made from a summary an agent wrote.
+
+So split the content by how often it changes:
+
+| Goes in the instruction file | Goes in a dated record |
+|---|---|
+| How to build, test and lint | Which environment is frozen, and until when |
+| Layout and naming conventions | Who owns a module this quarter |
+| "Never edit generated files" | The current retry limit, price or flag state |
+| Where to look up current values | The value itself, with its date and its source |
+
+## Where the changing values go
+
+Any store works if it gives every agent the same answer and each value has a key, a date and a source. A small team can start with one `decisions.md` on main, one line per key with a date, and a rule that agents read it fresh with `git show origin/main:decisions.md` instead of from their checkout. That already fixes the stale branch. It does not refuse a second line for the same key, and it does not stop an agent from rewriting a line a person wrote.
+
+A memory layer puts those two rules in the write itself. With ValorBrain over MCP the value is a keyed fact:
+
+```json
+{
+  "tool": "upsert_keyed_fact",
+  "arguments": {
+    "fact_key": "deploy.production.freeze",
+    "fact_value": "frozen until 2026-12-01; hotfixes need the owner's approval",
+    "as_of": "2026-11-24",
+    "evidence": "decided by the owner in the Tuesday planning call",
+    "authority": "human"
+  }
+}
+```
+
+A newer value for the same key replaces the older one. A write with lower authority than the current value waits as a proposal until a person approves it. `keyed_facts_as_of` returns what was in force on any past date, which is how you find out why an agent shipped on Wednesday. `authority: "human"` only holds when the token making the call belongs to the person who decided; an agent recording someone else's decision says who decided in `evidence`.
+
+The instruction file then keeps only the pointer. This block is the same in `AGENTS.md` for all three tools:
+
+```markdown
+## Current decisions
+
+Values that change (freezes, owners, limits, flags, prices) are not in this file.
+At the start of a task, call `memory_prepare` and read the keyed facts it returns.
+If a keyed fact and this file disagree, follow the fact and say so: it has a date and a source.
+When a person decides a new value, record it with `upsert_keyed_fact` under the same key.
+```
+
+That block is still only context, and an agent can skip it. Two things narrow the gap.
+
+The first is the full install. It sets up the MCP server, the memory rules and hooks that fetch memory on each turn, so the read does not depend on the model remembering to do it:
+
+```bash
+npx -y @valorbrain/connect@latest --token <vbm_…> --harness <claude-code|codex|cursor>
+```
+
+[What leaves your machine](/en/docs/concepts/what-leaves-your-machine) lists what those hooks send.
+
+The second is a real gate for anything that must be blocked, not remembered: a CI check on the deploy job, or a `PreToolUse` hook in Claude Code. A sentence in a file does not stop a deploy, and neither does a fact in a memory.
+
+## A ten-minute check on your repo
+
+1. Pick three values the team changed this month: a freeze, an owner, a limit.
+2. Search every instruction file git knows about:
+
+```bash
+git grep -n -i "freeze" -- '*AGENTS.md' '*AGENTS.override.md' '*CLAUDE.md' '.claude/rules' '.cursor/rules'
+```
+
+3. Look where git cannot: `~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`, any `CLAUDE.local.md`, and Cursor's User Rules and Team Rules.
+4. Open a fresh session in each tool and ask for the current value and the date it was decided.
+
+Read the result like this:
+
+- All three tools give the new value and its date: your files are doing the job. Keep them.
+- One tool gives the old value, or none: that is file drift. Go back to step 1.
+- The value is right on main and wrong on a branch, or it comes with no date: that is step 2.
+
+## What we measured on our own team
+
+We run 13 agents on ValorBrain across sales, customer success, growth, content, finance and tech. The team usage page is rebuilt every hour and shows counts only, with no memory content. Measured 2026-11-26 at 10:07 (UTC-3), over the last 7 days:
+
+- 13 active agents
+- 828 memory reads
+- 179 memories written
+- 78 facts reused in a later session
+- 17 handoffs between agents
+
+At that measurement the team had 443 keyed facts in force. These are our numbers, from one team, not a benchmark. They show how often agents go back to a stored fact, not that every answer was right. The live page is at [team.valorbra.in/en](https://team.valorbra.in/en/) and the raw counts at [team.valorbra.in/data.json](https://team.valorbra.in/data.json).
+
+## Checklist
+
+- One root `AGENTS.md` holds the shared instructions. `CLAUDE.md` starts with `@AGENTS.md` and adds only what is specific to Claude Code.
+- No shared rule lives in `AGENTS.override.md`, in a `.md` file under `.cursor/rules/`, or behind an import that only one tool expands.
+- Each tool has been asked what it loaded, in a fresh session.
+- Values that change are out of the instruction files. Each has a key, a date and a source in one place every agent reads.
+- What must never happen is enforced by a hook or by CI, not by a sentence.
+
+Next: [Shared memory for multi-agent teams](/en/docs/guides/shared-memory-for-multi-agent-mcp-teams) for the session loop, [A ten-minute test for RAG on team decisions](/en/docs/guides/rag-test-for-agent-team-memory) for the same check on a retrieval setup, and [Correct a wrong fact](/en/docs/guides/correct-a-fact).

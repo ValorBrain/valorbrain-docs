@@ -1,0 +1,169 @@
+---
+title: "CLAUDE.md, AGENTS.md e .cursor/rules no mesmo repositório: uma fonte só para o que foi decidido"
+description: "Claude Code, Cursor e Codex leem cada um os seus arquivos de instruções. O que cada um carrega em 26 de novembro de 2026, como compartilhar um arquivo entre os três e onde guardar os valores que mudam."
+---
+
+Um repositório em que trabalham Claude Code, Cursor e Codex acaba com três conjuntos de instruções: `CLAUDE.md`, `.cursor/rules/` e `AGENTS.md`. Na terça alguém decide que os deploys de produção ficam congelados até 1º de dezembro e escreve isso no arquivo que a sua própria ferramenta lê. Na quarta outro agente faz o deploy.
+
+Há dois problemas diferentes nessa história. O primeiro é a divergência entre arquivos: a mesma regra mora em três lugares e só um é editado. Esse está quase resolvido, porque as três ferramentas hoje leem `AGENTS.md`. O segundo é que um valor que muda foi escrito num arquivo feito para instruções que não mudam. Este guia trata dos dois, nessa ordem.
+
+Tudo o que está dito aqui sobre as ferramentas foi lido na documentação de cada uma em 26 de novembro de 2026. Essas páginas mudam com frequência, então abra os links antes de confiar num detalhe.
+
+## O que cada ferramenta lê hoje
+
+| | Claude Code | Cursor | Codex |
+|---|---|---|---|
+| Arquivos próprios do projeto | `CLAUDE.md` ou `.claude/CLAUDE.md`, mais `.claude/rules/*.md` | `.cursor/rules/*.mdc` | `AGENTS.md` |
+| Lê `AGENTS.md` | Sim, a partir da v2.1.277. Por padrão, só quando não existe `CLAUDE.md`, `.claude/CLAUDE.md` nem `CLAUDE.local.md` no diretório de trabalho ou acima dele | Sim, na raiz do projeto e em subdiretórios | Sim, da raiz do projeto até o diretório de trabalho, no máximo um arquivo por diretório |
+| Arquivos pessoais fora do repositório | `~/.claude/CLAUDE.md` e um `CLAUDE.local.md` fora do Git | User Rules, definidas no app | `~/.codex/AGENTS.md` |
+| Escopo por parte do código | `paths:` no front matter em `.claude/rules/` | `globs:` no front matter do `.mdc` | Um `AGENTS.md` ou `AGENTS.override.md` aninhado |
+| Tamanho recomendado | Menos de 200 linhas por arquivo | Menos de 500 linhas por regra | 32 KiB somados, por padrão (`project_doc_max_bytes`) |
+
+O Cursor também tem Team Rules, gerenciadas no dashboard nos planos Team e Enterprise, e o Claude Code tem um `CLAUDE.md` gerenciado que a organização distribui para todas as máquinas. Os dois ficam fora do repositório.
+
+Fontes: Claude Code, [How Claude remembers your project](https://code.claude.com/docs/en/memory); Cursor, [Rules](https://cursor.com/docs/rules); Codex, [Custom instructions with AGENTS.md](https://learn.chatgpt.com/docs/agent-configuration/agents-md).
+
+## Passo 1: um arquivo só para as instruções
+
+Faça do `AGENTS.md` da raiz o arquivo compartilhado e deixe os arquivos de cada ferramenta enxutos. Quatro detalhes decidem se as três ferramentas carregam mesmo esse arquivo.
+
+### Um CLAUDE.md esconde o AGENTS.md do Claude Code
+
+Por padrão o Claude Code só lê `AGENTS.md` quando não encontra nenhum `CLAUDE.md`. Um `CLAUDE.local.md` também conta, então o arquivo de anotações particulares de um desenvolvedor faz as sessões dele voltarem a ler só `CLAUDE.md`, sem aviso. A correção que viaja com o repositório é um import no topo do `CLAUDE.md`:
+
+```markdown
+@AGENTS.md
+
+## Claude Code
+
+Use plan mode for changes under `src/billing/`.
+```
+
+O outro caminho é a configuração **Project instructions** em `/config`, com o valor `claude-md-and-agents-md`. O Claude Code ignora essa configuração nos arquivos de settings do projeto e nos locais, então não dá para commitá-la para o time. Cada pessoa configura, ou as managed settings da organização configuram.
+
+### AGENTS.override.md só chega ao Codex
+
+No Codex, um `AGENTS.override.md` substitui o `AGENTS.md` do mesmo diretório. A página do Claude Code lista `AGENTS.override.md` entre os arquivos que ele não lê, e a página de regras do Cursor não fala dele. Uma regra posta num override chega a uma ferramenta de três.
+
+### Import e menção a arquivo não são a mesma coisa
+
+O Claude Code expande um import `@caminho` dentro do contexto, também no `AGENTS.md`. O Cursor trata uma menção `@arquivo` dentro de uma regra como ponteiro: o agente abre o arquivo quando precisa, e o conteúdo não entra no prompt. A página do Codex não descreve sintaxe de import. Se uma regra precisa estar no contexto de todas as ferramentas, escreva no corpo do `AGENTS.md`.
+
+### Regra com escopo de caminho não é portável
+
+`paths:` em `.claude/rules/` e `globs:` em `.cursor/rules/*.mdc` são dois formatos, e um arquivo `.md` simples dentro de `.cursor/rules/` é ignorado pelo Cursor. A forma que as três ferramentas entendem é um `AGENTS.md` aninhado no subdiretório. Cada uma carrega em um momento:
+
+- O Codex lê os arquivos entre a raiz do projeto e o diretório em que você o iniciou, uma vez por execução.
+- O Cursor aplica o arquivo aninhado quando trabalha com arquivos daquele diretório ou abaixo dele.
+- O Claude Code lê quando abre um arquivo naquele diretório, e só nas sessões em que está lendo `AGENTS.md` diretamente. Se a raiz tem um `CLAUDE.md` com o import acima, a configuração padrão carrega só arquivos `CLAUDE.md`, então o diretório aninhado precisa do seu próprio `CLAUDE.md` com `@AGENTS.md`, ou da configuração `claude-md-and-agents-md`.
+
+### Confira o que foi carregado
+
+Não confie na estrutura de pastas. Pergunte a cada ferramenta:
+
+- Claude Code: rode `/context all` e leia a lista em **Memory files**. Quando ele cai para o `AGENTS.md`, a sessão interativa mostra uma linha como `no CLAUDE.md found; AGENTS.md loaded: /home/you/repo/AGENTS.md`.
+- Codex: `codex --ask-for-approval never "Summarize the current instructions."`
+- Cursor: Customize, depois Rules, lista cada regra e o seu estado. Para o `AGENTS.md`, abra um chat novo e peça ao agente que cite o primeiro título das instruções dele.
+
+## Passo 2: o que um arquivo de instruções não consegue guardar
+
+De volta ao congelamento. Mesmo com um arquivo compartilhado, o `AGENTS.md` é o lugar errado para "os deploys de produção estão congelados até 1º de dezembro". Os motivos vêm de como esses arquivos funcionam:
+
+- **O arquivo é contexto, não trava.** A página do Claude Code diz que ele trata os arquivos CLAUDE.md como contexto, e não como configuração imposta ("context, not enforced configuration"). E quando duas instruções se contradizem, ele "may pick one arbitrarily", ou seja, pode escolher qualquer uma.
+- **O arquivo vale por checkout.** O `AGENTS.md` é versionado junto com o código, o que é certo para regras sobre o código. Mas um branch criado na semana passada, ou um worktree em que um agente roda desde segunda, tem o arquivo da semana passada. O congelamento que você commitou na main na terça não está lá.
+- **Há cópias fora do repositório.** Os arquivos de usuário e as Team Rules do Cursor ficam nas máquinas e num dashboard. O Cursor aplica Team Rules, depois Project Rules, depois User Rules, e a fonte que vem antes ganha o conflito. Uma Team Rule velha vence a linha que você acabou de corrigir no repositório.
+- **A linha não tem data nem autor**, a não ser que alguém rode `git blame`, e um agente que lê o arquivo no começo da sessão não roda.
+- **Os agentes também escrevem nesses arquivos.** `/init` no Claude Code e `/create-rule` no Cursor escrevem esses arquivos para você. Nada ali separa uma decisão tomada por uma pessoa de um resumo escrito por um agente.
+
+Então separe o conteúdo pela frequência com que ele muda:
+
+| Fica no arquivo de instruções | Fica num registro com data |
+|---|---|
+| Como compilar, testar e rodar o lint | Qual ambiente está congelado, e até quando |
+| Estrutura de pastas e convenções de nome | Quem é o dono de um módulo neste trimestre |
+| "Nunca edite arquivos gerados" | O limite de retries, o preço ou o estado de uma flag hoje |
+| Onde consultar os valores atuais | O valor em si, com a data e a fonte |
+
+## Onde ficam os valores que mudam
+
+Qualquer lugar serve se der a mesma resposta a todos os agentes e se cada valor tiver chave, data e fonte. Um time pequeno pode começar com um `decisions.md` na main, uma linha por chave com a data, e a regra de que os agentes leem o arquivo atualizado com `git show origin/main:decisions.md`, e não a cópia do próprio checkout. Isso já resolve o branch velho. Não recusa uma segunda linha para a mesma chave, e não impede um agente de reescrever a linha que uma pessoa escreveu.
+
+Uma camada de memória põe essas duas regras na própria escrita. No ValorBrain, via MCP, o valor é um fato com chave:
+
+```json
+{
+  "tool": "upsert_keyed_fact",
+  "arguments": {
+    "fact_key": "deploy.production.freeze",
+    "fact_value": "frozen until 2026-12-01; hotfixes need the owner's approval",
+    "as_of": "2026-11-24",
+    "evidence": "decided by the owner in the Tuesday planning call",
+    "authority": "human"
+  }
+}
+```
+
+Um valor mais novo para a mesma chave substitui o anterior. Uma escrita com autoridade menor que a do valor atual fica parada como proposta até uma pessoa aprovar. `keyed_facts_as_of` devolve o que valia em qualquer data passada, e é assim que você descobre por que um agente fez o deploy na quarta. `authority: "human"` só vale quando o token que faz a chamada é da pessoa que decidiu; um agente que registra a decisão de outra pessoa diz quem decidiu em `evidence`.
+
+O arquivo de instruções fica só com o ponteiro. Este bloco é o mesmo no `AGENTS.md` para as três ferramentas:
+
+```markdown
+## Current decisions
+
+Values that change (freezes, owners, limits, flags, prices) are not in this file.
+At the start of a task, call `memory_prepare` and read the keyed facts it returns.
+If a keyed fact and this file disagree, follow the fact and say so: it has a date and a source.
+When a person decides a new value, record it with `upsert_keyed_fact` under the same key.
+```
+
+Esse bloco continua sendo só contexto, e um agente pode pular. Duas coisas diminuem esse risco.
+
+A primeira é a instalação completa. Ela configura o servidor MCP, as regras de memória e os hooks que buscam a memória a cada turno, então a leitura não depende de o modelo lembrar de fazer:
+
+```bash
+npx -y @valorbrain/connect@latest --token <vbm_…> --harness <claude-code|codex|cursor>
+```
+
+[O que sai da sua máquina](/docs/concepts/what-leaves-your-machine) lista o que esses hooks enviam.
+
+A segunda é uma trava de verdade para o que precisa ser bloqueado, e não lembrado: uma checagem de CI no job de deploy, ou um hook `PreToolUse` no Claude Code. Uma frase num arquivo não impede um deploy, e um fato numa memória também não.
+
+## Um teste de dez minutos no seu repositório
+
+1. Escolha três valores que o time mudou neste mês: um congelamento, um responsável, um limite.
+2. Busque em todos os arquivos de instruções que o Git conhece:
+
+```bash
+git grep -n -i "freeze" -- '*AGENTS.md' '*AGENTS.override.md' '*CLAUDE.md' '.claude/rules' '.cursor/rules'
+```
+
+3. Olhe onde o Git não alcança: `~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`, qualquer `CLAUDE.local.md`, e as User Rules e Team Rules do Cursor.
+4. Abra uma sessão nova em cada ferramenta e pergunte o valor atual e a data da decisão.
+
+Leia o resultado assim:
+
+- As três ferramentas dão o valor novo com a data: os seus arquivos estão fazendo o trabalho. Fique com eles.
+- Uma ferramenta dá o valor velho, ou nenhum: é divergência entre arquivos. Volte ao passo 1.
+- O valor está certo na main e errado num branch, ou vem sem data: é o passo 2.
+
+## O que medimos no nosso time
+
+Rodamos 13 agentes no ValorBrain, em vendas, sucesso do cliente, growth, conteúdo, financeiro e tecnologia. A página de uso do time é refeita de hora em hora e mostra só contagens, sem conteúdo de memória. Medido em 26/11/2026 às 10:07 (UTC-3), nos últimos 7 dias:
+
+- 13 agentes ativos
+- 828 leituras de memória
+- 179 memórias gravadas
+- 78 fatos reaproveitados em outra sessão
+- 17 handoffs entre agentes
+
+Nessa medição o time tinha 443 fatos com chave vigentes. São números nossos, de um time só, não um benchmark. Mostram com que frequência os agentes voltam a um fato guardado, não que toda resposta estava certa. A página ao vivo está em [team.valorbra.in](https://team.valorbra.in/) e as contagens brutas em [team.valorbra.in/data.json](https://team.valorbra.in/data.json).
+
+## Checklist
+
+- Um `AGENTS.md` na raiz guarda as instruções compartilhadas. O `CLAUDE.md` começa com `@AGENTS.md` e acrescenta só o que é específico do Claude Code.
+- Nenhuma regra compartilhada mora em `AGENTS.override.md`, num `.md` dentro de `.cursor/rules/`, ou atrás de um import que só uma ferramenta expande.
+- Cada ferramenta foi perguntada sobre o que carregou, numa sessão nova.
+- Os valores que mudam saíram dos arquivos de instruções. Cada um tem chave, data e fonte num lugar só, que todo agente lê.
+- O que não pode acontecer nunca é imposto por um hook ou pelo CI, não por uma frase.
+
+A seguir: [Memória compartilhada para times multiagente](/docs/guides/shared-memory-for-multi-agent-mcp-teams) para o ciclo de sessão, [Um teste de dez minutos para RAG em decisões do time](/docs/guides/rag-test-for-agent-team-memory) para o mesmo teste numa montagem de RAG, e [Corrija um fato errado](/docs/guides/correct-a-fact).
