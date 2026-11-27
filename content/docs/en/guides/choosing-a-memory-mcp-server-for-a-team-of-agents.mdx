@@ -1,0 +1,140 @@
+---
+title: "Choosing a memory MCP server for a team of agents: seven questions and an afternoon test"
+description: "Most memory MCP servers are built and reviewed for one assistant on one laptop. Seven questions a team has to ask, what five options document about each as of November 27, 2026, and a test with two agents in two tools that you can run in an afternoon."
+---
+
+Search for "memory MCP server" and you get lists of nine or ten servers, and tutorials that end when one assistant on one laptop remembers your name in the next chat. That is a fair test for a personal assistant. A team has a different problem. Three agents work in three tools on two machines. A person changes the retry limit on Tuesday. On Thursday an agent in another tool has to get the new value, know who decided it, and not write the old one back.
+
+Almost any server on those lists will store a sentence and return it. They differ in what happens with the second agent, the second machine and the second value, and that is the part a team has to check. This guide gives seven questions to ask, what five options document about each, and a test you can run in an afternoon.
+
+Everything said here about other products was read in their own documentation on November 27, 2026. We describe what each one documents and quote no benchmark. These pages change often, so open the links before you rely on a detail.
+
+## The seven questions
+
+1. **Where does the memory live, and can a second machine reach it?** A file on a laptop, a database you run, or someone's cloud.
+2. **Who can read what, and who enforces it?** A filter the caller passes is not the same thing as a permission the server checks.
+3. **What happens when a value changes?** Either the old value is replaced, or it stays next to the new one, or it is kept as history and marked as old.
+4. **Does an answer come back with its date and its source?** Without them the next agent cannot tell a decision from a guess.
+5. **Who can overwrite or delete what a person decided?** Look at the delete tools in the list, then at what the credential you give an agent is allowed to call.
+6. **Who writes the memory, and what leaves the machine to do it?** The agent may write records itself, or a model may extract them from the conversation. If a model does it, find out whose key it runs on and what text it is sent.
+7. **What do you take with you when you leave?** An export you can run yourself, in a format you can read.
+
+## What five options document
+
+| | Reference server | Mem0 MCP | Graphiti MCP server | SurrealDB Agent Memory | ValorBrain |
+|---|---|---|---|---|---|
+| Where the memory lives | A JSONL file on the machine that runs the server (`MEMORY_FILE_PATH`) | Your Mem0 account, behind the hosted endpoint `https://mcp.mem0.ai/mcp` | A graph database you run (FalkorDB by default, or Neo4j), with your own LLM and embedding keys | SurrealDB Cloud, single-tenant on Enterprise. The docs list self-hosted as in development | Hosted, behind `https://mcpbrain.valor.digital/mcp`. On-premise only under the Enterprise plan |
+| A second machine | stdio by default, one server process per client. The HTTP transport listens on `127.0.0.1:3001` unless you change `HOST` | Same URL, signed in through a browser prompt from the client or with an API key | You expose the server yourself (default `http://localhost:8000/mcp/`). The docs call the MCP server experimental | An MCP server for Cursor, VS Code, Windsurf, Zed and OpenCode, and a plugin for Claude and Codex | Same URL with a bearer token, or an OAuth custom connector in claude.ai and Claude Desktop |
+| Who reads what | The README describes no access control | Calls are scoped by `user_id`, `agent_id`, `app_id` and `run_id` | `group_id` namespaces. The docs say a namespace filter "does not replace application authorization" | Contexts isolate, scopes are paths, and principals get read and write grants | Shared across the tenant by default, `visibility: "private"` per memory, and grants per business domain |
+| When a value changes | Observations are plain strings. You add the new one and delete the old one yourself | Add does not overwrite: "memories accumulate". `update_memory` overwrites one memory's text | Bi-temporal model: a fact that changed is invalidated in time, and you can query a point in time | The new belief supersedes the old one, which stays in history. `asOf` reads an earlier instant | A newer keyed fact supersedes the older one for the same key. `keyed_facts_as_of` reads any past date |
+| Date and source | Not in the data model | A timestamp and optional metadata per memory | Episodes keep the provenance of each fact | A `source` object on every fact-bearing record | `as_of`, `evidence` and `authority` on every keyed fact |
+
+Sources: the reference server's [README](https://github.com/modelcontextprotocol/servers/tree/main/src/memory); Mem0, [Mem0 MCP](https://docs.mem0.ai/platform/mem0-mcp), [Add memory](https://docs.mem0.ai/core-concepts/memory-operations/add) and [Update memory](https://docs.mem0.ai/core-concepts/memory-operations/update); Graphiti, [MCP server](https://help.getzep.com/graphiti/getting-started/mcp-server), [overview](https://help.getzep.com/graphiti/getting-started/overview) and [graph namespacing](https://help.getzep.com/graphiti/core-concepts/graph-namespacing); SurrealDB, [Agent Memory](https://surrealdb.com/docs/agent-memory), [contexts and scope](https://surrealdb.com/docs/agent-memory/learn/mental-model/contexts-and-scope), [provenance and traceability](https://surrealdb.com/docs/agent-memory/learn/mental-model/provenance-and-traceability) and [supersession, decay, and forget](https://surrealdb.com/docs/agent-memory/learn/mental-model/memory-lifecycle); ValorBrain, the [MCP cookbook](/en/docs/guides/mcp-cookbook) and [On-premise](/en/docs/guides/on-prem).
+
+Four details in those pages decide most of the choice.
+
+**A file on one machine is a memory for one machine.** The reference server describes itself as a basic implementation of persistent memory on a local knowledge graph. Each client starts its own server process and the file is on that machine's disk. By default it is `memory.jsonl` in the server's own directory, so set `MEMORY_FILE_PATH` to an absolute path that you back up. Two processes can share the file through a lock, but the README says the lock relies on exclusive file creation and that a network filesystem that does not honour it cannot be shared safely. Check yours before you put the file on a shared drive for a second machine.
+
+**A namespace is not a permission.** Graphiti's documentation says so in plain words: the application has to authorize each `group_id` before it passes it. For any product that scopes memory by an ID in the call, ask what stops agent B from passing agent A's ID. Where the server does enforce access, ask a second question: can the agent tell "nothing found" from "not allowed"? SurrealDB documents that a scoped read without a matching grant returns empty and is not refused. ValorBrain's `acl_me` returns the domains the caller can read and a count of documents hidden from it, so an empty answer can be told apart from a missing permission.
+
+**"Remembers" and "knows which value is current" are two features.** Mem0's add page says new memories are added without overwriting or deleting existing ones. The reference server stores observations as strings with no date field. In both, a changed value leaves two statements in the store unless an agent finds the old one and updates or deletes it. Graphiti, SurrealDB Agent Memory and ValorBrain each document a time model in which the old value stays as history and a read can ask for a past date.
+
+**Every tool list has delete tools.** The reference server lists `delete_entities`, `delete_observations` and `delete_relations`. Mem0 MCP lists `update_memory`, `delete_memory` and `delete_all_memories`. Graphiti lists `delete_entity_edge`, `delete_episode` and `clear_graph`. Find out which of them the credential you hand to an agent can call. SurrealDB ranks by the kind of source: a fact written as triples starts above a document, a document above a conversation turn, and every turn has the same trust whoever spoke. ValorBrain ranks by who is speaking: `human` > `designated` > `import` > `agent`. A weaker write over a value held by a stronger one becomes a proposal that waits for a person, and a token with no user behind it is capped at `agent`.
+
+Two of the seven questions are not in the table. For question 6, Mem0's add runs an LLM extraction by default, Graphiti builds its graph with the LLM and embedding keys you supply, and with the reference server the agent writes entities and observations itself. For question 7, the reference server's memory is a file you already hold, and Graphiti's is a database you run. We did not read an export page for Mem0 or for SurrealDB Agent Memory, so ask them.
+
+## Which one fits
+
+- **One developer on one machine, who wants to open the memory in a text editor:** the reference server. It is the simplest thing that works, and the file is yours.
+- **Hosted memory scoped per user, agent or app, with nothing to run:** Mem0 MCP.
+- **A team that wants to own the graph and is ready to run a graph database and pay for the model calls:** Graphiti. Read the "experimental" note on the MCP server first.
+- **A team already on SurrealDB, or one that wants every fact tied to a quote in its source:** SurrealDB Agent Memory.
+- **A team where people decide, several agents in different tools must not contradict or overwrite them, and work passes from one agent to the next:** this is what ValorBrain is built for.
+
+ValorBrain is the wrong pick if you need to run the engine yourself outside an Enterprise contract, or if you need to read the source. There is no community edition and the code is not public.
+
+## The afternoon test
+
+Run it on any candidate. You need two agents in two different tools, for example Claude Code and Codex, signed in as two different users if the product has users. A second machine is better than a second terminal.
+
+1. **From agent A, record a decision.** "The webhook retry limit is 5. The owner decided it on November 10."
+2. **From agent B, in a fresh session, ask for it.** "What is the webhook retry limit, who decided it, and when?" It passes if the value comes back with the date and the source and nobody pasted anything.
+3. **From agent A, change it.** "The owner changed the retry limit to 3 on November 20." Ask again from B. It passes if 3 comes back alone, or 3 comes back marked current and 5 marked old. It fails if both come back as equals.
+4. **From agent B, ask about the past.** "What was the retry limit on November 15?" It passes if the answer is 5.
+5. **From agent B, try to overwrite it.** Have the agent write 10 with no person involved. There are three possible outcomes: the write replaces the value, it is refused, or it is queued for a person. Know which one you got before an agent does this by accident.
+6. **From agent A, write something only A's user should see.** Ask for it from B. It passes if B does not get it. Note whether B can tell that something was withheld.
+7. **Turn machine A off.** Ask B again. Then run the export and open the file.
+
+Read the result this way:
+
+- Steps 2 and 7 fail: the memory is local to one machine. That is fine for one developer and not for a team.
+- Step 3 or 4 fails: the server remembers, but it does not know which value is current. Agents will act on old decisions.
+- Step 5 replaces the value silently: any agent can undo a person's decision. You need a rule outside the server, or a server that has one.
+- Step 6 fails: do not put anything in it that part of the team should not read.
+
+## The same test on ValorBrain
+
+Connect both tools with the commands from [Shared memory for multi-agent teams](/en/docs/guides/shared-memory-for-multi-agent-mcp-teams). Read what the hooks send before you enable them: each prompt, up to 8,000 characters, goes to the memory engine unless you run connect with `--prompt off`.
+
+```bash
+npx -y @valorbrain/cli@latest init --agent --agent-caller claude-code --json
+npx -y @valorbrain/connect@latest --token <vbm_…> --harness claude-code
+```
+
+Steps 1 and 3 are two keyed facts with the same key and different dates. The examples are illustrative, not real records.
+
+```json
+{
+  "tool": "upsert_keyed_fact",
+  "arguments": {
+    "fact_key": "webhooks.retry.max",
+    "fact_value": "3",
+    "as_of": "2026-11-20",
+    "evidence": "the owner changed it in the planning call; was 5 since 2026-11-10",
+    "authority": "human",
+    "human_order": "Change the webhook retry limit to 3."
+  }
+}
+```
+
+`authority: "human"` needs two things: the person's own words in `human_order`, and a personal token that belongs to that person. Without either, the call is refused with `human_order_refused` and nothing is written. So run steps 1 and 3 from agent A on the owner's token: that is what makes the value protected in step 5. Step 4 is one call from the other tool:
+
+```json
+{
+  "tool": "keyed_facts_as_of",
+  "arguments": { "as_of": "2026-11-15", "keys": ["webhooks.retry.max"] }
+}
+```
+
+It returns the latest value for each key with a date on or before the one you asked for, so November 15 gives 5 and today gives 3. For step 5, write the same key from a token with no user behind it. The tool's contract says a weaker caller over a protected value produces a pending proposal and leaves the value in place. For step 6, store a memory with `visibility: "private"` and retrieve from a token that belongs to another user. For step 7, the export is one call:
+
+```json
+{ "tool": "export_docs", "arguments": { "format": "ndjson" } }
+```
+
+`export_docs` returns documents, up to the `limit` you pass (1,000 by default). Keyed facts are not documents: read them with `keyed_facts_as_of` for today's date and no `keys`. If any step behaves differently from what this page says, that is a defect on our side. Report it with the `feedback` tool.
+
+Work that passes between agents is one more thing to check. None of the tool lists we read for the reference server, Mem0 MCP or Graphiti has a tool for it. On ValorBrain it is a record with a recipient and a status, covered in [Handing work from one coding agent to the next](/en/docs/guides/handoff-between-coding-agents-what-to-carry).
+
+## What we measured on our own team
+
+We run 13 agents on ValorBrain across sales, customer success, growth, content, finance and tech. The team usage page is rebuilt every hour and shows counts only, with no memory content. Measured 2026-11-27 at 10:07 (UTC-3):
+
+- 13 of 13 agents used the memory in the last 7 days
+- 626 keyed facts recorded since first use on 2026-07-27, of which 518 are current today
+- 188 times in the last 30 days an agent declared it used a keyed fact written by another agent, across 100 different keys
+- 397 times in the last 30 days an agent declared it used a document written by another agent
+
+These are our numbers, from one team, not a benchmark, and they say nothing about any other product. They show that values written by one agent are read by another every day. They do not show that each answer was right, which is what the afternoon test is for. The live page is at [team.valorbra.in/en](https://team.valorbra.in/en/) and the raw counts at [team.valorbra.in/data.json](https://team.valorbra.in/data.json).
+
+## Checklist
+
+- You know where the memory is stored and you reached it from a second machine.
+- You know whether access is a filter the caller passes or a permission the server checks.
+- A changed value came back alone or marked current, with its date and source.
+- You asked for the value on a past date and got the old one.
+- You know what happens when an agent writes over a person's decision.
+- You know whose model reads the conversation, if one does.
+- You ran the export yourself and opened the file.
+
+Next: [A ten-minute test for RAG on team decisions](/en/docs/guides/rag-test-for-agent-team-memory) if you already have retrieval over your docs, [Sizing a memory layer for a team of agents](/en/docs/guides/size-memory-layer-for-agent-team) before you compare pricing pages, and [Correct a wrong fact](/en/docs/guides/correct-a-fact).

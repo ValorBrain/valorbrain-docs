@@ -1,0 +1,140 @@
+---
+title: "Como escolher um servidor MCP de memória para um time de agentes: sete perguntas e um teste de uma tarde"
+description: "A maioria dos servidores MCP de memória é feita e avaliada para um assistente num notebook. Sete perguntas que um time precisa fazer, o que cinco opções documentam sobre cada uma em 27 de novembro de 2026 e um teste com dois agentes em duas ferramentas que cabe numa tarde."
+---
+
+Procure por "memory MCP server" e você encontra listas de nove ou dez servidores, e tutoriais que terminam quando um assistente num notebook lembra o seu nome na conversa seguinte. É um teste justo para um assistente pessoal. O problema de um time é outro. Três agentes trabalham em três ferramentas, em duas máquinas. Uma pessoa muda o limite de retry na terça. Na quinta, um agente em outra ferramenta precisa receber o valor novo, saber quem decidiu e não gravar o antigo de volta.
+
+Quase todo servidor dessas listas guarda uma frase e devolve a frase. A diferença aparece com o segundo agente, a segunda máquina e o segundo valor, e é isso que um time precisa conferir. Este guia traz sete perguntas, o que cinco opções documentam sobre cada uma e um teste que cabe numa tarde.
+
+Tudo o que está dito aqui sobre outros produtos foi lido na documentação de cada um em 27 de novembro de 2026. Descrevemos o que cada um documenta e não citamos benchmark. Essas páginas mudam com frequência, então abra os links antes de confiar num detalhe.
+
+## As sete perguntas
+
+1. **Onde a memória fica, e uma segunda máquina chega nela?** Um arquivo num notebook, um banco que você roda ou a nuvem de alguém.
+2. **Quem pode ler o quê, e quem garante isso?** Um filtro que quem chama passa não é a mesma coisa que uma permissão que o servidor confere.
+3. **O que acontece quando um valor muda?** Ou o valor antigo é substituído, ou fica ao lado do novo, ou é guardado como histórico e marcado como antigo.
+4. **A resposta volta com data e fonte?** Sem elas, o próximo agente não distingue uma decisão de um palpite.
+5. **Quem pode sobrescrever ou apagar o que uma pessoa decidiu?** Olhe as ferramentas de delete da lista e depois o que a credencial que você entrega a um agente pode chamar.
+6. **Quem escreve a memória, e o que sai da máquina para isso?** O agente pode gravar os registros ele mesmo, ou um modelo pode extraí-los da conversa. Se for um modelo, descubra com a chave de quem ele roda e que texto recebe.
+7. **O que você leva quando sai?** Uma exportação que você mesmo roda, num formato que você consegue ler.
+
+## O que cinco opções documentam
+
+| | Servidor de referência | Mem0 MCP | Servidor MCP do Graphiti | SurrealDB Agent Memory | ValorBrain |
+|---|---|---|---|---|---|
+| Onde a memória fica | Um arquivo JSONL na máquina que roda o servidor (`MEMORY_FILE_PATH`) | Na sua conta Mem0, atrás do endpoint hospedado `https://mcp.mem0.ai/mcp` | Um banco de grafo que você roda (FalkorDB por padrão, ou Neo4j), com as suas chaves de LLM e de embedding | SurrealDB Cloud, single-tenant no Enterprise. A documentação lista self-hosted como em desenvolvimento | Hospedado, atrás de `https://mcpbrain.valor.digital/mcp`. On-premise só no plano Enterprise |
+| Uma segunda máquina | stdio por padrão, um processo do servidor por cliente. O transporte HTTP escuta em `127.0.0.1:3001`, a menos que você mude o `HOST` | A mesma URL, com login por uma janela do navegador aberta pelo cliente ou com uma chave de API | Você mesmo expõe o servidor (padrão `http://localhost:8000/mcp/`). A documentação chama o servidor MCP de experimental | Um servidor MCP para Cursor, VS Code, Windsurf, Zed e OpenCode, e um plugin para Claude e Codex | A mesma URL com um bearer token, ou um conector personalizado com OAuth no claude.ai e no Claude Desktop |
+| Quem lê o quê | O README não descreve controle de acesso | As chamadas têm escopo por `user_id`, `agent_id`, `app_id` e `run_id` | Namespaces por `group_id`. A documentação diz que um filtro de namespace "does not replace application authorization" | Contextos isolam, escopos são caminhos e os principals recebem grants de leitura e de escrita | Compartilhada no tenant por padrão, `visibility: "private"` por memória e grants por domínio de negócio |
+| Quando um valor muda | As observações são strings simples. Você adiciona a nova e apaga a antiga por conta própria | O add não sobrescreve: "memories accumulate". O `update_memory` sobrescreve o texto de uma memória | Modelo bitemporal: um fato que mudou é invalidado no tempo, e dá para consultar um ponto no tempo | A crença nova substitui a antiga, que fica no histórico. `asOf` lê um instante anterior | Um fato com chave mais novo substitui o anterior da mesma chave. `keyed_facts_as_of` lê qualquer data passada |
+| Data e fonte | Não existem no modelo de dados | Um timestamp e metadados opcionais por memória | Os episódios guardam a proveniência de cada fato | Um objeto `source` em todo registro que carrega fato | `as_of`, `evidence` e `authority` em todo fato com chave |
+
+Fontes: o [README](https://github.com/modelcontextprotocol/servers/tree/main/src/memory) do servidor de referência; Mem0, [Mem0 MCP](https://docs.mem0.ai/platform/mem0-mcp), [Add memory](https://docs.mem0.ai/core-concepts/memory-operations/add) e [Update memory](https://docs.mem0.ai/core-concepts/memory-operations/update); Graphiti, [MCP server](https://help.getzep.com/graphiti/getting-started/mcp-server), [overview](https://help.getzep.com/graphiti/getting-started/overview) e [graph namespacing](https://help.getzep.com/graphiti/core-concepts/graph-namespacing); SurrealDB, [Agent Memory](https://surrealdb.com/docs/agent-memory), [contexts and scope](https://surrealdb.com/docs/agent-memory/learn/mental-model/contexts-and-scope), [provenance and traceability](https://surrealdb.com/docs/agent-memory/learn/mental-model/provenance-and-traceability) e [supersession, decay, and forget](https://surrealdb.com/docs/agent-memory/learn/mental-model/memory-lifecycle); ValorBrain, o [cookbook MCP](/docs/guides/mcp-cookbook) e [On-premise](/docs/guides/on-prem).
+
+Quatro detalhes dessas páginas decidem a maior parte da escolha.
+
+**Um arquivo numa máquina é memória de uma máquina.** O servidor de referência se descreve como uma implementação básica de memória persistente sobre um grafo de conhecimento local. Cada cliente inicia o seu próprio processo do servidor, e o arquivo fica no disco daquela máquina. Por padrão ele é o `memory.jsonl` na pasta do próprio servidor, então aponte `MEMORY_FILE_PATH` para um caminho absoluto que entre no seu backup. Dois processos podem dividir o arquivo por meio de um lock, mas o README diz que esse lock depende da criação exclusiva de arquivo e que um sistema de arquivos de rede que não a respeite não pode ser compartilhado com segurança. Confira o seu antes de pôr o arquivo num drive compartilhado para uma segunda máquina.
+
+**Namespace não é permissão.** A documentação do Graphiti diz isso com todas as letras: a aplicação precisa autorizar cada `group_id` antes de passá-lo. Para qualquer produto que separa a memória por um ID na chamada, pergunte o que impede o agente B de passar o ID do agente A. Onde o servidor confere o acesso, faça uma segunda pergunta: o agente consegue distinguir "não achei nada" de "não tenho permissão"? O SurrealDB documenta que uma leitura com escopo sem o grant correspondente volta vazia, e não recusada. O `acl_me` do ValorBrain devolve os domínios que quem chama pode ler e a contagem de documentos escondidos dele, então dá para separar uma resposta vazia de uma permissão que falta.
+
+**"Lembra" e "sabe qual valor vale hoje" são dois recursos.** A página de add do Mem0 diz que memórias novas são adicionadas sem sobrescrever nem apagar as existentes. O servidor de referência guarda observações como strings, sem campo de data. Nos dois, um valor que mudou deixa duas afirmações guardadas, a menos que um agente encontre a antiga e a atualize ou apague. Graphiti, SurrealDB Agent Memory e ValorBrain documentam, cada um, um modelo de tempo em que o valor antigo fica como histórico e a leitura pode pedir uma data passada.
+
+**Toda lista de ferramentas tem ferramentas de delete.** O servidor de referência lista `delete_entities`, `delete_observations` e `delete_relations`. O Mem0 MCP lista `update_memory`, `delete_memory` e `delete_all_memories`. O Graphiti lista `delete_entity_edge`, `delete_episode` e `clear_graph`. Descubra quais delas a credencial que você entrega a um agente pode chamar. O SurrealDB ordena pelo tipo de fonte: um fato gravado como tripla começa acima de um documento, um documento acima de um turno de conversa, e todo turno tem a mesma confiança, seja quem for que falou. O ValorBrain ordena por quem está falando: `human` > `designated` > `import` > `agent`. Uma escrita mais fraca sobre um valor de autoridade mais forte vira uma proposta que espera uma pessoa, e um token sem usuário por trás fica limitado a `agent`.
+
+Duas das sete perguntas não estão na tabela. Na pergunta 6, o add do Mem0 roda por padrão uma extração com LLM, o Graphiti monta o grafo com as chaves de LLM e de embedding que você fornece, e no servidor de referência é o agente que grava entidades e observações. Na pergunta 7, a memória do servidor de referência é um arquivo que já está com você, e a do Graphiti é um banco que você roda. Não lemos uma página de exportação do Mem0 nem do SurrealDB Agent Memory, então pergunte a eles.
+
+## Qual serve para quem
+
+- **Uma pessoa desenvolvendo numa máquina só, que quer abrir a memória num editor de texto:** o servidor de referência. É a coisa mais simples que funciona, e o arquivo é seu.
+- **Memória hospedada com escopo por usuário, agente ou app, sem nada para rodar:** Mem0 MCP.
+- **Um time que quer ser dono do grafo e está disposto a rodar um banco de grafo e pagar as chamadas de modelo:** Graphiti. Leia antes o aviso de "experimental" no servidor MCP.
+- **Um time que já usa SurrealDB, ou que quer cada fato ligado a um trecho da fonte:** SurrealDB Agent Memory.
+- **Um time em que pessoas decidem, vários agentes em ferramentas diferentes não podem contradizer nem sobrescrever essas decisões, e o trabalho passa de um agente para o outro:** é para isso que o ValorBrain foi feito.
+
+O ValorBrain é a escolha errada se você precisa rodar o motor por conta própria fora de um contrato Enterprise, ou se precisa ler o código. Não existe edição community e o código não é público.
+
+## O teste de uma tarde
+
+Rode em qualquer candidato. Você precisa de dois agentes em duas ferramentas diferentes, por exemplo Claude Code e Codex, logados como dois usuários diferentes se o produto tiver usuários. Uma segunda máquina vale mais do que um segundo terminal.
+
+1. **Pelo agente A, registre uma decisão.** "O limite de retry do webhook é 5. O dono decidiu em 10 de novembro."
+2. **Pelo agente B, numa sessão nova, pergunte.** "Qual é o limite de retry do webhook, quem decidiu e quando?" Passa se o valor voltar com a data e a fonte, sem ninguém colar nada.
+3. **Pelo agente A, mude o valor.** "O dono mudou o limite de retry para 3 em 20 de novembro." Pergunte de novo pelo B. Passa se voltar só o 3, ou o 3 marcado como atual e o 5 como antigo. Falha se os dois voltarem como iguais.
+4. **Pelo agente B, pergunte do passado.** "Qual era o limite de retry em 15 de novembro?" Passa se a resposta for 5.
+5. **Pelo agente B, tente sobrescrever.** Faça o agente gravar 10 sem nenhuma pessoa envolvida. Há três resultados possíveis: a escrita substitui o valor, é recusada ou fica na fila para uma pessoa. Saiba qual foi o seu antes que um agente faça isso sem querer.
+6. **Pelo agente A, grave algo que só o usuário de A deveria ver.** Peça pelo B. Passa se o B não receber. Anote se o B consegue perceber que algo foi retido.
+7. **Desligue a máquina A.** Pergunte de novo ao B. Depois rode a exportação e abra o arquivo.
+
+Leia o resultado assim:
+
+- Os passos 2 e 7 falham: a memória é local de uma máquina. Serve para uma pessoa, não para um time.
+- O passo 3 ou o 4 falha: o servidor lembra, mas não sabe qual valor vale hoje. Os agentes vão agir sobre decisões antigas.
+- O passo 5 substitui o valor em silêncio: qualquer agente desfaz a decisão de uma pessoa. Você precisa de uma regra fora do servidor, ou de um servidor que tenha uma.
+- O passo 6 falha: não guarde nele nada que uma parte do time não deveria ler.
+
+## O mesmo teste no ValorBrain
+
+Conecte as duas ferramentas com os comandos de [Memória compartilhada para times multiagente](/docs/guides/shared-memory-for-multi-agent-mcp-teams). Leia o que os hooks enviam antes de ligá-los: cada prompt, até 8.000 caracteres, vai para o motor de memória, a menos que você rode o connect com `--prompt off`.
+
+```bash
+npx -y @valorbrain/cli@latest init --agent --agent-caller claude-code --json
+npx -y @valorbrain/connect@latest --token <vbm_…> --harness claude-code
+```
+
+Os passos 1 e 3 são dois fatos com a mesma chave e datas diferentes. Os exemplos são ilustrativos, não registros reais.
+
+```json
+{
+  "tool": "upsert_keyed_fact",
+  "arguments": {
+    "fact_key": "webhooks.retry.max",
+    "fact_value": "3",
+    "as_of": "2026-11-20",
+    "evidence": "o dono mudou na reunião de planejamento; era 5 desde 2026-11-10",
+    "authority": "human",
+    "human_order": "Muda o limite de retry do webhook para 3."
+  }
+}
+```
+
+`authority: "human"` exige duas coisas: as palavras da própria pessoa em `human_order` e um token pessoal dessa pessoa. Sem qualquer uma delas, a chamada é recusada com `human_order_refused` e nada é gravado. Por isso, rode os passos 1 e 3 pelo agente A com o token do dono: é isso que deixa o valor protegido no passo 5. O passo 4 é uma chamada pela outra ferramenta:
+
+```json
+{
+  "tool": "keyed_facts_as_of",
+  "arguments": { "as_of": "2026-11-15", "keys": ["webhooks.retry.max"] }
+}
+```
+
+Ela devolve o valor mais recente de cada chave com data igual ou anterior à que você pediu, então 15 de novembro dá 5 e hoje dá 3. No passo 5, grave a mesma chave com um token sem usuário por trás. O contrato da ferramenta diz que uma escrita mais fraca sobre um valor protegido gera uma proposta pendente e deixa o valor como está. No passo 6, grave uma memória com `visibility: "private"` e busque com um token de outro usuário. No passo 7, a exportação é uma chamada:
+
+```json
+{ "tool": "export_docs", "arguments": { "format": "ndjson" } }
+```
+
+O `export_docs` devolve documentos, até o `limit` que você passar (1.000 por padrão). Fatos com chave não são documentos: leia-os com `keyed_facts_as_of` na data de hoje e sem `keys`. Se algum passo se comportar diferente do que esta página diz, o defeito é nosso. Avise pela ferramenta `feedback`.
+
+Trabalho que passa de um agente para outro é mais um item para conferir. Nenhuma das listas de ferramentas que lemos do servidor de referência, do Mem0 MCP e do Graphiti tem uma ferramenta para isso. No ValorBrain é um registro com destinatário e status, explicado em [Passar trabalho de um agente de código para o próximo](/docs/guides/handoff-between-coding-agents-what-to-carry).
+
+## O que medimos no nosso time
+
+Rodamos 13 agentes no ValorBrain, em vendas, sucesso do cliente, growth, conteúdo, financeiro e tecnologia. A página de uso do time é refeita de hora em hora e mostra só contagens, sem conteúdo de memória. Medido em 27/11/2026 às 10:07 (UTC-3):
+
+- 13 de 13 agentes usaram a memória nos últimos 7 dias
+- 626 fatos com chave gravados desde o primeiro uso, em 27/07/2026, dos quais 518 valem hoje
+- 188 vezes nos últimos 30 dias um agente declarou ter usado um fato com chave escrito por outro agente, em 100 chaves diferentes
+- 397 vezes nos últimos 30 dias um agente declarou ter usado um documento escrito por outro agente
+
+São números nossos, de um time só, não um benchmark, e não dizem nada sobre nenhum outro produto. Mostram que valores escritos por um agente são lidos por outro todos os dias. Não mostram que cada resposta estava certa, e é para isso que serve o teste de uma tarde. A página ao vivo está em [team.valorbra.in](https://team.valorbra.in/) e as contagens brutas em [team.valorbra.in/data.json](https://team.valorbra.in/data.json).
+
+## Checklist
+
+- Você sabe onde a memória fica guardada e chegou nela por uma segunda máquina.
+- Você sabe se o acesso é um filtro que quem chama passa ou uma permissão que o servidor confere.
+- Um valor que mudou voltou sozinho ou marcado como atual, com data e fonte.
+- Você pediu o valor numa data passada e recebeu o antigo.
+- Você sabe o que acontece quando um agente escreve por cima da decisão de uma pessoa.
+- Você sabe de quem é o modelo que lê a conversa, se houver um.
+- Você mesmo rodou a exportação e abriu o arquivo.
+
+A seguir: [Um teste de dez minutos para RAG em decisões do time](/docs/guides/rag-test-for-agent-team-memory) se você já tem busca sobre os seus documentos, [Dimensionar uma camada de memória para um time de agentes](/docs/guides/size-memory-layer-for-agent-team) antes de comparar páginas de preço, e [Corrija um fato errado](/docs/guides/correct-a-fact).
