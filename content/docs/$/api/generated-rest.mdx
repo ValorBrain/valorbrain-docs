@@ -8,7 +8,7 @@ description: Every path in the engine's public OpenAPI (client routes), regenera
 Source: `https://valorbrain-api.valor.digital/openapi.json (public client routes, generated from routes[])`. Public base: `https://valorbrain-api.valor.digital`.
 The engine publishes its client routes; admin and operations routes are not part of the public contract.
 
-**34 operations** across 8 tags.
+**37 operations** across 9 tags.
 
 ## Agents
 
@@ -63,6 +63,59 @@ post:
       $ref: '#/components/responses/BadRequest'
     '501':
       description: Postgres backend required
+```
+
+### `POST /api/v1/agents/mcp-token`
+
+Reissue the signup MCP token with the agent key — Authenticated by the workspace's own `vb_agent_` key only (any other credential gets 401 `agent_key_required`). Mints a new `vbm_` with the signup ceiling — scopes `read write`, toolset `agent`, the key's own expiry — and revokes the previous signup MCP token in the same transaction. Rate-limited per tenant (3 per minute by default).
+
+- Auth: none
+- operationId: `agentMcpTokenReissue`
+
+```yaml
+post:
+  operationId: agentMcpTokenReissue
+  summary: Reissue the signup MCP token with the agent key
+  description: 'Authenticated by the workspace''s own `vb_agent_` key only (any other
+    credential gets 401 `agent_key_required`). Mints a new `vbm_` with the signup
+    ceiling — scopes `read write`, toolset `agent`, the key''s own expiry — and revokes
+    the previous signup MCP token in the same transaction. Rate-limited per tenant
+    (3 per minute by default).
+
+    '
+  tags:
+  - Agents
+  security: []
+  responses:
+    '201':
+      description: New MCP token (raw value shown once)
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              ok:
+                type: boolean
+              tenant_id:
+                type: string
+              mcp_token:
+                type: string
+              scopes:
+                type: array
+                items:
+                  type: string
+              toolset:
+                type: string
+              expires_at:
+                type: string
+                nullable: true
+              revoked_previous:
+                type: integer
+    '401':
+      description: Not the workspace's `vb_agent_` key (`agent_key_required`), or
+        an invalid key
+    '429':
+      description: Too many reissues for this workspace
 ```
 
 ### `POST /api/v1/agents/identify`
@@ -153,7 +206,7 @@ post:
 
 ### `POST /api/v1/agents/claim/verify`
 
-Verify an agent ownership claim — Requires a Bearer API key (401 when absent).
+Verify an agent ownership claim — Requires a Bearer API key (401 when absent). The SaaS calls it instead with the internal secret and the `claim_token` from the signup's `claim_url`. On success the workspace is named for its human and keeps its plan (it changes only when the operator sets `VALORBRAIN_AGENT_PLAN_AFTER_CLAIM`); `login_url` is where the human creates the app login (or adds the workspace to the account that e-mail already has).
 
 - Auth: none
 - Body: object( `email`* (string), `otp`* (string) )
@@ -163,7 +216,12 @@ Verify an agent ownership claim — Requires a Bearer API key (401 when absent).
 post:
   operationId: agentClaimVerify
   summary: Verify an agent ownership claim
-  description: Requires a Bearer API key (401 when absent).
+  description: Requires a Bearer API key (401 when absent). The SaaS calls it instead
+    with the internal secret and the `claim_token` from the signup's `claim_url`.
+    On success the workspace is named for its human and keeps its plan (it changes
+    only when the operator sets `VALORBRAIN_AGENT_PLAN_AFTER_CLAIM`); `login_url`
+    is where the human creates the app login (or adds the workspace to the account
+    that e-mail already has).
   tags:
   - Agents
   security: []
@@ -194,8 +252,14 @@ post:
                 type: boolean
               tenant_id:
                 type: string
-              api_key:
+              email:
                 type: string
+              tenant_name:
+                type: string
+              login_url:
+                type: string
+                nullable: true
+                description: Null on an engine without a SaaS configured.
               message:
                 type: string
     '400':
@@ -204,67 +268,54 @@ post:
       $ref: '#/components/responses/Unauthorized'
 ```
 
-## Client
+## Discovery
 
-### `POST /conversations`
+### `GET /.well-known/valorbrain-credentials.json`
 
-POST /conversations
+Canonical credential matrix — Every credential the platform accepts — prefix, issuer, surfaces that accept and refuse it, identity, lifecycle and rate limits. Generated from src/credential-matrix.ts; `sha256` changes whenever the matrix does.
 
-- Auth: bearer
-- operationId: `live_POST__conversations`
-
-```yaml
-post:
-  tags:
-  - Client
-  summary: POST /conversations
-  operationId: live_POST__conversations
-  responses:
-    '200':
-      description: See the running handler
-```
-
-### `POST /api/v1/memory/store`
-
-POST /api/v1/memory/store
-
-- Auth: bearer
-- operationId: `live_POST__api_v1_memory_store`
+- Auth: none
+- operationId: `credentialMatrix`
 
 ```yaml
-post:
+get:
+  operationId: credentialMatrix
+  summary: Canonical credential matrix
+  description: 'Every credential the platform accepts — prefix, issuer, surfaces that
+    accept and refuse it, identity, lifecycle and rate limits. Generated from src/credential-matrix.ts;
+    `sha256` changes whenever the matrix does.
+
+    '
   tags:
-  - Client
-  summary: POST /api/v1/memory/store
-  operationId: live_POST__api_v1_memory_store
+  - Discovery
+  security: []
   responses:
     '200':
-      description: See the running handler
-```
-
-### `POST /api/v1/memory/prepare`
-
-POST /api/v1/memory/prepare
-
-- Auth: bearer
-- operationId: `live_POST__api_v1_memory_prepare`
-
-```yaml
-post:
-  tags:
-  - Client
-  summary: POST /api/v1/memory/prepare
-  operationId: live_POST__api_v1_memory_prepare
-  responses:
-    '200':
-      description: See the running handler
+      description: The matrix
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - version
+            - sha256
+            - credentials
+            properties:
+              version:
+                type: integer
+              sha256:
+                type: string
+              credentials:
+                type: array
+                items:
+                  type: object
 ```
 
 ## Documents
 
 ### `POST /documents`
 
-Ingest a document — Create or update a document in a collection. Supports quality gate evaluation, schema packs, auto-linking, and temporal metadata. Requires X-Tenant-ID.
+Ingest a document — Create or update a document in a collection. Supports quality gate evaluation, schema packs, auto-linking, and temporal metadata. The tenant comes from the credential (X-Tenant-ID only with the platform token). New content on a path whose document was forgotten (forget, memory_forget) is a new document — 201, action "created", `revived: true`, new id, the writer's, nothing inherited; the forgotten row stays forgotten under `<path>#forgotten-<id>-<random>` (FB-0217). Two writes bringing the same forgotten path back at once: one creates, the other gets a 409 and writes nothing. `#forgotten-` is reserved for those rows: a path carrying it is a 400. The same content after the forget answers "unchanged" with `active: false` and `archived_reason`. A document archived for another reason stays archived. created, updated and unchanged answers carry `active`, plus `archived_reason` when the document is out of reach.
 
 - Auth: bearer
 - Params: `None`
@@ -276,7 +327,17 @@ post:
   operationId: ingestDocument
   summary: Ingest a document
   description: 'Create or update a document in a collection. Supports quality gate
-    evaluation, schema packs, auto-linking, and temporal metadata. Requires X-Tenant-ID.
+    evaluation, schema packs, auto-linking, and temporal metadata. The tenant comes
+    from the credential (X-Tenant-ID only with the platform token). New content on
+    a path whose document was forgotten (forget, memory_forget) is a new document
+    — 201, action "created", `revived: true`, new id, the writer''s, nothing inherited;
+    the forgotten row stays forgotten under `<path>#forgotten-<id>-<random>` (FB-0217).
+    Two writes bringing the same forgotten path back at once: one creates, the other
+    gets a 409 and writes nothing. `#forgotten-` is reserved for those rows: a path
+    carrying it is a 400. The same content after the forget answers "unchanged" with
+    `active: false` and `archived_reason`. A document archived for another reason
+    stays archived. created, updated and unchanged answers carry `active`, plus `archived_reason`
+    when the document is out of reach.
 
     '
   tags:
@@ -322,6 +383,10 @@ post:
             metadata:
               type: object
               additionalProperties: true
+              description: 'Free-form; stored in source_metadata. The keys the server
+                owns are dropped (FB-0233): revisions, ingest_via, ingest_at, author_unverified,
+                claimed_user_id, claimed_user_id_reason, author_kind, author_credential,
+                inferred_event_at.'
             user_id:
               type: string
             run_id:
@@ -333,46 +398,44 @@ post:
               type: string
   responses:
     '200':
-      description: Document ingested
+      description: 'Document updated, or nothing written: "unchanged" (same content
+        at the same path), "skipped" (update_strategy no-update) or "deduplicated"
+        (same content in another collection, in a copy the writer may read, its own
+        or with no owner, at least as visible as the write and under the same source
+        ACL domain)
+
+        '
       content:
         application/json:
           schema:
-            type: object
-            properties:
-              ok:
-                type: boolean
-              action:
-                type: string
-                enum:
-                - created
-                - updated
-                - deduplicated
-                - skipped
-                - unchanged
-                description: '"unchanged" (VAL-172): posted content hash equals the
-                  stored hash for the same path — the engine performs no write and
-                  records no audit row.
-
-                  '
-              id:
-                type: integer
-              path:
-                type: string
-              hash:
-                type: string
-              embed_state:
-                type: string
-              gate_verdict:
-                type: object
-                properties:
-                  shouldIndex:
-                    type: boolean
-                  reason:
-                    type: string
+            $ref: '#/components/schemas/IngestResult'
+    '201':
+      description: Document created (action "created")
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/IngestResult'
     '400':
       $ref: '#/components/responses/BadRequest'
     '401':
       $ref: '#/components/responses/Unauthorized'
+    '403':
+      description: '`not_document_owner` (another member''s private document, or a
+        sensitivity change of an owned one) or `sensitivity_change_requires_admin`
+
+        '
+    '404':
+      description: The path holds a document the writer may not read; nothing is written
+    '409':
+      description: '`code: "concurrent_write"` — another write brought the same forgotten
+        path back while this one was in flight; nothing was written. Send it again:
+        it is judged against the document now at the path (FB-0217).
+
+        '
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
 ```
 
 ### `GET /documents`
@@ -445,26 +508,29 @@ get:
 
 ### `GET /documents/{id}`
 
-Get a document by ID or hash
+Get a document by docid — Copies of one content under several paths share a docid; the newest copy the caller may read is served, and `collection` + `path` pick one. A document the caller may not read answers exactly like a missing one. The answer carries `id`, the row id (`id:<n>` names that copy).
 
 - Auth: bearer
-- Params: `None`, `id`*
+- Params: `None`, `None`, `None`, `None`
 - operationId: `getDocument`
 
 ```yaml
 get:
   operationId: getDocument
-  summary: Get a document by ID or hash
+  summary: Get a document by docid
+  description: 'Copies of one content under several paths share a docid; the newest
+    copy the caller may read is served, and `collection` + `path` pick one. A document
+    the caller may not read answers exactly like a missing one. The answer carries
+    `id`, the row id (`id:<n>` names that copy).
+
+    '
   tags:
   - Documents
   parameters:
   - $ref: '#/components/parameters/TenantIdHeader'
-  - name: id
-    in: path
-    required: true
-    schema:
-      type: string
-    description: Document ID or hash
+  - $ref: '#/components/parameters/DocumentIdentifier'
+  - $ref: '#/components/parameters/DocumentCollection'
+  - $ref: '#/components/parameters/DocumentPath'
   responses:
     '200':
       description: Document details
@@ -476,14 +542,16 @@ get:
       $ref: '#/components/responses/Unauthorized'
     '404':
       $ref: '#/components/responses/NotFound'
+    '409':
+      $ref: '#/components/responses/AmbiguousDocid'
 ```
 
 ### `PATCH /documents/{id}/visibility`
 
-Update document visibility
+Update document visibility — The identifier is resolved like GET /documents/&#123;id&#125; (FB-0219): copies of one content are the newest copy, `id:<n>` names a row, and `collection` + `path` pick one copy. A tenant admin resolves among every document of the tenant, anyone else among those it may read. It took any row of the 6-character prefix. A client that changes one copy (the SaaS) should send `id:<n>`.
 
 - Auth: bearer
-- Params: `None`, `id`*
+- Params: `None`, `None`, `None`, `None`
 - Body: object( `visibility`* (enum(private, tenant)) )
 - operationId: `patchDocumentVisibility`
 
@@ -491,15 +559,20 @@ Update document visibility
 patch:
   operationId: patchDocumentVisibility
   summary: Update document visibility
+  description: 'The identifier is resolved like GET /documents/{id} (FB-0219): copies
+    of one content are the newest copy, `id:<n>` names a row, and `collection` + `path`
+    pick one copy. A tenant admin resolves among every document of the tenant, anyone
+    else among those it may read. It took any row of the 6-character prefix. A client
+    that changes one copy (the SaaS) should send `id:<n>`.
+
+    '
   tags:
   - Documents
   parameters:
   - $ref: '#/components/parameters/TenantIdHeader'
-  - name: id
-    in: path
-    required: true
-    schema:
-      type: string
+  - $ref: '#/components/parameters/DocumentIdentifier'
+  - $ref: '#/components/parameters/DocumentCollection'
+  - $ref: '#/components/parameters/DocumentPath'
   requestBody:
     required: true
     content:
@@ -524,12 +597,29 @@ patch:
             properties:
               ok:
                 type: boolean
+              docid:
+                type: string
+                description: Short docid of the document changed
+              id:
+                type: integer
+                description: Its row id
+              visibility:
+                type: string
+              user_id:
+                type: string
+                nullable: true
+              sensitivity:
+                type: string
     '400':
       $ref: '#/components/responses/BadRequest'
     '401':
       $ref: '#/components/responses/Unauthorized'
+    '403':
+      description: Not the document's owner, and not a tenant admin
     '404':
-      $ref: '#/components/responses/NotFound'
+      description: Not found, or a document the caller may not read
+    '409':
+      $ref: '#/components/responses/AmbiguousDocid'
 ```
 
 ### `POST /documents/{id}/pin`
@@ -537,7 +627,7 @@ patch:
 Pin a document for permanent prioritization
 
 - Auth: bearer
-- Params: `None`, `id`*
+- Params: `None`, `None`, `None`, `None`
 - operationId: `pinDocument`
 
 ```yaml
@@ -548,11 +638,9 @@ post:
   - Documents
   parameters:
   - $ref: '#/components/parameters/TenantIdHeader'
-  - name: id
-    in: path
-    required: true
-    schema:
-      type: string
+  - $ref: '#/components/parameters/DocumentIdentifier'
+  - $ref: '#/components/parameters/DocumentCollection'
+  - $ref: '#/components/parameters/DocumentPath'
   responses:
     '200':
       description: Document pinned
@@ -561,10 +649,20 @@ post:
           schema:
             type: object
             properties:
-              ok:
+              docid:
+                type: string
+                description: Short docid of the document acted on
+              id:
+                type: integer
+                description: Its row id
+              pinned:
                 type: boolean
     '401':
       $ref: '#/components/responses/Unauthorized'
+    '404':
+      description: Not found, or a document the caller may not read (FB-0232)
+    '409':
+      $ref: '#/components/responses/AmbiguousDocid'
 ```
 
 ### `POST /documents/{id}/snooze`
@@ -572,7 +670,7 @@ post:
 Temporarily hide a document from context
 
 - Auth: bearer
-- Params: `None`, `id`*
+- Params: `None`, `None`, `None`, `None`
 - Body: object( `until` (string) )
 - operationId: `snoozeDocument`
 
@@ -584,11 +682,9 @@ post:
   - Documents
   parameters:
   - $ref: '#/components/parameters/TenantIdHeader'
-  - name: id
-    in: path
-    required: true
-    schema:
-      type: string
+  - $ref: '#/components/parameters/DocumentIdentifier'
+  - $ref: '#/components/parameters/DocumentCollection'
+  - $ref: '#/components/parameters/DocumentPath'
   requestBody:
     content:
       application/json:
@@ -606,33 +702,62 @@ post:
           schema:
             type: object
             properties:
-              ok:
+              docid:
+                type: string
+                description: Short docid of the document acted on
+              id:
+                type: integer
+                description: Its row id
+              snoozed:
                 type: boolean
+              until:
+                type: string
+                format: date-time
     '401':
       $ref: '#/components/responses/Unauthorized'
+    '404':
+      description: Not found, or a document the caller may not read (FB-0232)
+    '409':
+      $ref: '#/components/responses/AmbiguousDocid'
 ```
 
 ### `POST /documents/{id}/forget`
 
-Permanently deactivate a document
+Permanently deactivate a document — Deactivates exactly one document: the newest copy the caller may read of the content the docid names, or the copy `collection` + `path` pick, or the row `id:<n>` names. Bare digits that are one row's id and another document's hash prefix are a 409 listing both; nothing is deactivated. The caller must be able to read the document; an owned private document needs its owner, a tenant admin or the platform credential. What was derived from it goes in the same transaction (FB-0222, ADR-088); `cascade` counts it. dry_run=true counts the same cascade, run and rolled back, and changes nothing.
 
 - Auth: bearer
-- Params: `None`, `id`*
+- Params: `None`, `None`, `None`, `None`, `dry_run`
 - operationId: `forgetDocument`
 
 ```yaml
 post:
   operationId: forgetDocument
   summary: Permanently deactivate a document
+  description: 'Deactivates exactly one document: the newest copy the caller may read
+    of the content the docid names, or the copy `collection` + `path` pick, or the
+    row `id:<n>` names. Bare digits that are one row''s id and another document''s
+    hash prefix are a 409 listing both; nothing is deactivated. The caller must be
+    able to read the document; an owned private document needs its owner, a tenant
+    admin or the platform credential. What was derived from it goes in the same transaction
+    (FB-0222, ADR-088); `cascade` counts it. dry_run=true counts the same cascade,
+    run and rolled back, and changes nothing.
+
+    '
   tags:
   - Documents
   parameters:
   - $ref: '#/components/parameters/TenantIdHeader'
-  - name: id
-    in: path
-    required: true
+  - $ref: '#/components/parameters/DocumentIdentifier'
+  - $ref: '#/components/parameters/DocumentCollection'
+  - $ref: '#/components/parameters/DocumentPath'
+  - name: dry_run
+    in: query
     schema:
       type: string
+      enum:
+      - 'true'
+      - 'false'
+    description: Count what the forget would take (cascade, rolled back) without forgetting
   responses:
     '200':
       description: Document forgotten
@@ -641,18 +766,38 @@ post:
           schema:
             type: object
             properties:
-              ok:
+              docid:
+                type: string
+                description: Short docid of the forgotten document, whatever identifier
+                  named it
+              id:
+                type: integer
+                description: Its row id
+              forgotten:
                 type: boolean
+              dry_run:
+                type: boolean
+              cascade:
+                type: object
+                description: What went with it, by table (FB-0222)
+                additionalProperties:
+                  type: integer
     '401':
       $ref: '#/components/responses/Unauthorized'
+    '403':
+      description: '`not_document_owner`: another member''s private document'
+    '404':
+      description: Not found, or a document the caller may not read (same body)
+    '409':
+      $ref: '#/components/responses/AmbiguousDocid'
 ```
 
 ### `POST /documents/{id}/feedback`
 
-Submit relevance feedback for a document
+Submit relevance feedback for a document — The identifier is resolved like GET /documents/&#123;id&#125; (FB-0219), among the documents the voter may read: copies of one content are the newest copy, `id:<n>` names a row, `collection` + `path` pick one copy.
 
 - Auth: bearer
-- Params: `None`, `id`*
+- Params: `None`, `None`, `None`, `None`
 - Body: object( `feedback`* (enum(POSITIVE, NEGATIVE, VERY_NEGATIVE)), `reason` (string), `user_id` (string) )
 - operationId: `documentFeedback`
 
@@ -660,15 +805,18 @@ Submit relevance feedback for a document
 post:
   operationId: documentFeedback
   summary: Submit relevance feedback for a document
+  description: 'The identifier is resolved like GET /documents/{id} (FB-0219), among
+    the documents the voter may read: copies of one content are the newest copy, `id:<n>`
+    names a row, `collection` + `path` pick one copy.
+
+    '
   tags:
   - Documents
   parameters:
   - $ref: '#/components/parameters/TenantIdHeader'
-  - name: id
-    in: path
-    required: true
-    schema:
-      type: string
+  - $ref: '#/components/parameters/DocumentIdentifier'
+  - $ref: '#/components/parameters/DocumentCollection'
+  - $ref: '#/components/parameters/DocumentPath'
   requestBody:
     required: true
     content:
@@ -688,6 +836,10 @@ post:
               type: string
             user_id:
               type: string
+              description: Voter, honored only for the platform credential and the
+                tenant's SaaS service key (they act for the session they name). Any
+                other credential votes as its own user; one with no user votes once,
+                as itself.
   responses:
     '200':
       description: Feedback recorded
@@ -698,8 +850,93 @@ post:
             properties:
               ok:
                 type: boolean
+              docid:
+                type: string
+                description: Short docid of the document voted on
+              id:
+                type: integer
+                description: Its row id
     '400':
       $ref: '#/components/responses/BadRequest'
+    '401':
+      $ref: '#/components/responses/Unauthorized'
+    '404':
+      description: No active document the voter may read
+    '409':
+      $ref: '#/components/responses/AmbiguousDocid'
+```
+
+### `POST /conversations`
+
+Ingest a whole conversation (turn windows and dated sketch) — Indexes a conversation the way the transcript watcher does: turn windows plus derived documents. `POST /documents` stays the path for loose text.
+
+- Auth: bearer
+- Body: object( `collection`* (string), `slug`* (string), `title` (string), `messages`* (array[object( `role`* (string), `content`* (string), `date` (string) )]), `userName` (string), `assistantName` (string), `sessionId` (string), `windowSize` (integer), `overlap` (integer) )
+- operationId: `ingestConversation`
+
+```yaml
+post:
+  operationId: ingestConversation
+  summary: Ingest a whole conversation (turn windows and dated sketch)
+  description: 'Indexes a conversation the way the transcript watcher does: turn windows
+    plus derived documents. `POST /documents` stays the path for loose text.
+
+    '
+  tags:
+  - Documents
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+          - collection
+          - slug
+          - messages
+          properties:
+            collection:
+              type: string
+            slug:
+              type: string
+            title:
+              type: string
+            messages:
+              type: array
+              items:
+                type: object
+                required:
+                - role
+                - content
+                properties:
+                  role:
+                    type: string
+                  content:
+                    type: string
+                  date:
+                    type: string
+            userName:
+              type: string
+            assistantName:
+              type: string
+            sessionId:
+              type: string
+            windowSize:
+              type: integer
+            overlap:
+              type: integer
+  responses:
+    '200':
+      description: Documents written for the conversation
+      content:
+        application/json:
+          schema:
+            type: object
+    '400':
+      description: 'Missing collection, slug or messages, or a slug carrying `#forgotten-`,
+        reserved for forgotten documents (FB-0217)
+
+        '
     '401':
       $ref: '#/components/responses/Unauthorized'
 ```
@@ -746,7 +983,7 @@ get:
 
 ### `GET /health`
 
-Health check with database status — Public callers (through the tunnel, no credential) get only status, version and uptime_seconds. Local operators and authenticated callers also get git_hash, database, db_health, tenant corpus counts and request context.
+Health check with database status — Public callers (through the tunnel, no credential) get only status, version and uptime_seconds. Local operators and authenticated callers also get git_hash, database, db_health, tenant corpus counts and request context. The tenant corpus counts are cached per tenant and can be about 68 s old; corpusAsOf says when they were read, and GET /stats reads them every time.
 
 - Auth: none
 - operationId: `health`
@@ -757,7 +994,9 @@ get:
   summary: Health check with database status
   description: Public callers (through the tunnel, no credential) get only status,
     version and uptime_seconds. Local operators and authenticated callers also get
-    git_hash, database, db_health, tenant corpus counts and request context.
+    git_hash, database, db_health, tenant corpus counts and request context. The tenant
+    corpus counts are cached per tenant and can be about 68 s old; corpusAsOf says
+    when they were read, and GET /stats reads them every time.
   tags:
   - Health
   security: []
@@ -780,6 +1019,11 @@ get:
                 type: string
               database:
                 type: string
+              corpusAsOf:
+                type: string
+                format: date-time
+                description: When the tenant corpus counts were read (tenant-scoped
+                  calls only).
               documents:
                 type: integer
               needsEmbedding:
@@ -829,6 +1073,14 @@ get:
                       type: string
                     is_active:
                       type: boolean
+                    credential_kind:
+                      type: string
+                      enum:
+                      - personal
+                      - gateway
+                      - integration
+                    acts_for_users:
+                      type: boolean
                     created_at:
                       type: string
                       format: date-time
@@ -842,7 +1094,7 @@ Create an MCP API token
 
 - Auth: bearer
 - Params: `None`
-- Body: object( `name`* (string), `expires_at` (string) )
+- Body: object( `name`* (string), `expires_at` (string), `credential_kind` (enum(personal, gateway)), `acts_for_users` (boolean) )
 - operationId: `createMcpToken`
 
 ```yaml
@@ -867,6 +1119,22 @@ post:
             expires_at:
               type: string
               format: date-time
+            credential_kind:
+              type: string
+              enum:
+              - personal
+              - gateway
+              default: personal
+              description: personal = bound to a person (user_id, else the creator)
+                and acts as that person. gateway = no person, admin only; reads the
+                company view (private documents included), narrowed to the X-User-ID
+                a request names — always send X-User-ID for a person's request. integration
+                credentials are created at POST /api/v1/authority/integrations.
+            acts_for_users:
+              type: boolean
+              default: false
+              description: Gateway only (so admin only) — writes act as the tenant
+                member it names, over that user's own documents only.
   responses:
     '200':
       description: Token created (full key returned only once)
@@ -1001,6 +1269,163 @@ delete:
       $ref: '#/components/responses/Unauthorized'
     '404':
       $ref: '#/components/responses/NotFound'
+```
+
+## Memory
+
+### `POST /api/v1/memory/prepare`
+
+Session briefing plus memory relevant to a message — REST mirror of the MCP `memory_prepare` tool: identity, task state, what changed, notifications and the memory relevant to `message`, in one call. The tenant comes from the credential.
+
+- Auth: bearer
+- Body: object( `message`* (string), `collection` (string), `episode_id` (string), `recall_budget` (integer), `include_recall` (boolean), `fast_mode` (boolean) )
+- operationId: `memoryPrepare`
+
+```yaml
+post:
+  operationId: memoryPrepare
+  summary: Session briefing plus memory relevant to a message
+  description: 'REST mirror of the MCP `memory_prepare` tool: identity, task state,
+    what changed, notifications and the memory relevant to `message`, in one call.
+    The tenant comes from the credential.
+
+    '
+  tags:
+  - Memory
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+          - message
+          properties:
+            message:
+              type: string
+              description: The task or question (alias `query`).
+            collection:
+              type: string
+            episode_id:
+              type: string
+            recall_budget:
+              type: integer
+            include_recall:
+              type: boolean
+              default: true
+            fast_mode:
+              type: boolean
+              default: false
+  responses:
+    '200':
+      description: Briefing and relevant memory
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              conflicts:
+                type: array
+                description: 'The open conflicts about the message''s subject the
+                  caller may read (FB-0221 phase 3), also told in `blocks.conflicts`
+                  and in the `__conflicts__` document delivered first; omitted when
+                  there are none, in `fast_mode`, and with `VALORBRAIN_CONFLICT_ANNOTATE=false`.
+
+                  '
+                items:
+                  $ref: '#/components/schemas/OpenConflict'
+    '400':
+      description: '`message` missing'
+    '401':
+      $ref: '#/components/responses/Unauthorized'
+```
+
+### `POST /api/v1/memory/store`
+
+Persist a typed memory (decision, observation, lesson…) — REST mirror of the MCP `memory_store` tool.
+
+- Auth: bearer
+- Body: object( `type` (string), `title`* (string), `content`* (string), `collection` (string), `tags` (array[string]), `confidence` (number) )
+- operationId: `memoryStore`
+
+```yaml
+post:
+  operationId: memoryStore
+  summary: Persist a typed memory (decision, observation, lesson…)
+  description: REST mirror of the MCP `memory_store` tool.
+  tags:
+  - Memory
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+          - title
+          - content
+          properties:
+            type:
+              type: string
+              default: note
+              description: decision, observation, problem, milestone, handoff, lesson
+                or note.
+            title:
+              type: string
+              minLength: 5
+            content:
+              type: string
+              minLength: 20
+            collection:
+              type: string
+              description: Defaults to the caller agent's collection.
+            tags:
+              type: array
+              items:
+                type: string
+            confidence:
+              type: number
+  responses:
+    '200':
+      description: Stored memory (path and docid)
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              ok:
+                type: boolean
+              action:
+                type: string
+                enum:
+                - inserted
+                - updated
+                - deduplicated
+              docid:
+                type: string
+                description: 'Short docid (6-char hash prefix), the identifier GET
+                  /documents/{id}, /search and forget use. With "deduplicated", the
+                  existing document''s. Before FB-0219 this field carried the numeric
+                  row id.
+
+                  '
+              id:
+                type: integer
+                description: Row id of the document (what `docid` carried before FB-0219)
+              collection:
+                type: string
+              path:
+                type: string
+              type:
+                type: string
+              title:
+                type: string
+              message:
+                type: string
+    '400':
+      description: Title or content too short
+    '401':
+      $ref: '#/components/responses/Unauthorized'
 ```
 
 ## OAuth
@@ -1369,6 +1794,12 @@ post:
                 type: integer
               marked:
                 type: integer
+                description: 'Recall deliveries this declaration credited: per document,
+                  the latest delivery by explicit retrieval to the caller''s session
+                  (X-Session-ID, or the vbm_ token''s session key) in the 12 hours
+                  before the declaration. 0 without a session.
+
+                  '
               unresolved:
                 type: array
                 items:
@@ -1379,6 +1810,37 @@ post:
       $ref: '#/components/responses/Unauthorized'
     '404':
       $ref: '#/components/responses/NotFound'
+```
+
+### `GET /api/v1/memory/health`
+
+Memory health diagnostics — Open (and in-progress) update proposals, open conflicts, high-priority proposals and canonical sources with drift. `expired_proposals_count` counts proposals that expired in the last 30 days: an open proposal nobody picks or resolves for 30 days becomes `expired`.
+
+- Auth: bearer
+- Params: `None`
+- operationId: `memoryHealth`
+
+```yaml
+get:
+  operationId: memoryHealth
+  summary: Memory health diagnostics
+  description: 'Open (and in-progress) update proposals, open conflicts, high-priority
+    proposals and canonical sources with drift. `expired_proposals_count` counts proposals
+    that expired in the last 30 days: an open proposal nobody picks or resolves for
+    30 days becomes `expired`.'
+  tags:
+  - Observability
+  parameters:
+  - $ref: '#/components/parameters/TenantIdHeader'
+  responses:
+    '200':
+      description: Health diagnostics
+      content:
+        application/json:
+          schema:
+            type: object
+    '401':
+      $ref: '#/components/responses/Unauthorized'
 ```
 
 ## Search
@@ -1398,8 +1860,8 @@ post:
   summary: Hybrid search (BM25 + vector + rerank)
   description: 'Full hybrid search: BM25 and dense vectors fused by RRF, then a cross-encoder
     rerank and MMR diversity. An LLM only expands the query (optional HyDE); it never
-    ranks. Optional self-correct retrieval. Personalized PageRank exists behind a flag
-    and is off in production. Searches DOCUMENTS (prose): keyed facts (upsert_keyed_fact
+    ranks. Optional self-correct retrieval. Personalized PageRank exists behind a
+    flag and is off in production. Searches DOCUMENTS (prose): keyed facts (upsert_keyed_fact
     / keyed_facts) are NOT part of the text index — query them via keyed_facts_as_of,
     or receive the current values with declared precedence via memory_prepare / working_context.
 

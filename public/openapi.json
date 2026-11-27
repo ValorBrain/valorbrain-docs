@@ -33,6 +33,14 @@
       "description": "Liveness, readiness, and system diagnostics"
     },
     {
+      "name": "Memory",
+      "description": "Memory briefing and typed memories (REST mirrors of the MCP memory tools)"
+    },
+    {
+      "name": "Discovery",
+      "description": "Machine-readable discovery documents (credential matrix)"
+    },
+    {
       "name": "Documents",
       "description": "Document CRUD, ingest, and mutations"
     },
@@ -105,7 +113,7 @@
       "get": {
         "operationId": "health",
         "summary": "Health check with database status",
-        "description": "Public callers (through the tunnel, no credential) get only status, version and uptime_seconds. Local operators and authenticated callers also get git_hash, database, db_health, tenant corpus counts and request context.",
+        "description": "Public callers (through the tunnel, no credential) get only status, version and uptime_seconds. Local operators and authenticated callers also get git_hash, database, db_health, tenant corpus counts and request context. The tenant corpus counts are cached per tenant and can be about 68 s old; corpusAsOf says when they were read, and GET /stats reads them every time.",
         "tags": [
           "Health"
         ],
@@ -134,6 +142,11 @@
                     "database": {
                       "type": "string"
                     },
+                    "corpusAsOf": {
+                      "type": "string",
+                      "format": "date-time",
+                      "description": "When the tenant corpus counts were read (tenant-scoped calls only)."
+                    },
                     "documents": {
                       "type": "integer"
                     },
@@ -158,7 +171,7 @@
       "post": {
         "operationId": "ingestDocument",
         "summary": "Ingest a document",
-        "description": "Create or update a document in a collection. Supports quality gate evaluation, schema packs, auto-linking, and temporal metadata. Requires X-Tenant-ID.\n",
+        "description": "Create or update a document in a collection. Supports quality gate evaluation, schema packs, auto-linking, and temporal metadata. The tenant comes from the credential (X-Tenant-ID only with the platform token). New content on a path whose document was forgotten (forget, memory_forget) is a new document — 201, action \"created\", `revived: true`, new id, the writer's, nothing inherited; the forgotten row stays forgotten under `<path>#forgotten-<id>-<random>` (FB-0217). Two writes bringing the same forgotten path back at once: one creates, the other gets a 409 and writes nothing. `#forgotten-` is reserved for those rows: a path carrying it is a 400. The same content after the forget answers \"unchanged\" with `active: false` and `archived_reason`. A document archived for another reason stays archived. created, updated and unchanged answers carry `active`, plus `archived_reason` when the document is out of reach.\n",
         "tags": [
           "Documents"
         ],
@@ -213,7 +226,8 @@
                   },
                   "metadata": {
                     "type": "object",
-                    "additionalProperties": true
+                    "additionalProperties": true,
+                    "description": "Free-form; stored in source_metadata. The keys the server owns are dropped (FB-0233): revisions, ingest_via, ingest_at, author_unverified, claimed_user_id, claimed_user_id_reason, author_kind, author_credential, inferred_event_at."
                   },
                   "user_id": {
                     "type": "string"
@@ -235,50 +249,21 @@
         },
         "responses": {
           "200": {
-            "description": "Document ingested",
+            "description": "Document updated, or nothing written: \"unchanged\" (same content at the same path), \"skipped\" (update_strategy no-update) or \"deduplicated\" (same content in another collection, in a copy the writer may read, its own or with no owner, at least as visible as the write and under the same source ACL domain)\n",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "ok": {
-                      "type": "boolean"
-                    },
-                    "action": {
-                      "type": "string",
-                      "enum": [
-                        "created",
-                        "updated",
-                        "deduplicated",
-                        "skipped",
-                        "unchanged"
-                      ],
-                      "description": "\"unchanged\" (VAL-172): posted content hash equals the stored hash for the same path — the engine performs no write and records no audit row.\n"
-                    },
-                    "id": {
-                      "type": "integer"
-                    },
-                    "path": {
-                      "type": "string"
-                    },
-                    "hash": {
-                      "type": "string"
-                    },
-                    "embed_state": {
-                      "type": "string"
-                    },
-                    "gate_verdict": {
-                      "type": "object",
-                      "properties": {
-                        "shouldIndex": {
-                          "type": "boolean"
-                        },
-                        "reason": {
-                          "type": "string"
-                        }
-                      }
-                    }
-                  }
+                  "$ref": "#/components/schemas/IngestResult"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Document created (action \"created\")",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestResult"
                 }
               }
             }
@@ -288,6 +273,22 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "description": "`not_document_owner` (another member's private document, or a sensitivity change of an owned one) or `sensitivity_change_requires_admin`\n"
+          },
+          "404": {
+            "description": "The path holds a document the writer may not read; nothing is written"
+          },
+          "409": {
+            "description": "`code: \"concurrent_write\"` — another write brought the same forgotten path back while this one was in flight; nothing was written. Send it again: it is judged against the document now at the path (FB-0217).\n",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       },
@@ -381,7 +382,8 @@
     "/documents/{id}": {
       "get": {
         "operationId": "getDocument",
-        "summary": "Get a document by ID or hash",
+        "summary": "Get a document by docid",
+        "description": "Copies of one content under several paths share a docid; the newest copy the caller may read is served, and `collection` + `path` pick one. A document the caller may not read answers exactly like a missing one. The answer carries `id`, the row id (`id:<n>` names that copy).\n",
         "tags": [
           "Documents"
         ],
@@ -390,13 +392,13 @@
             "$ref": "#/components/parameters/TenantIdHeader"
           },
           {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "Document ID or hash"
+            "$ref": "#/components/parameters/DocumentIdentifier"
+          },
+          {
+            "$ref": "#/components/parameters/DocumentCollection"
+          },
+          {
+            "$ref": "#/components/parameters/DocumentPath"
           }
         ],
         "responses": {
@@ -415,6 +417,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/AmbiguousDocid"
           }
         }
       }
@@ -423,6 +428,7 @@
       "patch": {
         "operationId": "patchDocumentVisibility",
         "summary": "Update document visibility",
+        "description": "The identifier is resolved like GET /documents/{id} (FB-0219): copies of one content are the newest copy, `id:<n>` names a row, and `collection` + `path` pick one copy. A tenant admin resolves among every document of the tenant, anyone else among those it may read. It took any row of the 6-character prefix. A client that changes one copy (the SaaS) should send `id:<n>`.\n",
         "tags": [
           "Documents"
         ],
@@ -431,12 +437,13 @@
             "$ref": "#/components/parameters/TenantIdHeader"
           },
           {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/DocumentIdentifier"
+          },
+          {
+            "$ref": "#/components/parameters/DocumentCollection"
+          },
+          {
+            "$ref": "#/components/parameters/DocumentPath"
           }
         ],
         "requestBody": {
@@ -471,6 +478,24 @@
                   "properties": {
                     "ok": {
                       "type": "boolean"
+                    },
+                    "docid": {
+                      "type": "string",
+                      "description": "Short docid of the document changed"
+                    },
+                    "id": {
+                      "type": "integer",
+                      "description": "Its row id"
+                    },
+                    "visibility": {
+                      "type": "string"
+                    },
+                    "user_id": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "sensitivity": {
+                      "type": "string"
                     }
                   }
                 }
@@ -483,8 +508,14 @@
           "401": {
             "$ref": "#/components/responses/Unauthorized"
           },
+          "403": {
+            "description": "Not the document's owner, and not a tenant admin"
+          },
           "404": {
-            "$ref": "#/components/responses/NotFound"
+            "description": "Not found, or a document the caller may not read"
+          },
+          "409": {
+            "$ref": "#/components/responses/AmbiguousDocid"
           }
         }
       }
@@ -501,12 +532,13 @@
             "$ref": "#/components/parameters/TenantIdHeader"
           },
           {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/DocumentIdentifier"
+          },
+          {
+            "$ref": "#/components/parameters/DocumentCollection"
+          },
+          {
+            "$ref": "#/components/parameters/DocumentPath"
           }
         ],
         "responses": {
@@ -517,7 +549,15 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "ok": {
+                    "docid": {
+                      "type": "string",
+                      "description": "Short docid of the document acted on"
+                    },
+                    "id": {
+                      "type": "integer",
+                      "description": "Its row id"
+                    },
+                    "pinned": {
                       "type": "boolean"
                     }
                   }
@@ -527,6 +567,12 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "description": "Not found, or a document the caller may not read (FB-0232)"
+          },
+          "409": {
+            "$ref": "#/components/responses/AmbiguousDocid"
           }
         }
       }
@@ -543,12 +589,13 @@
             "$ref": "#/components/parameters/TenantIdHeader"
           },
           {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/DocumentIdentifier"
+          },
+          {
+            "$ref": "#/components/parameters/DocumentCollection"
+          },
+          {
+            "$ref": "#/components/parameters/DocumentPath"
           }
         ],
         "requestBody": {
@@ -574,8 +621,20 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "ok": {
+                    "docid": {
+                      "type": "string",
+                      "description": "Short docid of the document acted on"
+                    },
+                    "id": {
+                      "type": "integer",
+                      "description": "Its row id"
+                    },
+                    "snoozed": {
                       "type": "boolean"
+                    },
+                    "until": {
+                      "type": "string",
+                      "format": "date-time"
                     }
                   }
                 }
@@ -584,6 +643,12 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "description": "Not found, or a document the caller may not read (FB-0232)"
+          },
+          "409": {
+            "$ref": "#/components/responses/AmbiguousDocid"
           }
         }
       }
@@ -592,6 +657,7 @@
       "post": {
         "operationId": "forgetDocument",
         "summary": "Permanently deactivate a document",
+        "description": "Deactivates exactly one document: the newest copy the caller may read of the content the docid names, or the copy `collection` + `path` pick, or the row `id:<n>` names. Bare digits that are one row's id and another document's hash prefix are a 409 listing both; nothing is deactivated. The caller must be able to read the document; an owned private document needs its owner, a tenant admin or the platform credential. What was derived from it goes in the same transaction (FB-0222, ADR-088); `cascade` counts it. dry_run=true counts the same cascade, run and rolled back, and changes nothing.\n",
         "tags": [
           "Documents"
         ],
@@ -600,12 +666,25 @@
             "$ref": "#/components/parameters/TenantIdHeader"
           },
           {
-            "name": "id",
-            "in": "path",
-            "required": true,
+            "$ref": "#/components/parameters/DocumentIdentifier"
+          },
+          {
+            "$ref": "#/components/parameters/DocumentCollection"
+          },
+          {
+            "$ref": "#/components/parameters/DocumentPath"
+          },
+          {
+            "name": "dry_run",
+            "in": "query",
             "schema": {
-              "type": "string"
-            }
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            },
+            "description": "Count what the forget would take (cascade, rolled back) without forgetting"
           }
         ],
         "responses": {
@@ -616,8 +695,26 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "ok": {
+                    "docid": {
+                      "type": "string",
+                      "description": "Short docid of the forgotten document, whatever identifier named it"
+                    },
+                    "id": {
+                      "type": "integer",
+                      "description": "Its row id"
+                    },
+                    "forgotten": {
                       "type": "boolean"
+                    },
+                    "dry_run": {
+                      "type": "boolean"
+                    },
+                    "cascade": {
+                      "type": "object",
+                      "description": "What went with it, by table (FB-0222)",
+                      "additionalProperties": {
+                        "type": "integer"
+                      }
                     }
                   }
                 }
@@ -626,6 +723,15 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "description": "`not_document_owner`: another member's private document"
+          },
+          "404": {
+            "description": "Not found, or a document the caller may not read (same body)"
+          },
+          "409": {
+            "$ref": "#/components/responses/AmbiguousDocid"
           }
         }
       }
@@ -634,6 +740,7 @@
       "post": {
         "operationId": "documentFeedback",
         "summary": "Submit relevance feedback for a document",
+        "description": "The identifier is resolved like GET /documents/{id} (FB-0219), among the documents the voter may read: copies of one content are the newest copy, `id:<n>` names a row, `collection` + `path` pick one copy.\n",
         "tags": [
           "Documents"
         ],
@@ -642,12 +749,13 @@
             "$ref": "#/components/parameters/TenantIdHeader"
           },
           {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/DocumentIdentifier"
+          },
+          {
+            "$ref": "#/components/parameters/DocumentCollection"
+          },
+          {
+            "$ref": "#/components/parameters/DocumentPath"
           }
         ],
         "requestBody": {
@@ -672,7 +780,8 @@
                     "type": "string"
                   },
                   "user_id": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "Voter, honored only for the platform credential and the tenant's SaaS service key (they act for the session they name). Any other credential votes as its own user; one with no user votes once, as itself."
                   }
                 }
               }
@@ -689,6 +798,14 @@
                   "properties": {
                     "ok": {
                       "type": "boolean"
+                    },
+                    "docid": {
+                      "type": "string",
+                      "description": "Short docid of the document voted on"
+                    },
+                    "id": {
+                      "type": "integer",
+                      "description": "Its row id"
                     }
                   }
                 }
@@ -700,6 +817,12 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "description": "No active document the voter may read"
+          },
+          "409": {
+            "$ref": "#/components/responses/AmbiguousDocid"
           }
         }
       }
@@ -1125,6 +1248,62 @@
         }
       }
     },
+    "/api/v1/agents/mcp-token": {
+      "post": {
+        "operationId": "agentMcpTokenReissue",
+        "summary": "Reissue the signup MCP token with the agent key",
+        "description": "Authenticated by the workspace's own `vb_agent_` key only (any other credential gets 401 `agent_key_required`). Mints a new `vbm_` with the signup ceiling — scopes `read write`, toolset `agent`, the key's own expiry — and revokes the previous signup MCP token in the same transaction. Rate-limited per tenant (3 per minute by default).\n",
+        "tags": [
+          "Agents"
+        ],
+        "security": [],
+        "responses": {
+          "201": {
+            "description": "New MCP token (raw value shown once)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "tenant_id": {
+                      "type": "string"
+                    },
+                    "mcp_token": {
+                      "type": "string"
+                    },
+                    "scopes": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "toolset": {
+                      "type": "string"
+                    },
+                    "expires_at": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "revoked_previous": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not the workspace's `vb_agent_` key (`agent_key_required`), or an invalid key"
+          },
+          "429": {
+            "description": "Too many reissues for this workspace"
+          }
+        }
+      }
+    },
     "/api/v1/agents/identify": {
       "post": {
         "operationId": "agentIdentify",
@@ -1232,7 +1411,7 @@
       "post": {
         "operationId": "agentClaimVerify",
         "summary": "Verify an agent ownership claim",
-        "description": "Requires a Bearer API key (401 when absent).",
+        "description": "Requires a Bearer API key (401 when absent). The SaaS calls it instead with the internal secret and the `claim_token` from the signup's `claim_url`. On success the workspace is named for its human and keeps its plan (it changes only when the operator sets `VALORBRAIN_AGENT_PLAN_AFTER_CLAIM`); `login_url` is where the human creates the app login (or adds the workspace to the account that e-mail already has).",
         "tags": [
           "Agents"
         ],
@@ -1274,8 +1453,16 @@
                     "tenant_id": {
                       "type": "string"
                     },
-                    "api_key": {
+                    "email": {
                       "type": "string"
+                    },
+                    "tenant_name": {
+                      "type": "string"
+                    },
+                    "login_url": {
+                      "type": "string",
+                      "nullable": true,
+                      "description": "Null on an engine without a SaaS configured."
                     },
                     "message": {
                       "type": "string"
@@ -1641,6 +1828,17 @@
                           "is_active": {
                             "type": "boolean"
                           },
+                          "credential_kind": {
+                            "type": "string",
+                            "enum": [
+                              "personal",
+                              "gateway",
+                              "integration"
+                            ]
+                          },
+                          "acts_for_users": {
+                            "type": "boolean"
+                          },
                           "created_at": {
                             "type": "string",
                             "format": "date-time"
@@ -1685,6 +1883,20 @@
                   "expires_at": {
                     "type": "string",
                     "format": "date-time"
+                  },
+                  "credential_kind": {
+                    "type": "string",
+                    "enum": [
+                      "personal",
+                      "gateway"
+                    ],
+                    "default": "personal",
+                    "description": "personal = bound to a person (user_id, else the creator) and acts as that person. gateway = no person, admin only; reads the company view (private documents included), narrowed to the X-User-ID a request names — always send X-User-ID for a person's request. integration credentials are created at POST /api/v1/authority/integrations."
+                  },
+                  "acts_for_users": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Gateway only (so admin only) — writes act as the tenant member it names, over that user's own documents only."
                   }
                 }
               }
@@ -1859,6 +2071,317 @@
         }
       }
     },
+    "/api/v1/memory/prepare": {
+      "post": {
+        "operationId": "memoryPrepare",
+        "summary": "Session briefing plus memory relevant to a message",
+        "description": "REST mirror of the MCP `memory_prepare` tool: identity, task state, what changed, notifications and the memory relevant to `message`, in one call. The tenant comes from the credential.\n",
+        "tags": [
+          "Memory"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "message"
+                ],
+                "properties": {
+                  "message": {
+                    "type": "string",
+                    "description": "The task or question (alias `query`)."
+                  },
+                  "collection": {
+                    "type": "string"
+                  },
+                  "episode_id": {
+                    "type": "string"
+                  },
+                  "recall_budget": {
+                    "type": "integer"
+                  },
+                  "include_recall": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "fast_mode": {
+                    "type": "boolean",
+                    "default": false
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Briefing and relevant memory",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "conflicts": {
+                      "type": "array",
+                      "description": "The open conflicts about the message's subject the caller may read (FB-0221 phase 3), also told in `blocks.conflicts` and in the `__conflicts__` document delivered first; omitted when there are none, in `fast_mode`, and with `VALORBRAIN_CONFLICT_ANNOTATE=false`.\n",
+                      "items": {
+                        "$ref": "#/components/schemas/OpenConflict"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`message` missing"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/v1/memory/store": {
+      "post": {
+        "operationId": "memoryStore",
+        "summary": "Persist a typed memory (decision, observation, lesson…)",
+        "description": "REST mirror of the MCP `memory_store` tool.",
+        "tags": [
+          "Memory"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "title",
+                  "content"
+                ],
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "default": "note",
+                    "description": "decision, observation, problem, milestone, handoff, lesson or note."
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 5
+                  },
+                  "content": {
+                    "type": "string",
+                    "minLength": 20
+                  },
+                  "collection": {
+                    "type": "string",
+                    "description": "Defaults to the caller agent's collection."
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "confidence": {
+                    "type": "number"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Stored memory (path and docid)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "action": {
+                      "type": "string",
+                      "enum": [
+                        "inserted",
+                        "updated",
+                        "deduplicated"
+                      ]
+                    },
+                    "docid": {
+                      "type": "string",
+                      "description": "Short docid (6-char hash prefix), the identifier GET /documents/{id}, /search and forget use. With \"deduplicated\", the existing document's. Before FB-0219 this field carried the numeric row id.\n"
+                    },
+                    "id": {
+                      "type": "integer",
+                      "description": "Row id of the document (what `docid` carried before FB-0219)"
+                    },
+                    "collection": {
+                      "type": "string"
+                    },
+                    "path": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Title or content too short"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/conversations": {
+      "post": {
+        "operationId": "ingestConversation",
+        "summary": "Ingest a whole conversation (turn windows and dated sketch)",
+        "description": "Indexes a conversation the way the transcript watcher does: turn windows plus derived documents. `POST /documents` stays the path for loose text.\n",
+        "tags": [
+          "Documents"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "collection",
+                  "slug",
+                  "messages"
+                ],
+                "properties": {
+                  "collection": {
+                    "type": "string"
+                  },
+                  "slug": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "messages": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "role",
+                        "content"
+                      ],
+                      "properties": {
+                        "role": {
+                          "type": "string"
+                        },
+                        "content": {
+                          "type": "string"
+                        },
+                        "date": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  },
+                  "userName": {
+                    "type": "string"
+                  },
+                  "assistantName": {
+                    "type": "string"
+                  },
+                  "sessionId": {
+                    "type": "string"
+                  },
+                  "windowSize": {
+                    "type": "integer"
+                  },
+                  "overlap": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Documents written for the conversation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing collection, slug or messages, or a slug carrying `#forgotten-`, reserved for forgotten documents (FB-0217)\n"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/.well-known/valorbrain-credentials.json": {
+      "get": {
+        "operationId": "credentialMatrix",
+        "summary": "Canonical credential matrix",
+        "description": "Every credential the platform accepts — prefix, issuer, surfaces that accept and refuse it, identity, lifecycle and rate limits. Generated from src/credential-matrix.ts; `sha256` changes whenever the matrix does.\n",
+        "tags": [
+          "Discovery"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "The matrix",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "version",
+                    "sha256",
+                    "credentials"
+                  ],
+                  "properties": {
+                    "version": {
+                      "type": "integer"
+                    },
+                    "sha256": {
+                      "type": "string"
+                    },
+                    "credentials": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/memory/recall": {
       "post": {
         "operationId": "memoryRecall",
@@ -1975,7 +2498,8 @@
                       "type": "integer"
                     },
                     "marked": {
-                      "type": "integer"
+                      "type": "integer",
+                      "description": "Recall deliveries this declaration credited: per document, the latest delivery by explicit retrieval to the caller's session (X-Session-ID, or the vbm_ token's session key) in the 12 hours before the declaration. 0 without a session.\n"
                     },
                     "unresolved": {
                       "type": "array",
@@ -2000,44 +2524,32 @@
         }
       }
     },
-    "/conversations": {
-      "post": {
+    "/api/v1/memory/health": {
+      "get": {
+        "operationId": "memoryHealth",
+        "summary": "Memory health diagnostics",
+        "description": "Open (and in-progress) update proposals, open conflicts, high-priority proposals and canonical sources with drift. `expired_proposals_count` counts proposals that expired in the last 30 days: an open proposal nobody picks or resolves for 30 days becomes `expired`.",
         "tags": [
-          "Client"
+          "Observability"
         ],
-        "summary": "POST /conversations",
-        "operationId": "live_POST__conversations",
-        "responses": {
-          "200": {
-            "description": "See the running handler"
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantIdHeader"
           }
-        }
-      }
-    },
-    "/api/v1/memory/store": {
-      "post": {
-        "tags": [
-          "Client"
         ],
-        "summary": "POST /api/v1/memory/store",
-        "operationId": "live_POST__api_v1_memory_store",
         "responses": {
           "200": {
-            "description": "See the running handler"
-          }
-        }
-      }
-    },
-    "/api/v1/memory/prepare": {
-      "post": {
-        "tags": [
-          "Client"
-        ],
-        "summary": "POST /api/v1/memory/prepare",
-        "operationId": "live_POST__api_v1_memory_prepare",
-        "responses": {
-          "200": {
-            "description": "See the running handler"
+            "description": "Health diagnostics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
           }
         }
       }
@@ -2048,19 +2560,8 @@
       "bearerAuth": {
         "type": "http",
         "scheme": "bearer",
-        "description": "VALORBRAIN_API_TOKEN or shadow tenant API key (vb_*)"
-      },
-      "adminSecret": {
-        "type": "apiKey",
-        "in": "header",
-        "name": "Authorization",
-        "description": "ENGINE_ADMIN_SECRET as Bearer token"
-      },
-      "moneyAdminAuth": {
-        "type": "http",
-        "scheme": "bearer",
-        "bearerFormat": "VALORBRAIN_API_TOKEN or ENGINE_ADMIN_SECRET",
-        "description": "Money-route credential. Accepts the engine master token or ENGINE_ADMIN_SECRET. Tenant API and MCP persona tokens are rejected.\n"
+        "bearerFormat": "vbm_ | vb_agent_ | vb_",
+        "description": "MCP token `vbm_<65 base62 chars> (69 chars)`: Token scopes (`read`, `write`, `admin`, granular ones from src/mcp-scopes.ts; `[]` grants nothing), additive toolsets (`agent,graph`), allowed collections and audience (RFC 8707). An OAuth token asked for MCP or for the app is valid at both (sibling audience, ADR-085); ingest requires `write`. Agent account key `vb_agent_<random>`: Implicit scopes `read write mcp read_log:read secrets` at the REST guard (no billing, pricing, admin or connector credentials); capped at `read write` on the OAuth consent. Service key `vb_<tenant-slug>_<random>`: Implicit scopes `read write mcp read_log:read secrets` at the REST guard (no billing, pricing, admin or connector credentials); capped at `read write` on the OAuth consent. The tenant comes from the credential. Matrix: https://valorbrain-api.valor.digital/.well-known/valorbrain-credentials.json"
       }
     },
     "parameters": {
@@ -2068,7 +2569,7 @@
         "name": "X-Tenant-ID",
         "in": "header",
         "required": false,
-        "description": "Tenant UUID for multi-tenant operations. Required when VALORBRAIN_DEFAULT_TENANT_ID is not set. Some endpoints (like ingest) always require it.\n",
+        "description": "Tenant UUID, meaningful only for the platform credential, which spans tenants. A tenant credential carries its own tenant; a header that disagrees with it is refused (403).\n",
         "schema": {
           "type": "string",
           "format": "uuid"
@@ -2082,6 +2583,41 @@
         "schema": {
           "type": "string",
           "format": "uuid"
+        }
+      },
+      "DocumentIdentifier": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "The short docid every answer carries (a prefix of the content hash, 6 characters, 4 to 64 accepted; `#` in front, URL-encoded as `%23`, says it is a hash prefix and nothing else), or a row id written `id:<n>` (the `id` answers carry). Bare digits without a leading zero are read both ways — a docid can be all digits and older clients send the row id — and when the two readings name different documents the answer is 409 `ambiguous_docid`; resend it as `id:<n>` or `#<hash>`. A number is never taken as a hash prefix alone (FB-0219). Copies of one content under several paths share a docid: the call acts on the newest copy the caller may read, and `collection` + `path` pick one. Clients that keep an identifier should keep `id:<n>` (or collection + path).\n",
+        "schema": {
+          "type": "string"
+        },
+        "examples": {
+          "docid": {
+            "value": "ce6ba0"
+          },
+          "rowId": {
+            "value": "id:319859"
+          }
+        }
+      },
+      "DocumentCollection": {
+        "name": "collection",
+        "in": "query",
+        "required": false,
+        "description": "Narrows the identifier to the copy in this collection (FB-0219).",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "DocumentPath": {
+        "name": "path",
+        "in": "query",
+        "required": false,
+        "description": "Narrows the identifier to the copy at this path, with `collection` (FB-0219).",
+        "schema": {
+          "type": "string"
         }
       }
     },
@@ -2126,6 +2662,62 @@
           }
         }
       },
+      "AmbiguousDocid": {
+        "description": "`ambiguous_docid`: bare digits that are the row id of one document and a hash prefix of another, both readable by the caller. Copies of the same content are never ambiguous (the newest readable copy is the answer). Each candidate comes with the identifier that picks it alone (`ref`, `id:<n>`); documents the caller may not read are never listed.\n",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "error": {
+                  "type": "string"
+                },
+                "code": {
+                  "type": "string",
+                  "enum": [
+                    "ambiguous_docid"
+                  ]
+                },
+                "candidates": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "ref": {
+                        "type": "string",
+                        "description": "`id:<n>`, the identifier that names this one alone"
+                      },
+                      "id": {
+                        "type": "integer"
+                      },
+                      "docid": {
+                        "type": "string"
+                      },
+                      "hash": {
+                        "type": "string",
+                        "description": "First 12 characters of the content hash"
+                      },
+                      "path": {
+                        "type": "string"
+                      },
+                      "title": {
+                        "type": "string"
+                      },
+                      "matched_by": {
+                        "type": "string",
+                        "enum": [
+                          "hash",
+                          "id"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
       "BillingConflict": {
         "description": "Source idempotency, settlement proof, provider identity, or subscription period/state conflict. Cross-tenant ownership is never disclosed.\n",
         "content": {
@@ -2148,6 +2740,128 @@
       }
     },
     "schemas": {
+      "Commitment": {
+        "type": "object",
+        "description": "A promise made to someone outside the company (ADR-087)",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "key": {
+            "type": "string"
+          },
+          "promise": {
+            "type": "string"
+          },
+          "counterpart": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          },
+          "due_on": {
+            "type": "string",
+            "format": "date"
+          },
+          "first_due_on": {
+            "type": "string",
+            "format": "date",
+            "description": "Due date when first recorded; never moves"
+          },
+          "made_on": {
+            "type": "string",
+            "format": "date"
+          },
+          "evidence": {
+            "type": "string"
+          },
+          "progress": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "prometido",
+              "em_andamento",
+              "em_risco",
+              "cumprido",
+              "perdido",
+              "liberado"
+            ]
+          },
+          "closing_reason": {
+            "type": "string",
+            "nullable": true
+          },
+          "closed_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "closed_by": {
+            "type": "string",
+            "nullable": true
+          },
+          "refs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "authority": {
+            "type": "string",
+            "enum": [
+              "human",
+              "designated",
+              "import",
+              "agent"
+            ]
+          },
+          "source_agent": {
+            "type": "string",
+            "nullable": true
+          },
+          "user_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "days_left": {
+            "type": "integer",
+            "description": "Days from today to due_on; negative when overdue"
+          }
+        }
+      },
+      "CommitmentRecordResult": {
+        "type": "object",
+        "properties": {
+          "commitment": {
+            "$ref": "#/components/schemas/Commitment"
+          },
+          "created": {
+            "type": "boolean"
+          },
+          "reopened": {
+            "type": "boolean"
+          },
+          "same_counterpart": {
+            "type": "array",
+            "description": "On create, other open commitments to the same counterpart (possible duplicates)",
+            "items": {
+              "$ref": "#/components/schemas/Commitment"
+            }
+          }
+        }
+      },
       "MeetAliasResult": {
         "type": "object",
         "properties": {
@@ -2186,57 +2900,247 @@
       },
       "Document": {
         "type": "object",
+        "description": "What GET /documents/{id} answers (FB-0219 aligned this schema with the handler).",
         "properties": {
+          "docid": {
+            "type": "string",
+            "description": "Short docid (6-char prefix of the content hash)"
+          },
           "id": {
             "type": "integer",
-            "description": "Internal document ID"
+            "description": "Row id; `id:<n>` names this copy of a docid copies of the same content share"
           },
-          "hash": {
+          "path": {
             "type": "string",
-            "description": "Content hash (SHA-256)"
+            "description": "`collection/path`"
+          },
+          "title": {
+            "type": "string"
+          },
+          "collection": {
+            "type": "string"
+          },
+          "modifiedAt": {
+            "type": "string"
+          },
+          "bodyLength": {
+            "type": "integer"
+          },
+          "body": {
+            "type": "string"
+          },
+          "context": {
+            "type": "string"
+          },
+          "scope": {
+            "type": "object",
+            "properties": {
+              "user_id": {
+                "type": "string"
+              },
+              "sensitivity": {
+                "type": "string"
+              },
+              "visibility": {
+                "type": "string",
+                "enum": [
+                  "private",
+                  "tenant"
+                ]
+              }
+            }
+          },
+          "canonical": {
+            "type": "object"
+          },
+          "index_status": {
+            "type": "object",
+            "properties": {
+              "embed_state": {
+                "type": "string"
+              },
+              "embedded": {
+                "type": "boolean"
+              },
+              "hybrid_synced": {
+                "type": "boolean"
+              },
+              "entity_enriched": {
+                "type": "boolean"
+              }
+            }
+          },
+          "veracity": {
+            "type": "string"
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "review_by": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "revision": {
+            "type": "string"
+          },
+          "revisions": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "revision_count": {
+            "type": "integer"
+          },
+          "superseded_by": {
+            "type": "integer",
+            "description": "Row id of the document that superseded this one (PRD M1), when there is one"
+          },
+          "invalidated_at": {
+            "type": "string"
+          },
+          "invalidated_by": {
+            "type": "string"
+          }
+        }
+      },
+      "IngestResult": {
+        "type": "object",
+        "description": "What POST /documents answers (FB-0219 aligned this schema with the handler).",
+        "properties": {
+          "docid": {
+            "type": "string",
+            "description": "Short docid (6-char prefix of the content hash), the identifier GET /documents/{id}, /search and forget use. Absent on \"skipped\" and \"deduplicated\" (see existing_docid).\n"
           },
           "collection": {
             "type": "string"
           },
           "path": {
-            "type": "string"
+            "type": "string",
+            "description": "Can carry a timestamp suffix with update_strategy appendable"
           },
           "title": {
             "type": "string"
           },
-          "content_type": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "created",
+              "updated",
+              "unchanged",
+              "skipped",
+              "deduplicated"
+            ],
+            "description": "\"unchanged\" (VAL-172): posted content hash equals the stored hash for the same path — the engine performs no write and records no audit row.\n"
+          },
+          "reason": {
+            "type": "string",
+            "description": "With \"unchanged\", \"skipped\" and \"deduplicated\""
+          },
+          "active": {
+            "type": "boolean",
+            "description": "Whether the document at the path is live after the call (created, updated and unchanged answers)\n"
+          },
+          "revived": {
+            "type": "boolean",
+            "description": "True when the write created a new document on a path whose document had been forgotten (FB-0217)\n"
+          },
+          "archived_reason": {
+            "type": "string",
+            "description": "Why the document at the path is out of reach, when `active` is false (forget, lifecycle, …)\n"
+          },
+          "revision_count": {
+            "type": "integer"
+          },
+          "embed_state": {
             "type": "string"
+          },
+          "skip_reason": {
+            "type": "string",
+            "description": "Why the quality gate skipped embedding"
           },
           "page_type": {
             "type": "string"
           },
-          "visibility": {
-            "type": "string",
-            "enum": [
-              "private",
-              "tenant",
-              "public"
-            ]
-          },
-          "embed_state": {
-            "type": "string",
-            "enum": [
-              "pending",
-              "indexed",
-              "skipped",
-              "error"
-            ]
+          "update_strategy": {
+            "type": "string"
           },
           "is_pinned": {
+            "type": "boolean"
+          },
+          "edges_created": {
             "type": "integer"
           },
-          "created_at": {
-            "type": "string",
-            "format": "date-time"
+          "inferred_purpose": {
+            "type": "string"
           },
-          "updated_at": {
+          "sensitivity": {
+            "type": "string"
+          },
+          "user_id": {
+            "type": "string"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "event_at": {
+            "type": "string"
+          },
+          "event_type": {
+            "type": "string"
+          },
+          "supersedes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "docid": {
+                  "type": "string"
+                },
+                "path": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "tenant_id": {
+            "type": "string"
+          },
+          "source": {
+            "type": "object",
+            "properties": {
+              "system": {
+                "type": "string"
+              },
+              "agent": {
+                "type": "string"
+              },
+              "sessionId": {
+                "type": "string"
+              }
+            }
+          },
+          "existing_docid": {
             "type": "string",
-            "format": "date-time"
+            "description": "With \"deduplicated\": short docid of the copy in another collection the writer may read, the writer's own or with no owner, at least as visible as the write and under the same source ACL domain (or both collections unmapped); nothing was written. Any other copy never deduplicates, nor does a write to a path that already holds a document (FB-0229).\n"
+          },
+          "existing_id": {
+            "type": "integer",
+            "description": "Row id of that copy (what existing_docid carried before FB-0229)"
+          },
+          "existing_collection": {
+            "type": "string"
+          },
+          "existing_path": {
+            "type": "string"
+          },
+          "existing_title": {
+            "type": "string"
           }
         }
       },
@@ -2245,6 +3149,10 @@
         "properties": {
           "docid": {
             "type": "string"
+          },
+          "id": {
+            "type": "integer",
+            "description": "Row id of this result (REST /search; FB-0219)"
           },
           "filepath": {
             "type": "string"
@@ -2260,6 +3168,76 @@
           },
           "body": {
             "type": "string"
+          },
+          "mirror_paths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Other paths with the same content hash, collapsed into this result (the same file indexed under several paths). Lists only copies the caller can read; omitted when there are none. Returned by /search and /retrieve.\n"
+          }
+        }
+      },
+      "OpenConflict": {
+        "type": "object",
+        "description": "Two values recorded for the same thing, neither replacing the other (`fact_conflicts`, FB-0221), still describing the key.\n",
+        "required": [
+          "id",
+          "subject",
+          "fact_key",
+          "values",
+          "observation_id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "`fact_conflicts.id`"
+          },
+          "subject": {
+            "type": "string",
+            "description": "What disagrees, read from the key (\"orion launch date\")"
+          },
+          "fact_key": {
+            "type": "string",
+            "nullable": true,
+            "description": "The keyed fact the conflict is on, when it is on one"
+          },
+          "values": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "description": "The other value first, the one the fact row holds second",
+            "items": {
+              "type": "object",
+              "required": [
+                "value",
+                "as_of",
+                "sources"
+              ],
+              "properties": {
+                "value": {
+                  "type": "string"
+                },
+                "as_of": {
+                  "type": "string",
+                  "format": "date",
+                  "nullable": true,
+                  "description": "The day it was stated, when the conflict recorded it"
+                },
+                "sources": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "`collection/path` of the active documents that stated it"
+                }
+              }
+            }
+          },
+          "observation_id": {
+            "type": "integer",
+            "nullable": true,
+            "description": "The consolidated observation that called it unresolved, when one did"
           }
         }
       },
