@@ -43,5 +43,11 @@ read -r code ctype < <(curl -s -o /dev/null -w '%{http_code} %{content_type}\n' 
 [[ "$code" == 200 && "$ctype" == text/markdown* ]] || bad "Accept: text/markdown /docs/mcp: $code $ctype"
 echo "Accept: text/markdown /docs/mcp: $code $ctype"
 
+# 4. /en (printed on the English guide cards) → /en/docs
+read -r code loc < <(curl -s -o /dev/null -w '%{http_code} %{redirect_url}\n' "${md_args[@]}" "$BASE/en")
+[[ "$code" == 307 ]] || bad "/en: expected 307, got $code"
+[[ "$loc" == */en/docs ]] || bad "/en location: $loc"
+echo "/en: $code → $loc"
+
 [[ $fail == 0 ]] && echo "check-edge: ok"
 exit $fail

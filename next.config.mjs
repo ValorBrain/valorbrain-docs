@@ -51,6 +51,10 @@ const config = {
         destination: `${CANONICAL_ORIGIN}/:path*`,
         permanent: true, // 308
       },
+      // `docs.valorbrain.com.br/en` is the address printed on the English
+      // guide cards; there is no English landing page, so send it to the docs
+      // root. Temporary, so an English home can take the path later.
+      { source: '/en', destination: '/en/docs', permanent: false }, // 307
     ];
   },
   async rewrites() {
