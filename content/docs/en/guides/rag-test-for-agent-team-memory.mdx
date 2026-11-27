@@ -51,7 +51,7 @@ With ValorBrain over MCP, the value goes in with `upsert_keyed_fact`, and the re
 }
 ```
 
-`authority: "human"` needs the person's own words in `human_order`, sent on a personal token that belongs to them; without either, the call is refused with `human_order_refused` and nothing is written. A token with no user behind it never writes above `agent`, so an agent recording someone else's decision on its own token should say who decided in `evidence` and let that person confirm it.
+`authority: "human"` needs the person's own words in `human_order`, sent on a personal token that belongs to them; without either, the call is refused with `human_order_refused` and nothing is written. On a token with no user behind it, `designated` is written as `agent`, so an agent recording someone else's decision on its own token should write it as `agent`, say who decided in `evidence` and let that person confirm it.
 
 Run the five questions again after a week. The answers should now show the value and its date. `keyed_facts_as_of` lets you check what was true on any earlier day, which is the quickest way to find out why an agent did something last month.
 
