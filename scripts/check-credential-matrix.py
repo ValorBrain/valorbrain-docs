@@ -5,8 +5,9 @@
   python3 scripts/check-credential-matrix.py --live   (also compares the live matrix)
 
 Every page about credentials (concepts/tokens, api/token-lifecycle,
-api/rate-limits, api/errors, pt and en) is written by the engine's
-`scripts/credential-docs.ts write --docs <this repo>` and carries a block:
+api/rate-limits, api/errors, pt and en) is rendered by the engine's
+src/credential-docs.ts (`bun run generate` here, or the engine's
+`scripts/credential-docs.ts write --docs <this repo>`) and carries a block:
 
   {/* credential-matrix sha=<12 hex> body=<12 hex>: ... */}
   <body>
@@ -34,7 +35,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SNAPSHOT = ROOT / "public" / "valorbrain-credentials.json"
 LIVE_URL = "https://valorbrain-api.valor.digital/.well-known/valorbrain-credentials.json"
-REGENERATE = "bun <engine>/scripts/credential-docs.ts write --docs <this repo>"
+REGENERATE = "bun run generate (VALORBRAIN_ENGINE=<engine checkout>)"
 # Same pattern in every consumer repo (engine src/credential-docs.ts).
 BLOCK = re.compile(
     r"^[^\n]*credential-matrix sha=([0-9a-f]{12}) body=([0-9a-f]{12})[^\n]*\n"

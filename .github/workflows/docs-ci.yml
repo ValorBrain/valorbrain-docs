@@ -51,3 +51,35 @@ jobs:
           [ "$code" = 200 ] || { echo "quickstart.md behind https proxy: $code"; cat /tmp/next.log; exit 1; }
       - name: Origin edge (redirect + headers)
         run: bash scripts/check-edge.sh http://127.0.0.1:3012
+
+  # The committed pages generated from the engine (the error catalog and the
+  # other credential pages, the MCP catalog, public/mcp-schemas.md) must equal
+  # what the engine's main produces now. The build above keeps the committed
+  # copies because it has no engine; this job has one. The engine repo is
+  # private: read-only deploy key in ENGINE_DEPLOY_KEY. Fork PRs get no
+  # secrets, so the job is skipped there and runs on the merge to main.
+  engine-reference:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Engine sources (agentxagi/valorbrain main, src/ only)
+        uses: actions/checkout@v4
+        with:
+          repository: agentxagi/valorbrain
+          ref: main
+          ssh-key: ${{ secrets.ENGINE_DEPLOY_KEY }}
+          path: engine
+          sparse-checkout: src
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+      # No `bun install` here on purpose: with no node_modules above engine/,
+      # bun auto-installs the one package the engine renderer imports (yaml),
+      # at the version in the engine's package.json.
+      - name: Install
+        run: python3 -m pip install --quiet pyyaml
+      - name: Committed engine pages match the engine
+        run: python3 scripts/generate-reference.py --check
+        env:
+          VALORBRAIN_ENGINE: ${{ github.workspace }}/engine
