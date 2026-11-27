@@ -98,12 +98,13 @@ Uma camada de memória põe essas duas regras na própria escrita. No ValorBrain
     "fact_value": "frozen until 2026-12-01; hotfixes need the owner's approval",
     "as_of": "2026-11-24",
     "evidence": "decided by the owner in the Tuesday planning call",
-    "authority": "human"
+    "authority": "human",
+    "human_order": "Congela os deploys de produção até 1º de dezembro. Hotfix precisa da minha aprovação."
   }
 }
 ```
 
-Um valor mais novo para a mesma chave substitui o anterior. Uma escrita com autoridade menor que a do valor atual fica parada como proposta até uma pessoa aprovar. `keyed_facts_as_of` devolve o que valia em qualquer data passada, e é assim que você descobre por que um agente fez o deploy na quarta. `authority: "human"` só vale quando o token que faz a chamada é da pessoa que decidiu; um agente que registra a decisão de outra pessoa diz quem decidiu em `evidence`.
+Um valor mais novo para a mesma chave substitui o anterior. Uma escrita com autoridade menor que a do valor atual fica parada como proposta até uma pessoa aprovar. `keyed_facts_as_of` devolve o que valia em qualquer data passada, e é assim que você descobre por que um agente fez o deploy na quarta. `authority: "human"` exige as palavras da própria pessoa em `human_order` e um token pessoal dela, senão a chamada é recusada com `human_order_refused`; um agente que registra a decisão de outra pessoa com o próprio token grava `authority: "agent"` e diz quem decidiu em `evidence`.
 
 O arquivo de instruções fica só com o ponteiro. Este bloco é o mesmo no `AGENTS.md` para as três ferramentas:
 
