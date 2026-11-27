@@ -97,7 +97,7 @@ Each behavior below is in the public docs, and the codes are in the [error catal
 
 **Step 5.** MCP tokens carry scopes (`read`, `write`, `admin` and granular ones), and a token with an empty scope list grants nothing. A tool called on a token that lacks its scope answers `scope_denied`. Two narrower options exist. A token can be limited to a list of collections, and a call outside the list answers `identity_denied`. A system with no person behind it, such as a webhook or a sync job, gets an integration credential tied to a keyspace: it can write keyed facts whose keys are inside that keyspace and nothing else, and any other write answers `outside_keyspace` with nothing written. See [Tokens](/en/docs/concepts/tokens).
 
-**Check 5.** The error catalog lists `law_violation`: a key can carry a range or monotonic law, and a value that breaks it is refused.
+**Check 5.** Not covered today: there is no tool or API to put a range on a key. See the next section.
 
 **Step 6.** Three reads find the damage and one write repairs it.
 
@@ -105,7 +105,7 @@ Each behavior below is in the public docs, and the codes are in the [error catal
 { "tool": "memory_recent", "arguments": { "agent": "codex", "hours": 1 } }
 ```
 
-`memory_recent` lists the documents an agent wrote in a window, by author. For keyed facts, read the same keys at two dates and compare:
+`memory_recent` lists the work documents an agent wrote in a window (decisions, milestones, handoffs, lessons, problems and observations), by author. For keyed facts, read the same keys at two dates and compare:
 
 ```json
 { "tool": "keyed_facts_as_of", "arguments": { "as_of": "2026-11-26" } }
@@ -140,9 +140,10 @@ It records the value with the person's authority and supersedes the earlier ones
 
 ## What ValorBrain does not do
 
-- **It does not score the text of a write for injected instructions.** The public docs describe no filter on the write path like the one in the AWS pattern. `pii_defense_block` refuses high-risk personal data, which is a different problem. If you want content scoring, put it in front of the write.
+- **It does not score the text of a write for injected instructions.** There is no filter on the write path like the one in the AWS pattern. `pii_defense_block` refuses high-risk personal data, which is a different problem. If you want content scoring, put it in front of the write. On the read path, `memory_prepare` drops lines that read as instructions aimed at the model, but a stored value like 5,000 is not an instruction, so it passes.
 - **It does not refuse a new claim from an agent.** Step 4 is accepted. The fact is attributed, dated and ranked `agent`, and a reader that ignores the rank will act on it. Tell your agents, in the instruction file they load, to treat an `agent` fact with no person behind it as a claim to verify before money or access depends on it.
-- **It cannot tell where the words in `human_order` came from.** The server checks that they arrive on that person's own token. An agent that runs on the owner's token and reads outside text is the case to avoid: keep the agents that read issues, web pages and inbound email on a credential that can read the memory and not write it.
+- **It does not let you put a range on a key yet.** The engine refuses a value that breaks a range declared for its key (`law_violation` in the error catalog), but there is no tool or API to declare one today. Until there is, check 5 has to live outside the server, in front of the write.
+- **It vouches for `human_order` only as far as the session record goes.** The server checks that the words arrive on that person's own token, then grades them: `verified` when the same words appear in a human turn recorded from that person in the last 6 hours, `declared` when only the agent says the person said them. Reads print the grade next to the authority. A `declared` order is the agent's word on the person's token, so an agent that runs on the owner's token and reads outside text is the case to avoid: keep the agents that read issues, web pages and inbound email on a credential that can read the memory and not write it.
 - **It does not review proposals for you.** A queue of pending writes helps only if a person reads it. `upsert_keyed_fact` with `action: "proposals"` lists them.
 
 ## What we measured on our own team

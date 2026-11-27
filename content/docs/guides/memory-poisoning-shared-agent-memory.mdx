@@ -97,7 +97,7 @@ Cada comportamento abaixo está na documentação pública, e os códigos estão
 
 **Passo 5.** Tokens MCP têm escopos (`read`, `write`, `admin` e outros mais granulares), e um token com a lista de escopos vazia não concede nada. Uma ferramenta chamada com um token sem o escopo dela responde `scope_denied`. Existem duas opções mais estreitas. Um token pode ser limitado a uma lista de coleções, e uma chamada fora da lista responde `identity_denied`. Um sistema sem pessoa por trás, como um webhook ou um job de sincronização, recebe uma credencial de integração presa a um keyspace: ela grava fatos com chave cujas chaves estão dentro desse keyspace e mais nada, e qualquer outra escrita responde `outside_keyspace` sem gravar nada. Veja [Tokens](/docs/concepts/tokens).
 
-**Conferência 5.** O catálogo de erros lista `law_violation`: uma chave pode ter uma lei de faixa ou de monotonicidade, e um valor que a quebra é recusado.
+**Conferência 5.** Não coberta hoje: não existe ferramenta nem API para pôr uma faixa numa chave. Veja a próxima seção.
 
 **Passo 6.** Três leituras acham o estrago e uma escrita conserta.
 
@@ -105,7 +105,7 @@ Cada comportamento abaixo está na documentação pública, e os códigos estão
 { "tool": "memory_recent", "arguments": { "agent": "codex", "hours": 1 } }
 ```
 
-`memory_recent` lista os documentos que um agente gravou num período, por autor. Para fatos com chave, leia as mesmas chaves em duas datas e compare:
+`memory_recent` lista os documentos de trabalho que um agente gravou num período (decisões, marcos, handoffs, lições, problemas e observações), por autor. Para fatos com chave, leia as mesmas chaves em duas datas e compare:
 
 ```json
 { "tool": "keyed_facts_as_of", "arguments": { "as_of": "2026-11-26" } }
@@ -140,9 +140,10 @@ A chamada grava o valor com a autoridade da pessoa e substitui os anteriores. O 
 
 ## O que o ValorBrain não faz
 
-- **Não pontua o texto de uma escrita à procura de instruções injetadas.** A documentação pública não descreve um filtro no caminho de escrita como o do padrão da AWS. O `pii_defense_block` recusa dado pessoal de alto risco, que é outro problema. Se você quer pontuação de conteúdo, ponha na frente da escrita.
+- **Não pontua o texto de uma escrita à procura de instruções injetadas.** Não há filtro no caminho de escrita como o do padrão da AWS. O `pii_defense_block` recusa dado pessoal de alto risco, que é outro problema. Se você quer pontuação de conteúdo, ponha na frente da escrita. No caminho de leitura, o `memory_prepare` descarta linhas que soam como instrução dirigida ao modelo, mas um valor gravado como 5.000 não é instrução, então passa.
 - **Não recusa uma afirmação nova de um agente.** O passo 4 é aceito. O fato fica atribuído, datado e com peso `agent`, e um leitor que ignora o peso vai agir com base nele. Diga aos seus agentes, no arquivo de instruções que eles carregam, para tratar um fato `agent` sem pessoa por trás como afirmação a conferir antes que dinheiro ou acesso dependam dele.
-- **Não sabe de onde vieram as palavras em `human_order`.** O servidor confere que elas chegam no token da própria pessoa. Um agente que roda no token do dono e lê texto de fora é o caso a evitar: mantenha os agentes que leem issues, páginas da web e e-mail recebido numa credencial que lê a memória e não grava.
+- **Ainda não deixa você pôr uma faixa numa chave.** O motor recusa um valor que quebra uma faixa declarada para a chave (`law_violation` no catálogo de erros), mas hoje não existe ferramenta nem API para declarar uma. Até existir, a conferência 5 fica fora do servidor, na frente da escrita.
+- **Só garante o `human_order` até onde vai o registro da sessão.** O servidor confere que as palavras chegam no token da própria pessoa e depois dá um grau: `verified` quando as mesmas palavras aparecem num turno humano registrado dessa pessoa nas últimas 6 horas, `declared` quando só o agente diz que a pessoa disse. As leituras mostram o grau ao lado da autoridade. Uma ordem `declared` é a palavra do agente no token da pessoa, então um agente que roda no token do dono e lê texto de fora é o caso a evitar: mantenha os agentes que leem issues, páginas da web e e-mail recebido numa credencial que lê a memória e não grava.
 - **Não revisa as propostas por você.** Uma fila de escritas pendentes só ajuda se uma pessoa a lê. `upsert_keyed_fact` com `action: "proposals"` lista as pendentes.
 
 ## O que medimos no nosso próprio time
