@@ -24,7 +24,7 @@ Tudo o que está dito aqui sobre outros produtos foi lido na documentação de c
 | | Servidor de referência | Mem0 MCP | Servidor MCP do Graphiti | SurrealDB Agent Memory | ValorBrain |
 |---|---|---|---|---|---|
 | Onde a memória fica | Um arquivo JSONL na máquina que roda o servidor (`MEMORY_FILE_PATH`) | Na sua conta Mem0, atrás do endpoint hospedado `https://mcp.mem0.ai/mcp` | Um banco de grafo que você roda (FalkorDB por padrão, ou Neo4j), com as suas chaves de LLM e de embedding | SurrealDB Cloud, single-tenant no Enterprise. A documentação lista self-hosted como em desenvolvimento | Hospedado, atrás de `https://mcpbrain.valor.digital/mcp`. On-premise só no plano Enterprise |
-| Uma segunda máquina | stdio por padrão, um processo do servidor por cliente. O transporte HTTP escuta em `127.0.0.1:3001`, a menos que você mude o `HOST` | A mesma URL, com login por OAuth ou com uma chave de API | Você mesmo expõe o servidor (padrão `http://localhost:8000/mcp/`). A documentação chama o servidor MCP de experimental | Um servidor MCP para Cursor, VS Code, Windsurf, Zed e OpenCode, e um plugin para Claude e Codex | A mesma URL com um bearer token, ou um conector personalizado com OAuth no claude.ai e no Claude Desktop |
+| Uma segunda máquina | stdio por padrão, um processo do servidor por cliente. O transporte HTTP escuta em `127.0.0.1:3001`, a menos que você mude o `HOST` | A mesma URL, com login por uma janela do navegador aberta pelo cliente ou com uma chave de API | Você mesmo expõe o servidor (padrão `http://localhost:8000/mcp/`). A documentação chama o servidor MCP de experimental | Um servidor MCP para Cursor, VS Code, Windsurf, Zed e OpenCode, e um plugin para Claude e Codex | A mesma URL com um bearer token, ou um conector personalizado com OAuth no claude.ai e no Claude Desktop |
 | Quem lê o quê | O README não descreve controle de acesso | As chamadas têm escopo por `user_id`, `agent_id`, `app_id` e `run_id` | Namespaces por `group_id`. A documentação diz que um filtro de namespace "does not replace application authorization" | Contextos isolam, escopos são caminhos e os principals recebem grants de leitura e de escrita | Compartilhada no tenant por padrão, `visibility: "private"` por memória e grants por domínio de negócio |
 | Quando um valor muda | As observações são strings simples. Você adiciona a nova e apaga a antiga por conta própria | O add não sobrescreve: "memories accumulate". O `update_memory` sobrescreve o texto de uma memória | Modelo bitemporal: um fato que mudou é invalidado no tempo, e dá para consultar um ponto no tempo | A crença nova substitui a antiga, que fica no histórico. `asOf` lê um instante anterior | Um fato com chave mais novo substitui o anterior da mesma chave. `keyed_facts_as_of` lê qualquer data passada |
 | Data e fonte | Não existem no modelo de dados | Um timestamp e metadados opcionais por memória | Os episódios guardam a proveniência de cada fato | Um objeto `source` em todo registro que carrega fato | `as_of`, `evidence` e `authority` em todo fato com chave |
@@ -33,7 +33,7 @@ Fontes: o [README](https://github.com/modelcontextprotocol/servers/tree/main/src
 
 Quatro detalhes dessas páginas decidem a maior parte da escolha.
 
-**Um arquivo numa máquina é memória de uma máquina.** O servidor de referência se descreve como uma implementação básica de memória persistente sobre um grafo de conhecimento local. Cada cliente inicia o seu próprio processo do servidor, e o arquivo fica no disco daquela máquina. Por padrão ele é o `memory.jsonl` na pasta do próprio servidor, então aponte `MEMORY_FILE_PATH` para um caminho absoluto que entre no seu backup. O README também diz que um arquivo em sistema de arquivos de rede não é seguro, o que descarta um drive compartilhado como forma de dar a mesma memória a uma segunda máquina.
+**Um arquivo numa máquina é memória de uma máquina.** O servidor de referência se descreve como uma implementação básica de memória persistente sobre um grafo de conhecimento local. Cada cliente inicia o seu próprio processo do servidor, e o arquivo fica no disco daquela máquina. Por padrão ele é o `memory.jsonl` na pasta do próprio servidor, então aponte `MEMORY_FILE_PATH` para um caminho absoluto que entre no seu backup. Dois processos podem dividir o arquivo por meio de um lock, mas o README diz que esse lock depende da criação exclusiva de arquivo e que um sistema de arquivos de rede que não a respeite não pode ser compartilhado com segurança. Confira o seu antes de pôr o arquivo num drive compartilhado para uma segunda máquina.
 
 **Namespace não é permissão.** A documentação do Graphiti diz isso com todas as letras: a aplicação precisa autorizar cada `group_id` antes de passá-lo. Para qualquer produto que separa a memória por um ID na chamada, pergunte o que impede o agente B de passar o ID do agente A. Onde o servidor confere o acesso, faça uma segunda pergunta: o agente consegue distinguir "não achei nada" de "não tenho permissão"? O SurrealDB documenta que uma leitura com escopo sem o grant correspondente volta vazia, e não recusada. O `acl_me` do ValorBrain devolve os domínios que quem chama pode ler e a contagem de documentos escondidos dele, então dá para separar uma resposta vazia de uma permissão que falta.
 
@@ -91,12 +91,13 @@ Os passos 1 e 3 são dois fatos com a mesma chave e datas diferentes. Os exemplo
     "fact_value": "3",
     "as_of": "2026-11-20",
     "evidence": "o dono mudou na reunião de planejamento; era 5 desde 2026-11-10",
-    "authority": "human"
+    "authority": "human",
+    "human_order": "Muda o limite de retry do webhook para 3."
   }
 }
 ```
 
-`authority: "human"` só vale quando o token que faz a chamada é da pessoa que decidiu. O passo 4 é uma chamada pela outra ferramenta:
+`authority: "human"` exige duas coisas: as palavras da própria pessoa em `human_order` e um token pessoal dessa pessoa. Sem qualquer uma delas, a chamada é recusada com `human_order_refused` e nada é gravado. Por isso, rode os passos 1 e 3 pelo agente A com o token do dono: é isso que deixa o valor protegido no passo 5. O passo 4 é uma chamada pela outra ferramenta:
 
 ```json
 {

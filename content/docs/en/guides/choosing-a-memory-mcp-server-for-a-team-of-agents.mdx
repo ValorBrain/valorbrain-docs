@@ -24,7 +24,7 @@ Everything said here about other products was read in their own documentation on
 | | Reference server | Mem0 MCP | Graphiti MCP server | SurrealDB Agent Memory | ValorBrain |
 |---|---|---|---|---|---|
 | Where the memory lives | A JSONL file on the machine that runs the server (`MEMORY_FILE_PATH`) | Your Mem0 account, behind the hosted endpoint `https://mcp.mem0.ai/mcp` | A graph database you run (FalkorDB by default, or Neo4j), with your own LLM and embedding keys | SurrealDB Cloud, single-tenant on Enterprise. The docs list self-hosted as in development | Hosted, behind `https://mcpbrain.valor.digital/mcp`. On-premise only under the Enterprise plan |
-| A second machine | stdio by default, one server process per client. The HTTP transport listens on `127.0.0.1:3001` unless you change `HOST` | Same URL, signed in by OAuth or with an API key | You expose the server yourself (default `http://localhost:8000/mcp/`). The docs call the MCP server experimental | An MCP server for Cursor, VS Code, Windsurf, Zed and OpenCode, and a plugin for Claude and Codex | Same URL with a bearer token, or an OAuth custom connector in claude.ai and Claude Desktop |
+| A second machine | stdio by default, one server process per client. The HTTP transport listens on `127.0.0.1:3001` unless you change `HOST` | Same URL, signed in through a browser prompt from the client or with an API key | You expose the server yourself (default `http://localhost:8000/mcp/`). The docs call the MCP server experimental | An MCP server for Cursor, VS Code, Windsurf, Zed and OpenCode, and a plugin for Claude and Codex | Same URL with a bearer token, or an OAuth custom connector in claude.ai and Claude Desktop |
 | Who reads what | The README describes no access control | Calls are scoped by `user_id`, `agent_id`, `app_id` and `run_id` | `group_id` namespaces. The docs say a namespace filter "does not replace application authorization" | Contexts isolate, scopes are paths, and principals get read and write grants | Shared across the tenant by default, `visibility: "private"` per memory, and grants per business domain |
 | When a value changes | Observations are plain strings. You add the new one and delete the old one yourself | Add does not overwrite: "memories accumulate". `update_memory` overwrites one memory's text | Bi-temporal model: a fact that changed is invalidated in time, and you can query a point in time | The new belief supersedes the old one, which stays in history. `asOf` reads an earlier instant | A newer keyed fact supersedes the older one for the same key. `keyed_facts_as_of` reads any past date |
 | Date and source | Not in the data model | A timestamp and optional metadata per memory | Episodes keep the provenance of each fact | A `source` object on every fact-bearing record | `as_of`, `evidence` and `authority` on every keyed fact |
@@ -33,7 +33,7 @@ Sources: the reference server's [README](https://github.com/modelcontextprotocol
 
 Four details in those pages decide most of the choice.
 
-**A file on one machine is a memory for one machine.** The reference server describes itself as a basic implementation of persistent memory on a local knowledge graph. Each client starts its own server process and the file is on that machine's disk. By default it is `memory.jsonl` in the server's own directory, so set `MEMORY_FILE_PATH` to an absolute path that you back up. The README also says a file on a network filesystem is not safe, which rules out a shared drive as the way to give a second machine the same memory.
+**A file on one machine is a memory for one machine.** The reference server describes itself as a basic implementation of persistent memory on a local knowledge graph. Each client starts its own server process and the file is on that machine's disk. By default it is `memory.jsonl` in the server's own directory, so set `MEMORY_FILE_PATH` to an absolute path that you back up. Two processes can share the file through a lock, but the README says the lock relies on exclusive file creation and that a network filesystem that does not honour it cannot be shared safely. Check yours before you put the file on a shared drive for a second machine.
 
 **A namespace is not a permission.** Graphiti's documentation says so in plain words: the application has to authorize each `group_id` before it passes it. For any product that scopes memory by an ID in the call, ask what stops agent B from passing agent A's ID. Where the server does enforce access, ask a second question: can the agent tell "nothing found" from "not allowed"? SurrealDB documents that a scoped read without a matching grant returns empty and is not refused. ValorBrain's `acl_me` returns the domains the caller can read and a count of documents hidden from it, so an empty answer can be told apart from a missing permission.
 
@@ -91,12 +91,13 @@ Steps 1 and 3 are two keyed facts with the same key and different dates. The exa
     "fact_value": "3",
     "as_of": "2026-11-20",
     "evidence": "the owner changed it in the planning call; was 5 since 2026-11-10",
-    "authority": "human"
+    "authority": "human",
+    "human_order": "Change the webhook retry limit to 3."
   }
 }
 ```
 
-`authority: "human"` holds only when the token that makes the call belongs to the person who decided. Step 4 is one call from the other tool:
+`authority: "human"` needs two things: the person's own words in `human_order`, and a personal token that belongs to that person. Without either, the call is refused with `human_order_refused` and nothing is written. So run steps 1 and 3 from agent A on the owner's token: that is what makes the value protected in step 5. Step 4 is one call from the other tool:
 
 ```json
 {
