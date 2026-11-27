@@ -45,12 +45,13 @@ Com o ValorBrain via MCP, o valor entra com `upsert_keyed_fact`, e o raciocínio
     "fact_value": "3",
     "as_of": "2026-11-20",
     "evidence": "decidido pelo dono na reunião de planejamento",
-    "authority": "human"
+    "authority": "human",
+    "human_order": "Coloca o limite de retry do webhook em 3."
   }
 }
 ```
 
-`authority: "human"` só vale quando o token que faz a chamada pertence à pessoa que decidiu. Um token sem usuário por trás fica limitado a `agent`, então um agente que registra a decisão de outra pessoa deve dizer quem decidiu em `evidence` e deixar essa pessoa confirmar.
+`authority: "human"` exige as palavras da própria pessoa em `human_order`, enviadas com um token pessoal dela; sem qualquer uma das duas coisas, a chamada é recusada com `human_order_refused` e nada é gravado. Num token sem usuário por trás, `designated` é gravado como `agent`, então um agente que registra a decisão de outra pessoa com o próprio token deve gravar como `agent`, dizer quem decidiu em `evidence` e deixar essa pessoa confirmar.
 
 Refaça as cinco perguntas depois de uma semana. As respostas devem mostrar o valor e a data. `keyed_facts_as_of` permite conferir o que era verdade em qualquer dia anterior, que é o jeito mais rápido de descobrir por que um agente fez algo no mês passado.
 

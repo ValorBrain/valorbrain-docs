@@ -114,12 +114,13 @@ Documentos em prosa envelhecem mal; keyed facts carregam uma data e um nível de
     "fact_value": "LFM2.5-Embedding-350M-finetuned-v3",
     "as_of": "2026-08-31",
     "evidence": "systemd unit MODEL_PATH, checked on host",
-    "authority": "human"
+    "authority": "human",
+    "human_order": "O modelo de embedding de produção é o LFM2.5-Embedding-350M-finetuned-v3."
   }
 }
 ```
 
-`authority`: `human` > `designated` > `import` > `agent`. Quando um documento contradiz um keyed fact, o fato vence. Leia com `keyed_facts_as_of` (viagem no tempo: último valor por chave com `as_of <= date`). Quando achar um documento agora *errado*, não apenas lembre do novo valor — `assert_authority_correction` persiste o fato corrigido e marca os valores anteriores como superseded.
+`authority`: `human` > `designated` > `import` > `agent`. `human` exige as palavras da própria pessoa em `human_order`, enviadas com um token pessoal dela; sem qualquer uma das duas coisas, a chamada é recusada com `human_order_refused` e nada é gravado. Um valor que o próprio agente conferiu entra como `agent`. Quando um documento contradiz um keyed fact, o fato vence. Leia com `keyed_facts_as_of` (viagem no tempo: último valor por chave com `as_of <= date`). Quando achar um documento agora *errado*, não apenas lembre do novo valor — `assert_authority_correction` persiste o fato corrigido e marca os valores anteriores como superseded.
 
 ## Maquinaria de confiança
 

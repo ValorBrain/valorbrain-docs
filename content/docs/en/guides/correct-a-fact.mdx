@@ -14,11 +14,14 @@ MCP:
   "fact_key": "docs.public.host",
   "fact_value": "https://docs.valorbrain.com.br",
   "as_of": "2026-08-30",
-  "authority": "human"
+  "authority": "human",
+  "human_order": "The public docs are at https://docs.valorbrain.com.br, not the old host."
 }
 ```
 
-Tool: `upsert_keyed_fact`. For a value that already misled someone,
+Tool: `upsert_keyed_fact`. `human_order` carries the person's words, and
+`authority: "human"` is refused with `human_order_refused` without them or on
+a token that is not theirs. For a value that already misled someone,
 `assert_authority_correction`.
 
 3. Call `memory_used` with `verdict: "corrected"` on the stale docid.

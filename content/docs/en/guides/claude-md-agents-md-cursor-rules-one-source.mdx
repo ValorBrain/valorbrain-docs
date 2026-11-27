@@ -98,12 +98,13 @@ A memory layer puts those two rules in the write itself. With ValorBrain over MC
     "fact_value": "frozen until 2026-12-01; hotfixes need the owner's approval",
     "as_of": "2026-11-24",
     "evidence": "decided by the owner in the Tuesday planning call",
-    "authority": "human"
+    "authority": "human",
+    "human_order": "Freeze production deploys until December 1. Hotfixes need my approval."
   }
 }
 ```
 
-A newer value for the same key replaces the older one. A write with lower authority than the current value waits as a proposal until a person approves it. `keyed_facts_as_of` returns what was in force on any past date, which is how you find out why an agent shipped on Wednesday. `authority: "human"` only holds when the token making the call belongs to the person who decided; an agent recording someone else's decision says who decided in `evidence`.
+A newer value for the same key replaces the older one. A write with lower authority than the current value waits as a proposal until a person approves it. `keyed_facts_as_of` returns what was in force on any past date, which is how you find out why an agent shipped on Wednesday. `authority: "human"` needs the person's own words in `human_order` and a personal token that belongs to them, or the call is refused with `human_order_refused`; an agent recording someone else's decision on its own token writes `authority: "agent"` and says who decided in `evidence`.
 
 The instruction file then keeps only the pointer. This block is the same in `AGENTS.md` for all three tools:
 

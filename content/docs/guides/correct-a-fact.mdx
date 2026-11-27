@@ -14,11 +14,14 @@ MCP:
   "fact_key": "docs.public.host",
   "fact_value": "https://docs.valorbrain.com.br",
   "as_of": "2026-08-30",
-  "authority": "human"
+  "authority": "human",
+  "human_order": "A documentação pública fica em https://docs.valorbrain.com.br, não no host antigo."
 }
 ```
 
-Ferramenta: `upsert_keyed_fact`. Para um valor que já enganou alguém,
+Ferramenta: `upsert_keyed_fact`. `human_order` leva as palavras da pessoa, e
+`authority: "human"` é recusado com `human_order_refused` sem elas ou com um
+token que não é dela. Para um valor que já enganou alguém,
 `assert_authority_correction`.
 
 3. Chame `memory_used` com `verdict: "corrected"` no docid velho.
