@@ -65,6 +65,10 @@ Run it on any candidate. You need two agents in two different tools, for example
 6. **From agent A, write something only A's user should see.** Ask for it from B. It passes if B does not get it. Note whether B can tell that something was withheld.
 7. **Turn machine A off.** Ask B again. Then run the export and open the file.
 
+<a href="/guides/choosing-a-memory-mcp-server-for-a-team-of-agents-en.png">
+  <img src="/guides/choosing-a-memory-mcp-server-for-a-team-of-agents-en.png" alt="The owner decided 3. Agent B writes 10 with no person. The server can replace the value silently (10, decision undone), refuse the write (3 stays) or queue it for a person (3 stays, 10 pending)." width={2400} height={1350} loading="lazy" />
+</a>
+
 Read the result this way:
 
 - Steps 2 and 7 fail: the memory is local to one machine. That is fine for one developer and not for a team.
