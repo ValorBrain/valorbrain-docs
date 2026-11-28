@@ -1,0 +1,161 @@
+---
+title: "Quanto um servidor MCP de memória custa antes da primeira pergunta: meça o tools/list e decida o que carrega"
+description: "Um servidor de memória fica conectado em toda sessão de todo agente, então as definições das ferramentas dele são um custo fixo em todas elas. Um script de 89 linhas que mede isso em qualquer servidor MCP, o que Claude Code, Codex e Cursor documentam sobre carregar ferramentas, a pegadinha que o carregamento adiado cria para um servidor que o agente precisa chamar primeiro, e os números do próprio ValorBrain."
+---
+
+A maioria dos servidores MCP se paga de vez em quando numa sessão. O do navegador importa quando a tarefa tem uma página, o do tracker quando tem um ticket. Um servidor de memória é diferente: você conecta em todos os agentes, em todas as ferramentas, e quer que ele seja chamado antes da primeira resposta de toda sessão. O que as definições das ferramentas dele custarem, o time paga em todas as sessões.
+
+Esse custo é fácil de medir e quase ninguém mede. Este guia mede em dois servidores, mostra o que os três principais harnesses de código documentam sobre carregar definições de ferramenta e trata da parte que é específica de memória: quando o harness deixa de carregar as definições logo de início, o agente precisa descobrir por outro caminho que deveria consultar a memória.
+
+## O que o servidor manda antes de alguém digitar
+
+Duas respostas do servidor podem chegar ao modelo antes da primeira mensagem:
+
+- **`initialize`** devolve um texto opcional, `instructions`. O schema do MCP chama esse texto de dica para o modelo e diz que ele "MAY be added to the system prompt", ou seja, pode ir para o prompt de sistema.
+- **`tools/list`** devolve cada ferramenta com `name`, `description` e `inputSchema`. Um cliente que carrega as ferramentas de início repassa tudo isso em cada requisição.
+
+As duas são fixas: não dependem da tarefa. O que uma chamada de ferramenta devolve é a parte variável, e é a que você já controla com limites e orçamentos.
+
+## Meça
+
+O script é um arquivo só, sem dependências. Fala MCP por Streamable HTTP ou por stdio, chama `initialize` e `tools/list` e imprime os tamanhos. Leia antes de rodar, porque ele vai receber o seu token: [mcp-tools-cost.mjs](/guides/mcp-tools-cost.mjs).
+
+```bash
+curl -fsSLO https://docs.valorbrain.com.br/guides/mcp-tools-cost.mjs
+
+# um servidor remoto
+MCP_URL=https://mcpbrain.valor.digital/mcp MCP_TOKEN=$VALORBRAIN_MCP_TOKEN node mcp-tools-cost.mjs
+
+# um servidor local, por stdio
+node mcp-tools-cost.mjs -- npx -y @modelcontextprotocol/server-memory
+```
+
+Para cada ferramenta ele mede o JSON que um cliente repassa (`name`, `description`, `input_schema`) e soma. Esta é a saída para o ValorBrain, com um token criado sem conta:
+
+```text
+valorbrain 1.1.0+b4965b34
+tools:               36
+definitions:         27069 chars ≈ 6767 tokens
+names only:          482 chars ≈ 121 tokens
+server instructions: 2680 chars ≈ 670 tokens
+largest five:
+  task_state                       1434 chars ≈ 359 tokens
+  memory_used                      1388 chars ≈ 347 tokens
+  commitments                      1281 chars ≈ 320 tokens
+  assert_authority_correction      1257 chars ≈ 314 tokens
+  memory_retrieve                  1240 chars ≈ 310 tokens
+```
+
+Os tokens são caracteres divididos por quatro. É uma estimativa: a contagem real depende do tokenizador do modelo e de como o harness embrulha cada definição. Use a estimativa para comparar servidores e configurações. Para o número real numa sessão do Claude Code, rode `/context`.
+
+Com `SHOW_INSTRUCTIONS=1` ele também imprime o texto das instruções. Você vai precisar dele mais abaixo.
+
+## Dois servidores, medidos
+
+Os dois medidos em 28 de novembro de 2026, entre 10h12 e 10h18 (UTC-3), com o script acima.
+
+| | ValorBrain, conjunto padrão | Servidor de memória de referência do MCP 2.2.2 |
+|---|---|---|
+| Ferramentas | 36 | 9 |
+| Definições | 27.069 caracteres ≈ 6.767 tokens | 8.047 caracteres ≈ 2.012 tokens |
+| Só os nomes | 482 caracteres ≈ 121 tokens | 138 caracteres ≈ 35 tokens |
+| Instruções do servidor | 2.680 caracteres ≈ 670 tokens | nenhuma |
+
+O servidor de referência, `@modelcontextprotocol/server-memory`, se descreve como "a basic implementation of persistent memory using a local knowledge graph", para as conversas de um usuário. O conjunto padrão do ValorBrain também carrega fatos com data, correções, estado de tarefa e handoffs entre agentes. Os dois fazem trabalhos diferentes, então esta tabela não diz nada sobre qual dos dois lembra melhor. Ela compara o que cada um põe no contexto antes de qualquer trabalho, e nessa conta o nosso tem 3,4 vezes o tamanho.
+
+Para ver quanto a parte fixa soma, pegue uma semana do nosso próprio workspace: 1.474 tarefas de agentes concluídas nos últimos 7 dias (medido em 28/11/2026 às 10h07, UTC-3). Se cada uma abrisse uma sessão com as 36 definições carregadas de início, seriam uns 10 milhões de tokens estimados de definição de ferramenta na semana (1.474 × 6.767), antes de qualquer pergunta. Só com os nomes e as instruções no início, seriam uns 1,2 milhão (1.474 × 791). Isso é multiplicação. Não medimos essas sessões. Se você paga preço cheio pelas definições a cada turno depende do cache de prompt do seu harness e do seu provedor. O espaço na janela de contexto fica ocupado de qualquer jeito.
+
+## O que o seu harness faz com a lista
+
+Lido na documentação de cada produto em 28 de novembro de 2026.
+
+O **Claude Code** adia as ferramentas MCP por padrão. A documentação diz: "Only tool names and server instructions load at session start", e o Claude carrega uma definição por uma etapa de busca quando a tarefa pede. Não há limite fixo de ferramentas por servidor. Três detalhes importam aqui:
+
+- As instruções do servidor, e a descrição de qualquer ferramenta carregada de início, são cortadas em 4.096 caracteres. Antes da v2.1.296 o limite era 2.048. O Claude só vê o texto antes do corte.
+- `ENABLE_TOOL_SEARCH` muda o comportamento: sem valor ou `true` adia, `auto` carrega as ferramentas de início enquanto as definições somam menos de 10% da janela de contexto, `auto:N` define outra porcentagem, `false` carrega tudo de início.
+- Tudo carrega de início de qualquer forma em modelos anteriores ao Opus 4 e ao Sonnet 4, nos modelos mais antigos do Agent Platform do Google Cloud, em deployments do Microsoft Foundry hospedados no Azure, quando `ToolSearch` está negado nas permissões e quando `CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS` está definida.
+
+Dá para tirar um servidor do adiamento na configuração dele:
+
+```json
+{
+  "mcpServers": {
+    "valorbrain": {
+      "type": "http",
+      "url": "https://mcpbrain.valor.digital/mcp",
+      "headers": { "Authorization": "Bearer ${VALORBRAIN_MCP_TOKEN}" },
+      "alwaysLoad": true
+    }
+  }
+}
+```
+
+A documentação recomenda isso "for a small number of tools that Claude needs on every turn" e avisa que a inicialização passa a esperar por esse servidor, até o limite de 5 segundos de conexão. Quem escreve o servidor também pode marcar uma ferramenta só com `"anthropic/alwaysLoad": true` no `_meta` dela.
+
+O **Codex** documenta uma lista de permitidas e uma de negadas por servidor no `config.toml`. A página não descreve adiamento, então o corte é feito à mão:
+
+```toml
+[mcp_servers.valorbrain]
+url = "https://mcpbrain.valor.digital/mcp"
+bearer_token_env_var = "VALORBRAIN_MCP_TOKEN"
+enabled_tools = [
+  "memory_prepare", "memory_retrieve", "memory_grep", "multi_get",
+  "memory_store", "upsert_keyed_fact", "assert_authority_correction",
+  "memory_used", "team_handoff",
+]
+```
+
+Essas nove definições medem 9.135 caracteres, uns 2.284 tokens estimados, um terço do conjunto inteiro. A troca é simples: o agente não consegue chamar o que você deixou de fora, e as instruções do servidor que citam uma ferramenta removida passam a apontar para algo que ele não alcança.
+
+**Cursor**: nas duas páginas de MCP que lemos, não encontramos configuração de adiamento nem de limite de ferramentas. O corte é à mão. A página de ajuda diz "Toggle tools on or off by clicking the tool name in the tools list at the top of the chat panel", e a de documentação diz que um servidor desativado "won't load or appear in chat", o que ela sugere para "reducing tool clutter". No plano Enterprise, o admin pode definir uma política de MCP para o time.
+
+## A pegadinha para um servidor de memória
+
+O adiamento serve bem à maioria dos servidores. O usuário cita um ticket, o modelo busca as ferramentas de ticket, a definição carrega. Só que ninguém abre uma sessão pedindo ao agente que consulte a memória do time. Perguntam como se chama o banco de staging, e ele precisa saber, sem ninguém avisar, que existe um lugar para olhar antes de responder. Com as definições adiadas, o que ele tem em mãos é uma lista de nomes de ferramenta e as instruções do servidor.
+
+Então, para um servidor de memória, quatro coisas decidem se ele é chamado:
+
+1. **Onde a regra de chamar primeiro está nas instruções do servidor.** O texto é cortado num tamanho fixo, então uma regra no último parágrafo pode ser justamente a parte perdida. Rode o script com `SHOW_INSTRUCTIONS=1`, ache a frase que manda o agente consultar a memória primeiro e conte em que caractere ela começa.
+2. **O que os nomes das ferramentas dizem sozinhos.** Numa sessão com adiamento, o nome é tudo o que o modelo vê de uma ferramenta. Um nome que diz para que a ferramenta serve entrega mais do que um que não diz. E nome custa pouco: os nossos 36 somam uns 121 tokens estimados.
+3. **Se alguma coisa além do modelo dispara a leitura.** Uma regra no arquivo que o seu harness sempre carrega (`CLAUDE.md`, `AGENTS.md`, `.cursor/rules`) não depende de definição de ferramenta nenhuma. Um hook que roda no início da sessão ou a cada prompt vai além: a memória chega como contexto, tenha o modelo pensado em pedir ou não.
+4. **Se você tira o servidor do adiamento.** `alwaysLoad` põe o conjunto inteiro de volta na janela. Para um servidor de memória é uma escolha razoável, e agora você sabe quanto ela custa.
+
+Depois teste, porque nada disso é garantia. Abra uma sessão nova e faça uma pergunta cuja resposta só existe na memória, sem falar em memória. O agente chamou o servidor antes de responder? Faça cinco vezes com adiamento e cinco com o servidor fora dele, e conte.
+
+## As mesmas perguntas no ValorBrain
+
+**A parte fixa.** Tokens MCP novos recebem o conjunto `agent`: as 36 ferramentas medidas acima. Os conjuntos `graph` e `ops` são aditivos e um token só os enxerga quando foi criado com eles, então um agente de trabalho não carrega por padrão as ferramentas de grafo e de manutenção. Tokens criados antes de 17/08/2026 veem tudo. A lista completa está no [catálogo gerado](/docs/api/generated-mcp), e os conjuntos na [Referência das ferramentas MCP](/docs/api/mcp-tools).
+
+**As instruções.** Abrem com um bloco curto sobre a conexão (workspace, agente, escopos) e depois vêm as regras. Na conexão que medimos, a primeira regra começa perto do caractere 800:
+
+> Remember — call `memory_prepare` FIRST at session start, before acting on assumptions about this operation and before asking the human what memory may already hold
+
+O texto inteiro mediu 2.680 caracteres, então cabe nos 4.096 do Claude Code. No Claude Code anterior à v2.1.296, com o limite de 2.048, o corte cai dentro da terceira regra: perdem-se as regras de passar trabalho a um colega e de perguntar a uma pessoa, a linha sobre reportar defeito e a de credenciais.
+
+Numa conexão em uso o texto é maior. Depois das regras, o servidor acrescenta até 800 caracteres de avisos pendentes para o agente e depois um resumo curto do estado do workspace (metas abertas, repasses, o próximo passo do agente). O texto inteiro tem teto de 3.900 caracteres, então fica abaixo do corte de 4.096. O que não cabe sai dos avisos e do resumo, e as regras nunca são cortadas. A nossa primeira conexão do dia trazia um aviso e mediu 3.376 caracteres.
+
+**Sem depender do modelo.** O `@valorbrain/connect` escreve o mesmo ciclo no arquivo de instruções do harness e instala hooks. No Claude Code, no Codex, no Gemini CLI e no Kiro, um hook roda no início da sessão e a cada prompt, e o harness espera a resposta, até 4 segundos, porque ela vira contexto. O Cursor tem hook de início de sessão e não tem hook de prompt. O que esses hooks enviam e como desligá-los está em [O que sai da sua máquina](/docs/concepts/what-leaves-your-machine).
+
+**A parte variável.** `memory_prepare` aceita um `recall_budget` em tokens, 600 por padrão, e `fast_mode` pula parte da recuperação. `memory_retrieve` devolve trechos, com `snippet_chars` definindo o tamanho, e você busca o documento inteiro só quando o trecho não basta. Os dois estão no [Cookbook MCP](/docs/guides/mcp-cookbook).
+
+## O que o ValorBrain não faz
+
+- **Não é a opção pequena.** O conjunto padrão custa umas 3,4 vezes o do servidor de referência em definições. Se o seu harness carrega tudo de início e você quer as anotações de um usuário entre conversas, o servidor menor sai mais barato.
+- **Não tem versão enxuta do `agent`.** Os conjuntos são `agent`, `graph` e `ops`, e eles se somam: `graph` e `ops` trazem outras ferramentas, não um pedaço do `agent`. Para carregar nove ferramentas em vez de 36, corte no cliente, como no exemplo do Codex, e aceite que as instruções vão citar ferramentas que o agente não consegue chamar.
+- **Não marca nenhuma ferramenta para carregar de início.** Nenhuma entrada do `tools/list` trazia `_meta` quando medimos, então no Claude Code até o `memory_prepare` fica adiado, a não ser que você ponha `alwaysLoad` no servidor.
+- **As instruções não cabem no limite antigo de 2.048 caracteres.** Só as regras têm 2.088 caracteres. No Claude Code anterior à v2.1.296 as últimas regras são cortadas, como descrito acima.
+- **Não medimos tokens reais dentro de um harness.** Todo número de token nesta página é caractere dividido por quatro. O número em que confiar é o do seu `/context`.
+- **Não medimos quantas vezes um agente chama a memória com e sem adiamento.** O teste de cinco e cinco acima é para você rodar na sua configuração. Se a chamada não acontecer aí, reporte com a ferramenta `feedback`.
+
+## Checklist
+
+- Você rodou o script no seu servidor de memória e anotou ferramentas, tamanho das definições, tamanho dos nomes e tamanho das instruções.
+- Você sabe se o seu harness carrega as definições de início ou adia, e com qual configuração.
+- Você achou a regra de chamar primeiro nas instruções do servidor, e ela começa bem antes do corte.
+- Uma regra no arquivo de instruções, ou um hook, dispara a leitura da memória sem depender de uma definição de ferramenta estar carregada.
+- Se você tirou o servidor de memória do adiamento, fez isso sabendo quanto custa por sessão.
+- Você fez cinco perguntas que só a memória responde, em sessões novas, e contou quantas vezes ela foi consultada.
+
+Fontes, lidas em 28 de novembro de 2026: Claude Code, [Connect Claude Code to tools via MCP](https://code.claude.com/docs/en/mcp), seção "Scale with MCP tool search"; Codex, [Model Context Protocol](https://developers.openai.com/codex/mcp); Cursor, [Model Context Protocol](https://cursor.com/docs/mcp) e [ajuda de MCP](https://cursor.com/help/customization/mcp); Model Context Protocol, [schema, `InitializeResult`](https://modelcontextprotocol.io/specification/2025-06-18/schema) e [Tools](https://modelcontextprotocol.io/specification/2025-06-18/server/tools); o [Knowledge Graph Memory Server](https://github.com/modelcontextprotocol/servers/tree/main/src/memory) de referência. A contagem do nosso workspace vem de [team.valorbra.in](https://team.valorbra.in/), com os números brutos em [team.valorbra.in/data.json](https://team.valorbra.in/data.json).
+
+Próximos: [Como escolher um servidor MCP de memória para um time de agentes](/docs/guides/choosing-a-memory-mcp-server-for-a-team-of-agents), [CLAUDE.md, AGENTS.md e .cursor/rules no mesmo repositório](/docs/guides/claude-md-agents-md-cursor-rules-one-source) para onde vai a regra de chamar primeiro, e [Dimensionar uma camada de memória para um time de agentes](/docs/guides/size-memory-layer-for-agent-team) para o custo das chamadas em si.
