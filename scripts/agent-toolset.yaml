@@ -1,0 +1,124 @@
+# Descriptions for the agent toolset tables in content/docs/mcp/tools.mdx and
+# content/docs/en/mcp/tools.mdx. The tool NAMES are not decided here: they come
+# from the engine (visibleToolNames("agent") in src/tool-catalog.ts), and
+# scripts/generate-reference.py fails when this file misses a tool the engine
+# shows to an agent token, names one it does not show, or names one twice.
+# A new agent tool in the engine = one row here, en + pt, then `bun run generate`.
+#
+# Rows keep this order; one row may hold several tools (`get` / `multi_get`).
+groups:
+  - title:
+      en: Recall
+      pt: Recall
+    rows:
+      - tools: [memory_retrieve]
+        en: "One well-formed question. Server expands and fuses. REST twin: `POST /search`."
+        pt: "Uma pergunta bem formada. O servidor expande e funde. Gêmea REST: `POST /search`."
+      - tools: [memory_prepare]
+        en: "Assemble context for a task. REST twin: `POST /api/v1/memory/prepare`."
+        pt: "Montar contexto para uma tarefa. Gêmea REST: `POST /api/v1/memory/prepare`."
+      - tools: [working_context]
+        en: "Cheapest session start: stable facts + recent decisions."
+        pt: "Início de sessão mais barato: fatos estáveis + decisões recentes."
+      - tools: [memory_recent]
+        en: "What an agent did lately: its decisions, milestones, handoffs and lessons, newest first. REST twin: `GET /api/v1/memory/team-activity`."
+        pt: "O que um agente fez por último: decisões, marcos, handoffs e lições dele, do mais novo ao mais antigo. Gêmea REST: `GET /api/v1/memory/team-activity`."
+      - tools: [memory_grep]
+        en: "Exact string, id, date, key."
+        pt: "String exata, id, data, chave."
+      - tools: [get, multi_get]
+        en: "Full body of a doc you already found."
+        pt: "Corpo completo de um doc que você já achou."
+      - tools: [keyed_facts_as_of]
+        en: "Time-travel fact snapshots."
+        pt: "Snapshots de fatos com viagem no tempo."
+      - tools: [mental_models]
+        en: "A standing answer to a recurring question, served by `memory_prepare` without an LLM call. Behind the `mental_models` flag, off by default."
+        pt: "Resposta permanente para uma pergunta recorrente, servida pelo `memory_prepare` sem chamar LLM. Atrás da flag `mental_models`, desligada por padrão."
+
+  - title:
+      en: Write and correct
+      pt: Escrita e correção
+    rows:
+      - tools: [memory_store]
+        en: "Typed durable outcome (`decision`, `problem`, `lesson`, …)."
+        pt: "Resultado durável e tipado (`decision`, `problem`, `lesson`, …)."
+      - tools: [memory_used]
+        en: "Declare docids you actually relied on. Optional `verdict`."
+        pt: "Declarar os docids em que você realmente se apoiou. `verdict` opcional."
+      - tools: [upsert_keyed_fact]
+        en: "Write a dated fact snapshot."
+        pt: "Escrever um snapshot de fato datado."
+      - tools: [assert_authority_correction]
+        en: "Correct a wrong value so the next session sees the truth."
+        pt: "Corrigir um valor errado para a próxima sessão ver a verdade."
+      - tools: [authority_restore_demotion]
+        en: "Undo what an authority correction did to prose: restores confidence, un-hides docs, cancels pending work. The keyed fact stays."
+        pt: "Desfazer o que uma correção de autoridade fez no texto: restaura a confiança, volta a mostrar os docs e cancela o trabalho pendente. O fato com chave fica."
+      - tools: [record_lesson]
+        en: "A takeaway that should change future behaviour."
+        pt: "Um aprendizado que deve mudar comportamento futuro."
+      - tools: [memory_curate]
+        en: "pin / snooze / unpin / unsnooze."
+        pt: "pin / snooze / unpin / unsnooze."
+      - tools: [memory_forget]
+        en: "Least reversible write — standalone on purpose."
+        pt: "A escrita menos reversível — standalone de propósito."
+      - tools: [append_entity_card]
+        en: "KG write path agents actually use."
+        pt: "Caminho de escrita no KG que agentes realmente usam."
+      - tools: [entity_cards]
+        en: "List entity cards; propose, merge or reject an alias (the tenant decides)."
+        pt: "Listar os cards de entidade; propor, juntar ou rejeitar um apelido (o tenant decide)."
+      - tools: [diary]
+        en: "Agent diary read/write."
+        pt: "Leitura/escrita do diário do agente."
+
+  - title:
+      en: Working state and team
+      pt: Estado de trabalho e time
+    rows:
+      - tools: [task_state]
+        en: "Goal / progress ledger."
+        pt: "Ledger de objetivo / progresso."
+      - tools: [commitments]
+        en: "Promises made to people outside the company: record by key, close with a reason, list open / due / overdue. REST twin: `GET/POST /api/v1/commitments`."
+        pt: "Promessas feitas a quem é de fora da empresa: gravar por chave, fechar com motivo, listar abertas / a vencer / atrasadas. Gêmea REST: `GET/POST /api/v1/commitments`."
+      - tools: [team_briefing]
+        en: "Inbox, handoffs, mission."
+        pt: "Inbox, handoffs, missão."
+      - tools: [team_handoff]
+        en: "create / consume."
+        pt: "create / consume."
+      - tools: [team_inbox, team_message, team_notify_human, team_roster]
+        en: "Team OS (no-op if the tenant has no members)."
+        pt: "Team OS (no-op se o tenant não tem membros)."
+      - tools: [episodes]
+        en: "list / get episodic memories."
+        pt: "list / get de memórias episódicas."
+      - tools: [notifications]
+        en: "check / mark_read."
+        pt: "check / mark_read."
+      - tools: [list_lessons]
+        en: "Lessons recorded for this tenant."
+        pt: "Lições gravadas para este tenant."
+
+  - title:
+      en: Identity, access and support
+      pt: Identidade, acesso e suporte
+    rows:
+      - tools: [whoami]
+        en: "Confirm tenant / user / agent. HTTP-only."
+        pt: "Confirmar tenant / usuário / agente. Só HTTP."
+      - tools: [acl_me]
+        en: "Your effective access domains, the grant behind each one, and how many docs you cannot see. A missing domain is a permission, not a ranking miss. REST twin: `GET /api/v1/acl/me`."
+        pt: "Seus domínios de acesso efetivos, a permissão por trás de cada um e quantos docs você não vê. Domínio faltando é permissão, não erro de ranking. Gêmea REST: `GET /api/v1/acl/me`."
+      - tools: [memory_health]
+        en: "Index and pipeline health."
+        pt: "Saúde do índice e do pipeline."
+      - tools: [secrets]
+        en: "Vault: memory keeps only `secret://<name>`, the value comes out through `get`, which is audited. Needs the `secrets:read` / `secrets:write` scopes."
+        pt: "Cofre: a memória guarda só `secret://<nome>`, o valor sai pelo `get`, que é auditado. Exige os escopos `secrets:read` / `secrets:write`."
+      - tools: [feedback]
+        en: "Report a product defect to the ValorBrain team (`submit` returns an `FB-` id) and follow it up (`check`)."
+        pt: "Reportar um defeito do produto ao time do ValorBrain (`submit` devolve um id `FB-`) e acompanhar (`check`)."

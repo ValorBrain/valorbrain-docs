@@ -89,7 +89,7 @@ Type picks the semantics:
 
 Title 5–200 chars (it is what search shows); content ≥ 20 chars — include context, reasoning, evidence, not just the conclusion. `visibility: "private"` hides the memory from the rest of the tenant (ownership stays yours); tenant-shared is the default and the product.
 
-Do not store: chat transcripts (ingested automatically), raw file contents, scratch notes — `scratchpad` exists for ephemera and is never indexed.
+Do not store: chat transcripts (ingested automatically), raw file contents, scratch notes — session working state goes in `task_state`.
 
 ### 4. Declare usage
 
