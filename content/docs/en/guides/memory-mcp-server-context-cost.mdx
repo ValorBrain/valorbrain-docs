@@ -1,6 +1,6 @@
 ---
 title: "What a memory MCP server costs before the first question: measure tools/list, then decide what loads"
-description: "A memory server is connected in every session of every agent, so its tool definitions are a fixed cost on all of them. A 90-line script that measures it on any MCP server, what Claude Code, Codex and Cursor document about loading tools, the catch that deferral creates for a server the agent has to call first, and ValorBrain's own numbers."
+description: "A memory server is connected in every session of every agent, so its tool definitions are a fixed cost on all of them. An 89-line script that measures it on any MCP server, what Claude Code, Codex and Cursor document about loading tools, the catch that deferral creates for a server the agent has to call first, and ValorBrain's own numbers."
 ---
 
 Most MCP servers earn their place in a session now and then. The browser server matters when the task has a page in it, and the tracker server when there is a ticket. A memory server is different: you connect it to every agent, in every tool, and you want it called before the first answer of every session. Whatever its tool definitions cost, the team pays that on all of its sessions.
@@ -73,7 +73,7 @@ Read in each product's own docs on November 28, 2026.
 
 - Server instructions, and the description of any tool that loads upfront, are cut at 4,096 characters. Before v2.1.296 the limit was 2,048. Claude sees only the text before the cut.
 - `ENABLE_TOOL_SEARCH` changes the behavior: unset or `true` defers, `auto` loads tools upfront while their definitions total under 10% of the context window, `auto:N` sets another percentage, `false` loads everything upfront.
-- Everything loads upfront anyway on models earlier than Opus 4 and Sonnet 4, on Microsoft Foundry deployments hosted on Azure, and when `ToolSearch` is denied in permissions.
+- Everything loads upfront anyway on models earlier than Opus 4 and Sonnet 4, on the earlier models of Google Cloud's Agent Platform, on Microsoft Foundry deployments hosted on Azure, when `ToolSearch` is denied in permissions, and when `CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS` is set.
 
 One server can be exempted from deferral in its configuration:
 
@@ -107,7 +107,7 @@ enabled_tools = [
 
 Those nine definitions measure 9,135 characters, about 2,284 estimated tokens, a third of the full set. The trade is plain: the agent cannot call what you left out, and server instructions that mention a removed tool now point at something it cannot reach.
 
-**Cursor**: in the two MCP pages we read, we found no setting for deferral or for a tool limit. Trimming is by hand. The help page says "Toggle tools on or off by clicking the tool name in the tools list at the top of the chat panel", and the docs page says a disabled server "won't load or appear in chat", which it suggests for "reducing tool clutter". Enterprise admins can set which servers and tools a team may run.
+**Cursor**: in the two MCP pages we read, we found no setting for deferral or for a tool limit. Trimming is by hand. The help page says "Toggle tools on or off by clicking the tool name in the tools list at the top of the chat panel", and the docs page says a disabled server "won't load or appear in chat", which it suggests for "reducing tool clutter". Enterprise admins can set an MCP policy for the team.
 
 ## The catch for a memory server
 
@@ -126,11 +126,13 @@ Then test it, because none of the above is a guarantee. Open a fresh session and
 
 **The fixed part.** New MCP tokens get the `agent` toolset: the 36 tools measured above. The `graph` and `ops` toolsets are additive and a token only sees them when it was created with them, so a working agent does not carry the knowledge-graph and maintenance tools by default. Tokens created before 2026-08-17 see everything. The full list is in the [generated catalog](/en/docs/api/generated-mcp), and the toolsets in [MCP tools](/en/docs/api/mcp-tools).
 
-**The instructions.** They open with a short block about the connection (workspace, agent, scopes), and then the rules. The first rule begins about 820 characters in:
+**The instructions.** They open with a short block about the connection (workspace, agent, scopes), and then the rules. On the connection we measured, the first rule begins about 800 characters in:
 
 > Remember — call `memory_prepare` FIRST at session start, before acting on assumptions about this operation and before asking the human what memory may already hold
 
-The whole text measured 2,680 characters, so it fits under Claude Code's 4,096. On Claude Code before v2.1.296, with the 2,048 limit, the cut falls inside the third rule: the rules about handing work to a teammate and asking a person, the line about reporting defects and the one about credentials are lost. Pending notifications for the agent are appended to the same text. Our first connection of the day carried one and measured 3,376 characters. In what we saw the notice came after the rules, so a long queue of notices would lose notices, not rules.
+The whole text measured 2,680 characters, so it fits under Claude Code's 4,096. On Claude Code before v2.1.296, with the 2,048 limit, the cut falls inside the third rule: the rules about handing work to a teammate and asking a person, the line about reporting defects and the one about credentials are lost.
+
+On a working connection the text is longer. After the rules, the server adds up to 800 characters of pending notices for the agent and then a short brief of the workspace's state (open goals, handoffs, the agent's next step). It caps the whole text at 3,900 characters, so it stays under the 4,096 cut. What does not fit is dropped from the notices and the brief, and the rules are never cut. Our first connection of the day carried one notice and measured 3,376 characters.
 
 **Not depending on the model.** `@valorbrain/connect` writes the same loop into the harness's instruction file and installs hooks. On Claude Code, Codex, Gemini CLI and Kiro, a hook runs at session start and on each prompt, and the harness waits for the answer, up to 4 seconds, because the answer becomes context. Cursor has a session-start hook and no prompt hook. What those hooks send and how to turn them off is in [What leaves your machine](/en/docs/concepts/what-leaves-your-machine).
 
@@ -139,9 +141,9 @@ The whole text measured 2,680 characters, so it fits under Claude Code's 4,096. 
 ## What ValorBrain does not do
 
 - **It is not the small option.** The default set costs about 3.4 times the reference server's in definitions. If your harness loads everything upfront and you want one user's notes across chats, the smaller server is the cheaper fit.
-- **It has no toolset smaller than `agent`.** The docs list `agent`, `graph` and `ops`. To load nine tools instead of 36, trim on the client, as in the Codex example, and accept that the instructions will mention tools the agent cannot call.
+- **It has no trimmed version of `agent`.** The toolsets are `agent`, `graph` and `ops`, and they add up: `graph` and `ops` hold other tools, not a subset of `agent`. To load nine tools instead of 36, trim on the client, as in the Codex example, and accept that the instructions will mention tools the agent cannot call.
 - **It does not mark any tool to load upfront.** No entry in `tools/list` carried `_meta` when we measured, so in Claude Code even `memory_prepare` is deferred unless you set `alwaysLoad` for the server.
-- **Its instructions do not fit the older 2,048-character limit.** On Claude Code before v2.1.296 the last rules are cut, as described above.
+- **Its instructions do not fit the older 2,048-character limit.** The rules alone are 2,088 characters. On Claude Code before v2.1.296 the last rules are cut, as described above.
 - **We did not measure real tokens inside a harness.** Every token figure on this page is characters divided by four. Your `/context` is the number to trust.
 - **We did not measure how often an agent calls the memory with deferral on and off.** The five-and-five test above is yours to run on your own setup. If the call does not happen there, report it with the `feedback` tool.
 

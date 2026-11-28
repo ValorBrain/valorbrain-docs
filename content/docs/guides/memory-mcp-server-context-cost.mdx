@@ -1,6 +1,6 @@
 ---
 title: "Quanto um servidor MCP de memória custa antes da primeira pergunta: meça o tools/list e decida o que carrega"
-description: "Um servidor de memória fica conectado em toda sessão de todo agente, então as definições das ferramentas dele são um custo fixo em todas elas. Um script de 90 linhas que mede isso em qualquer servidor MCP, o que Claude Code, Codex e Cursor documentam sobre carregar ferramentas, a pegadinha que o carregamento adiado cria para um servidor que o agente precisa chamar primeiro, e os números do próprio ValorBrain."
+description: "Um servidor de memória fica conectado em toda sessão de todo agente, então as definições das ferramentas dele são um custo fixo em todas elas. Um script de 89 linhas que mede isso em qualquer servidor MCP, o que Claude Code, Codex e Cursor documentam sobre carregar ferramentas, a pegadinha que o carregamento adiado cria para um servidor que o agente precisa chamar primeiro, e os números do próprio ValorBrain."
 ---
 
 A maioria dos servidores MCP se paga de vez em quando numa sessão. O do navegador importa quando a tarefa tem uma página, o do tracker quando tem um ticket. Um servidor de memória é diferente: você conecta em todos os agentes, em todas as ferramentas, e quer que ele seja chamado antes da primeira resposta de toda sessão. O que as definições das ferramentas dele custarem, o time paga em todas as sessões.
@@ -73,7 +73,7 @@ O **Claude Code** adia as ferramentas MCP por padrão. A documentação diz: "On
 
 - As instruções do servidor, e a descrição de qualquer ferramenta carregada de início, são cortadas em 4.096 caracteres. Antes da v2.1.296 o limite era 2.048. O Claude só vê o texto antes do corte.
 - `ENABLE_TOOL_SEARCH` muda o comportamento: sem valor ou `true` adia, `auto` carrega as ferramentas de início enquanto as definições somam menos de 10% da janela de contexto, `auto:N` define outra porcentagem, `false` carrega tudo de início.
-- Tudo carrega de início de qualquer forma em modelos anteriores ao Opus 4 e ao Sonnet 4, em deployments do Microsoft Foundry hospedados no Azure e quando `ToolSearch` está negado nas permissões.
+- Tudo carrega de início de qualquer forma em modelos anteriores ao Opus 4 e ao Sonnet 4, nos modelos mais antigos do Agent Platform do Google Cloud, em deployments do Microsoft Foundry hospedados no Azure, quando `ToolSearch` está negado nas permissões e quando `CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS` está definida.
 
 Dá para tirar um servidor do adiamento na configuração dele:
 
@@ -107,7 +107,7 @@ enabled_tools = [
 
 Essas nove definições medem 9.135 caracteres, uns 2.284 tokens estimados, um terço do conjunto inteiro. A troca é simples: o agente não consegue chamar o que você deixou de fora, e as instruções do servidor que citam uma ferramenta removida passam a apontar para algo que ele não alcança.
 
-**Cursor**: nas duas páginas de MCP que lemos, não encontramos configuração de adiamento nem de limite de ferramentas. O corte é à mão. A página de ajuda diz "Toggle tools on or off by clicking the tool name in the tools list at the top of the chat panel", e a de documentação diz que um servidor desativado "won't load or appear in chat", o que ela sugere para "reducing tool clutter". No plano Enterprise, o admin define quais servidores e ferramentas o time pode rodar.
+**Cursor**: nas duas páginas de MCP que lemos, não encontramos configuração de adiamento nem de limite de ferramentas. O corte é à mão. A página de ajuda diz "Toggle tools on or off by clicking the tool name in the tools list at the top of the chat panel", e a de documentação diz que um servidor desativado "won't load or appear in chat", o que ela sugere para "reducing tool clutter". No plano Enterprise, o admin pode definir uma política de MCP para o time.
 
 ## A pegadinha para um servidor de memória
 
@@ -126,11 +126,13 @@ Depois teste, porque nada disso é garantia. Abra uma sessão nova e faça uma p
 
 **A parte fixa.** Tokens MCP novos recebem o conjunto `agent`: as 36 ferramentas medidas acima. Os conjuntos `graph` e `ops` são aditivos e um token só os enxerga quando foi criado com eles, então um agente de trabalho não carrega por padrão as ferramentas de grafo e de manutenção. Tokens criados antes de 17/08/2026 veem tudo. A lista completa está no [catálogo gerado](/docs/api/generated-mcp), e os conjuntos na [Referência das ferramentas MCP](/docs/api/mcp-tools).
 
-**As instruções.** Abrem com um bloco curto sobre a conexão (workspace, agente, escopos) e depois vêm as regras. A primeira regra começa perto do caractere 820:
+**As instruções.** Abrem com um bloco curto sobre a conexão (workspace, agente, escopos) e depois vêm as regras. Na conexão que medimos, a primeira regra começa perto do caractere 800:
 
 > Remember — call `memory_prepare` FIRST at session start, before acting on assumptions about this operation and before asking the human what memory may already hold
 
-O texto inteiro mediu 2.680 caracteres, então cabe nos 4.096 do Claude Code. No Claude Code anterior à v2.1.296, com o limite de 2.048, o corte cai dentro da terceira regra: perdem-se as regras de passar trabalho a um colega e de perguntar a uma pessoa, a linha sobre reportar defeito e a de credenciais. Notificações pendentes para o agente são anexadas ao mesmo texto. A nossa primeira conexão do dia trazia uma e mediu 3.376 caracteres. No que vimos, o aviso veio depois das regras, então uma fila longa de avisos perderia avisos, e não regras.
+O texto inteiro mediu 2.680 caracteres, então cabe nos 4.096 do Claude Code. No Claude Code anterior à v2.1.296, com o limite de 2.048, o corte cai dentro da terceira regra: perdem-se as regras de passar trabalho a um colega e de perguntar a uma pessoa, a linha sobre reportar defeito e a de credenciais.
+
+Numa conexão em uso o texto é maior. Depois das regras, o servidor acrescenta até 800 caracteres de avisos pendentes para o agente e depois um resumo curto do estado do workspace (metas abertas, repasses, o próximo passo do agente). O texto inteiro tem teto de 3.900 caracteres, então fica abaixo do corte de 4.096. O que não cabe sai dos avisos e do resumo, e as regras nunca são cortadas. A nossa primeira conexão do dia trazia um aviso e mediu 3.376 caracteres.
 
 **Sem depender do modelo.** O `@valorbrain/connect` escreve o mesmo ciclo no arquivo de instruções do harness e instala hooks. No Claude Code, no Codex, no Gemini CLI e no Kiro, um hook roda no início da sessão e a cada prompt, e o harness espera a resposta, até 4 segundos, porque ela vira contexto. O Cursor tem hook de início de sessão e não tem hook de prompt. O que esses hooks enviam e como desligá-los está em [O que sai da sua máquina](/docs/concepts/what-leaves-your-machine).
 
@@ -139,9 +141,9 @@ O texto inteiro mediu 2.680 caracteres, então cabe nos 4.096 do Claude Code. No
 ## O que o ValorBrain não faz
 
 - **Não é a opção pequena.** O conjunto padrão custa umas 3,4 vezes o do servidor de referência em definições. Se o seu harness carrega tudo de início e você quer as anotações de um usuário entre conversas, o servidor menor sai mais barato.
-- **Não tem conjunto menor que o `agent`.** A documentação lista `agent`, `graph` e `ops`. Para carregar nove ferramentas em vez de 36, corte no cliente, como no exemplo do Codex, e aceite que as instruções vão citar ferramentas que o agente não consegue chamar.
+- **Não tem versão enxuta do `agent`.** Os conjuntos são `agent`, `graph` e `ops`, e eles se somam: `graph` e `ops` trazem outras ferramentas, não um pedaço do `agent`. Para carregar nove ferramentas em vez de 36, corte no cliente, como no exemplo do Codex, e aceite que as instruções vão citar ferramentas que o agente não consegue chamar.
 - **Não marca nenhuma ferramenta para carregar de início.** Nenhuma entrada do `tools/list` trazia `_meta` quando medimos, então no Claude Code até o `memory_prepare` fica adiado, a não ser que você ponha `alwaysLoad` no servidor.
-- **As instruções não cabem no limite antigo de 2.048 caracteres.** No Claude Code anterior à v2.1.296 as últimas regras são cortadas, como descrito acima.
+- **As instruções não cabem no limite antigo de 2.048 caracteres.** Só as regras têm 2.088 caracteres. No Claude Code anterior à v2.1.296 as últimas regras são cortadas, como descrito acima.
 - **Não medimos tokens reais dentro de um harness.** Todo número de token nesta página é caractere dividido por quatro. O número em que confiar é o do seu `/context`.
 - **Não medimos quantas vezes um agente chama a memória com e sem adiamento.** O teste de cinco e cinco acima é para você rodar na sua configuração. Se a chamada não acontecer aí, reporte com a ferramenta `feedback`.
 
