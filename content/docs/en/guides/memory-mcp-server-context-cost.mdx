@@ -7,6 +7,10 @@ Most MCP servers earn their place in a session now and then. The browser server 
 
 That cost is easy to measure and almost nobody does. This guide measures it on two servers, shows what the three main coding harnesses document about loading tool definitions, and covers the part that is specific to memory: when a harness stops loading definitions upfront, the agent has to find out by other means that it should consult the memory at all.
 
+<a href="/guides/memory-mcp-server-context-cost-en.png">
+  <img src="/guides/memory-mcp-server-context-cost-en.png" alt="Card: A memory server weighs on every session. It is easy to measure. Almost nobody does. Two bars on the same scale for ValorBrain's default toolset, 36 tools, before anyone types: all upfront (harness without deferral), 36 tool definitions ≈ 6,767 tokens plus server instructions ≈ 670; deferred (Claude Code default), ≈ 791 tokens, just the 36 names and the instructions. Below, the catch: deferred, the agent starts with names and instructions only, cut at 4,096 characters. A ruler shows the rule “call memory_prepare FIRST” near character 800, ValorBrain's instructions measured at 2,680 characters and the Claude Code cut at 4,096. Estimated tokens = characters ÷ 4." width={2400} height={1350} loading="lazy" />
+</a>
+
 ## What the server sends before anyone types
 
 Two answers from the server can reach the model before the first message:
