@@ -1,0 +1,159 @@
+---
+title: "What a memory MCP server costs before the first question: measure tools/list, then decide what loads"
+description: "A memory server is connected in every session of every agent, so its tool definitions are a fixed cost on all of them. A 90-line script that measures it on any MCP server, what Claude Code, Codex and Cursor document about loading tools, the catch that deferral creates for a server the agent has to call first, and ValorBrain's own numbers."
+---
+
+Most MCP servers earn their place in a session now and then. The browser server matters when the task has a page in it, and the tracker server when there is a ticket. A memory server is different: you connect it to every agent, in every tool, and you want it called before the first answer of every session. Whatever its tool definitions cost, the team pays that on all of its sessions.
+
+That cost is easy to measure and almost nobody does. This guide measures it on two servers, shows what the three main coding harnesses document about loading tool definitions, and covers the part that is specific to memory: when a harness stops loading definitions upfront, the agent has to find out by other means that it should consult the memory at all.
+
+## What the server sends before anyone types
+
+Two answers from the server can reach the model before the first message:
+
+- **`initialize`** returns an optional `instructions` string. The MCP schema calls it a hint to the model and says it "MAY be added to the system prompt".
+- **`tools/list`** returns every tool with its `name`, `description` and `inputSchema`. A client that loads tools upfront forwards all of it on each request.
+
+Both are fixed: they do not depend on the task. What a tool call returns is the variable part, and it is the one you already control with limits and budgets.
+
+## Measure it
+
+The script is a single file with no dependencies. It speaks MCP over Streamable HTTP or stdio, calls `initialize` and `tools/list`, and prints the sizes. Read it before you run it, since it will hold your token: [mcp-tools-cost.mjs](/guides/mcp-tools-cost.mjs).
+
+```bash
+curl -fsSLO https://docs.valorbrain.com.br/guides/mcp-tools-cost.mjs
+
+# a remote server
+MCP_URL=https://mcpbrain.valor.digital/mcp MCP_TOKEN=$VALORBRAIN_MCP_TOKEN node mcp-tools-cost.mjs
+
+# a local stdio server
+node mcp-tools-cost.mjs -- npx -y @modelcontextprotocol/server-memory
+```
+
+For each tool it measures the JSON a client forwards (`name`, `description`, `input_schema`) and adds them up. This is the output for ValorBrain, on a token created with no account:
+
+```text
+valorbrain 1.1.0+b4965b34
+tools:               36
+definitions:         27069 chars ≈ 6767 tokens
+names only:          482 chars ≈ 121 tokens
+server instructions: 2680 chars ≈ 670 tokens
+largest five:
+  task_state                       1434 chars ≈ 359 tokens
+  memory_used                      1388 chars ≈ 347 tokens
+  commitments                      1281 chars ≈ 320 tokens
+  assert_authority_correction      1257 chars ≈ 314 tokens
+  memory_retrieve                  1240 chars ≈ 310 tokens
+```
+
+The token figures are characters divided by four. That is an estimate, and the real count depends on the model's tokenizer and on how the harness wraps each definition. Use the estimate to compare servers and settings. For the real number in a Claude Code session, run `/context`.
+
+`SHOW_INSTRUCTIONS=1` also prints the instructions text. You will want it further down.
+
+## Two servers, measured
+
+Both measured on November 28, 2026, between 10:12 and 10:18 (UTC-3), with the script above.
+
+| | ValorBrain, default toolset | MCP reference memory server 2.2.2 |
+|---|---|---|
+| Tools | 36 | 9 |
+| Definitions | 27,069 chars ≈ 6,767 tokens | 8,047 chars ≈ 2,012 tokens |
+| Names only | 482 chars ≈ 121 tokens | 138 chars ≈ 35 tokens |
+| Server instructions | 2,680 chars ≈ 670 tokens | none |
+
+The reference server, `@modelcontextprotocol/server-memory`, describes itself as "a basic implementation of persistent memory using a local knowledge graph" for one user's chats. ValorBrain's default set also carries dated facts, corrections, task state and handoffs between agents. The two do different jobs, so this table says nothing about which one remembers better. It compares what each one puts in the context before any work is done, and on that count ours is 3.4 times the size.
+
+To see what the fixed part adds up to, take a week of our own workspace: 1,474 agent tasks completed in the last 7 days (measured 2026-11-28 at 10:07, UTC-3). If every one of those started a session with the 36 definitions loaded upfront, that is about 10 million estimated tokens of tool definitions in the week (1,474 × 6,767) before a single question. With only names and instructions at the start it is about 1.2 million (1,474 × 791). This is multiplication. We did not meter those sessions. Whether you pay full price for the definitions on every turn depends on the prompt caching of your harness and provider. The space in the context window is taken either way.
+
+## What your harness does with the list
+
+Read in each product's own docs on November 28, 2026.
+
+**Claude Code** defers MCP tools by default. Its docs say: "Only tool names and server instructions load at session start", and Claude loads a definition through a search step when a task needs it. There is no fixed cap on tools per server. Three details matter here:
+
+- Server instructions, and the description of any tool that loads upfront, are cut at 4,096 characters. Before v2.1.296 the limit was 2,048. Claude sees only the text before the cut.
+- `ENABLE_TOOL_SEARCH` changes the behavior: unset or `true` defers, `auto` loads tools upfront while their definitions total under 10% of the context window, `auto:N` sets another percentage, `false` loads everything upfront.
+- Everything loads upfront anyway on models earlier than Opus 4 and Sonnet 4, on Microsoft Foundry deployments hosted on Azure, and when `ToolSearch` is denied in permissions.
+
+One server can be exempted from deferral in its configuration:
+
+```json
+{
+  "mcpServers": {
+    "valorbrain": {
+      "type": "http",
+      "url": "https://mcpbrain.valor.digital/mcp",
+      "headers": { "Authorization": "Bearer ${VALORBRAIN_MCP_TOKEN}" },
+      "alwaysLoad": true
+    }
+  }
+}
+```
+
+The docs recommend it "for a small number of tools that Claude needs on every turn", and note that startup then waits for that server, up to the 5-second connect timeout. A server author can also mark a single tool with `"anthropic/alwaysLoad": true` in its `_meta`.
+
+**Codex** documents an allow list and a deny list per server in `config.toml`. The page does not describe deferral, so trimming is done by hand:
+
+```toml
+[mcp_servers.valorbrain]
+url = "https://mcpbrain.valor.digital/mcp"
+bearer_token_env_var = "VALORBRAIN_MCP_TOKEN"
+enabled_tools = [
+  "memory_prepare", "memory_retrieve", "memory_grep", "multi_get",
+  "memory_store", "upsert_keyed_fact", "assert_authority_correction",
+  "memory_used", "team_handoff",
+]
+```
+
+Those nine definitions measure 9,135 characters, about 2,284 estimated tokens, a third of the full set. The trade is plain: the agent cannot call what you left out, and server instructions that mention a removed tool now point at something it cannot reach.
+
+**Cursor**: in the two MCP pages we read, we found no setting for deferral or for a tool limit. Trimming is by hand. The help page says "Toggle tools on or off by clicking the tool name in the tools list at the top of the chat panel", and the docs page says a disabled server "won't load or appear in chat", which it suggests for "reducing tool clutter". Enterprise admins can set which servers and tools a team may run.
+
+## The catch for a memory server
+
+Deferral fits most servers well. The user mentions a ticket, the model searches for ticket tools, the definition loads. Nobody opens a session by asking the agent to consult the team's memory. The agent is asked what the staging database is called, and it has to know, without being told, that there is a place to look before it answers. With definitions deferred, what it has to go on is a list of tool names and the server instructions.
+
+So for a memory server, four things decide whether it gets called:
+
+1. **Where the call-first rule sits in the server instructions.** The text is cut at a fixed length, so a rule in the last paragraph can be the part that is lost. Run the script with `SHOW_INSTRUCTIONS=1`, find the sentence that tells the agent to consult the memory first, and count how far in it starts.
+2. **What the tool names say on their own.** In a deferred session the name is all the model sees of a tool. A name that tells the agent what the tool is for carries more than one that does not. Names are also cheap: the 36 of ours come to about 121 estimated tokens.
+3. **Whether anything other than the model triggers the read.** A rule in the file your harness always loads (`CLAUDE.md`, `AGENTS.md`, `.cursor/rules`) does not depend on tool definitions at all. A hook that runs at session start or on each prompt goes further: the memory arrives as context whether or not the model thought to ask.
+4. **Whether you exempt the server.** `alwaysLoad` puts the whole set back in the window. For a memory server that is a reasonable choice, and now you know its price.
+
+Then test it, because none of the above is a guarantee. Open a fresh session and ask a question whose answer exists only in the memory, without mentioning memory. Did the agent call the server before it answered? Do it five times with deferral on and five with the server exempted, and count.
+
+## The same questions on ValorBrain
+
+**The fixed part.** New MCP tokens get the `agent` toolset: the 36 tools measured above. The `graph` and `ops` toolsets are additive and a token only sees them when it was created with them, so a working agent does not carry the knowledge-graph and maintenance tools by default. Tokens created before 2026-08-17 see everything. The full list is in the [generated catalog](/en/docs/api/generated-mcp), and the toolsets in [MCP tools](/en/docs/api/mcp-tools).
+
+**The instructions.** They open with a short block about the connection (workspace, agent, scopes), and then the rules. The first rule begins about 820 characters in:
+
+> Remember — call `memory_prepare` FIRST at session start, before acting on assumptions about this operation and before asking the human what memory may already hold
+
+The whole text measured 2,680 characters, so it fits under Claude Code's 4,096. On Claude Code before v2.1.296, with the 2,048 limit, the cut falls inside the third rule: the rules about handing work to a teammate and asking a person, the line about reporting defects and the one about credentials are lost. Pending notifications for the agent are appended to the same text. Our first connection of the day carried one and measured 3,376 characters. In what we saw the notice came after the rules, so a long queue of notices would lose notices, not rules.
+
+**Not depending on the model.** `@valorbrain/connect` writes the same loop into the harness's instruction file and installs hooks. On Claude Code, Codex, Gemini CLI and Kiro, a hook runs at session start and on each prompt, and the harness waits for the answer, up to 4 seconds, because the answer becomes context. Cursor has a session-start hook and no prompt hook. What those hooks send and how to turn them off is in [What leaves your machine](/en/docs/concepts/what-leaves-your-machine).
+
+**The variable part.** `memory_prepare` takes a `recall_budget` in tokens, 600 by default, and `fast_mode` skips part of the retrieval. `memory_retrieve` returns snippets, with `snippet_chars` setting their length, and you fetch a full document only when the snippet is not enough. Both are in the [MCP cookbook](/en/docs/guides/mcp-cookbook).
+
+## What ValorBrain does not do
+
+- **It is not the small option.** The default set costs about 3.4 times the reference server's in definitions. If your harness loads everything upfront and you want one user's notes across chats, the smaller server is the cheaper fit.
+- **It has no toolset smaller than `agent`.** The docs list `agent`, `graph` and `ops`. To load nine tools instead of 36, trim on the client, as in the Codex example, and accept that the instructions will mention tools the agent cannot call.
+- **It does not mark any tool to load upfront.** No entry in `tools/list` carried `_meta` when we measured, so in Claude Code even `memory_prepare` is deferred unless you set `alwaysLoad` for the server.
+- **Its instructions do not fit the older 2,048-character limit.** On Claude Code before v2.1.296 the last rules are cut, as described above.
+- **We did not measure real tokens inside a harness.** Every token figure on this page is characters divided by four. Your `/context` is the number to trust.
+- **We did not measure how often an agent calls the memory with deferral on and off.** The five-and-five test above is yours to run on your own setup. If the call does not happen there, report it with the `feedback` tool.
+
+## Checklist
+
+- You ran the script against your memory server and wrote down tools, definition size, names size and instructions size.
+- You know whether your harness loads definitions upfront or defers them, and under which setting.
+- You found the call-first rule in the server instructions and it starts well before the cut.
+- A rule in the instruction file, or a hook, triggers the memory read without relying on a tool definition being loaded.
+- If you exempted the memory server from deferral, you did it knowing what it costs per session.
+- You asked five questions that only the memory can answer, in fresh sessions, and counted how many times it was consulted.
+
+Sources, read on November 28, 2026: Claude Code, [Connect Claude Code to tools via MCP](https://code.claude.com/docs/en/mcp), section "Scale with MCP tool search"; Codex, [Model Context Protocol](https://developers.openai.com/codex/mcp); Cursor, [Model Context Protocol](https://cursor.com/docs/mcp) and [MCP help](https://cursor.com/help/customization/mcp); Model Context Protocol, [schema, `InitializeResult`](https://modelcontextprotocol.io/specification/2025-06-18/schema) and [Tools](https://modelcontextprotocol.io/specification/2025-06-18/server/tools); the reference [Knowledge Graph Memory Server](https://github.com/modelcontextprotocol/servers/tree/main/src/memory). Our workspace count is from [team.valorbra.in/en](https://team.valorbra.in/en/), raw at [team.valorbra.in/data.json](https://team.valorbra.in/data.json).
+
+Next: [Choosing a memory MCP server for a team of agents](/en/docs/guides/choosing-a-memory-mcp-server-for-a-team-of-agents), [CLAUDE.md, AGENTS.md and .cursor/rules in one repo](/en/docs/guides/claude-md-agents-md-cursor-rules-one-source) for where the call-first rule goes, and [Sizing a memory layer for a team of agents](/en/docs/guides/size-memory-layer-for-agent-team) for the cost of the calls themselves.
