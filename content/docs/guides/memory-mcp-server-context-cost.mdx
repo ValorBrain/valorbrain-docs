@@ -7,6 +7,10 @@ A maioria dos servidores MCP se paga de vez em quando numa sessão. O do navegad
 
 Esse custo é fácil de medir e quase ninguém mede. Este guia mede em dois servidores, mostra o que os três principais harnesses de código documentam sobre carregar definições de ferramenta e trata da parte que é específica de memória: quando o harness deixa de carregar as definições logo de início, o agente precisa descobrir por outro caminho que deveria consultar a memória.
 
+<a href="/guides/memory-mcp-server-context-cost-pt.png">
+  <img src="/guides/memory-mcp-server-context-cost-pt.png" alt="Card: O servidor de memória pesa em toda sessão. É fácil de medir e quase ninguém mede. Duas barras na mesma escala para o conjunto padrão do ValorBrain, 36 ferramentas, antes de alguém digitar: tudo de início (harness sem adiamento), 36 definições de ferramenta ≈ 6.767 tokens mais as instruções do servidor ≈ 670; adiado (padrão do Claude Code), ≈ 791 tokens, só os 36 nomes e as instruções. Embaixo, a pegadinha: adiado, o agente começa só com os nomes e as instruções, cortadas em 4.096 caracteres. Uma régua mostra a regra “call memory_prepare FIRST” perto do caractere 800, as instruções do ValorBrain medidas em 2.680 caracteres e o corte do Claude Code em 4.096. Tokens estimados = caracteres ÷ 4." width={2400} height={1350} loading="lazy" />
+</a>
+
 ## O que o servidor manda antes de alguém digitar
 
 Duas respostas do servidor podem chegar ao modelo antes da primeira mensagem:
